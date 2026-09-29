@@ -79,7 +79,7 @@ export const Quotations: React.FC = () => {
   const { quotations, enquiries, customers, orders, addQuotation, updateQuotation, deleteQuotation, addOrder } = useAppStore();
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(new URLSearchParams(location.search).get('status') === 'pending' ? 'pending' : 'all');
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
@@ -255,7 +255,7 @@ export const Quotations: React.FC = () => {
         q.quotationNumber.toLowerCase().includes(search.toLowerCase()) ||
         customer?.companyName.toLowerCase().includes(search.toLowerCase()) ||
         q.items.some(i => i.product.toLowerCase().includes(search.toLowerCase()));
-      const matchStatus = statusFilter === 'all' || q.status === statusFilter;
+      const matchStatus = statusFilter === 'all' || (statusFilter === 'pending' ? ['Draft', 'Sent', 'Negotiation'].includes(q.status) : q.status === statusFilter);
       return matchSearch && matchStatus;
     });
   }, [quotations, customers, search, statusFilter]);
@@ -306,7 +306,7 @@ export const Quotations: React.FC = () => {
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search by quotation no., customer or product..." className="flex-1 max-w-md" />
         <PremiumSelect label="Quotation status filter" value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }}
-          options={[{ value: 'all', label: 'All Status' }, ...['Draft','Sent','Negotiation','Approved','Rejected','Expired'].map(value => ({ value, label: value,
+          options={[{ value: 'all', label: 'All Status' }, { value: 'pending', label: 'Pending Quotations', color: '#d97706' }, ...['Draft','Sent','Negotiation','Approved','Rejected','Expired'].map(value => ({ value, label: value,
             color: ['Approved'].includes(value) ? '#059669' : ['Rejected','Expired'].includes(value) ? '#dc2626' : value === 'Draft' ? '#94a3b8' : '#2563eb' }))]} className="w-full sm:w-56" />
       </div>
 
