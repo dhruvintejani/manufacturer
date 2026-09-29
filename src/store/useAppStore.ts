@@ -326,10 +326,11 @@ export const useAppStore = create<AppStore>()(
 
         // Update order status
         if (data.orderId) {
+          const linkedOrder = get().orders.find(o => o.id === data.orderId);
           get().updateOrder(data.orderId, {
-            status: 'Production' as OrderStatus,
+            ...(linkedOrder?.status === 'Confirmed' ? { status: 'Production' as OrderStatus } : {}),
             productionJobId: job.id,
-          });
+          }, 'Production system', `Production job ${job.jobNumber} created`);
         }
         get().addActivity({
           type: 'production',
@@ -352,17 +353,27 @@ export const useAppStore = create<AppStore>()(
         return job;
       },
       updateProductionJob: (id, data) => {
+        const previous = get().productionJobs.find(j => j.id === id);
+        if (!previous) return;
         set(s => ({ productionJobs: s.productionJobs.map(j => j.id === id ? { ...j, ...data } : j) }));
-        if (data.status === 'Completed') {
-          const job = get().productionJobs.find(j => j.id === id);
-          if (job) {
-            get().updateOrder(job.orderId, { status: 'Ready' as OrderStatus });
-            get().addActivity({
-              type: 'production',
-              title: 'Production completed',
-              description: `Production job ${job.jobNumber} completed. ${job.product} ready for dispatch.`,
-              relatedId: id,
-            });
+        if (data.status && data.status !== previous.status) {
+          get().addActivity({
+            type: 'production',
+            title: data.status === 'Completed' ? 'Production completed' : 'Production status updated',
+            description: `Job ${previous.jobNumber}: ${previous.status} → ${data.status}`,
+            relatedId: id,
+          });
+          // Production milestones advance (never rewind) the associated order.
+          const target: OrderStatus | null = data.status === 'Quality Check' ? 'Quality Check'
+            : ['Ready', 'Completed'].includes(data.status) ? 'Ready' : null;
+          const linked = get().orders.find(o => o.id === previous.orderId);
+          if (target && linked) {
+            const from = orderWorkflow.indexOf(linked.status);
+            const to = orderWorkflow.indexOf(target);
+            for (let index = from + 1; index <= to; index++) {
+              get().updateOrder(linked.id, { status: orderWorkflow[index] }, 'Production system',
+                `Job ${previous.jobNumber} moved to ${data.status}`);
+            }
           }
         }
       },
