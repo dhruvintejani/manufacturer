@@ -514,7 +514,7 @@ export const Orders: React.FC = () => {
                 )}
               </div>
             ))}
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
               <textarea rows={3} value={editModal.notes} onChange={e => setEditModal(prev => prev ? { ...prev, notes: e.target.value } : null)} className={inputClass} />
             </div>
@@ -563,7 +563,7 @@ export const Orders: React.FC = () => {
             <PremiumSelect label="Payment status" value={newOrderForm.paymentStatus} onChange={value => setNewOrderForm(f => ({ ...f, paymentStatus: value }))}
               options={PAYMENT_STATUSES.map(value => ({ value, label: value, color: value === 'Paid' ? '#059669' : '#d97706' }))} />
           </div>
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
             <textarea rows={2} value={newOrderForm.notes} onChange={e => setNewOrderForm(f => ({ ...f, notes: e.target.value }))} className={inputClass} placeholder="Additional order notes..." />
           </div>
