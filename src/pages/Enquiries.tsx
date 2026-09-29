@@ -5,7 +5,7 @@ import {
   ClipboardList, Plus, Eye, Edit2, Trash2,
   FileText, ArrowRight, User, Mail, Phone, Archive
 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
@@ -75,7 +75,7 @@ export const Enquiries: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<Enquiry | null>(null);
 
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<EnquiryFormData>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<EnquiryFormData>({
     resolver: zodResolver(enquirySchema) as any,
   });
 
@@ -296,16 +296,14 @@ export const Enquiries: React.FC = () => {
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField label="Customer" error={errors.customerId?.message} required>
-            <select {...register('customerId')} className={inputClass}>
-              <option value="">Select customer...</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.companyName}</option>)}
-            </select>
+            <Controller name="customerId" control={control} render={({ field }) =>
+ <PremiumSelect label="Customer" value={field.value || ''} onChange={field.onChange}
+  options={[{ value: '', label: 'Select customer...' }, ...customers.map(c => ({ value: c.id, label: c.companyName }))]} />} />
           </FormField>
           <FormField label="Product" error={errors.product?.message} required>
-            <select {...register('product')} className={inputClass}>
-              <option value="">Select product...</option>
-              {PRODUCTS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+            <Controller name="product" control={control} render={({ field }) =>
+ <PremiumSelect label="Product" value={field.value || ''} onChange={field.onChange}
+  options={[{ value: '', label: 'Select product...' }, ...PRODUCTS.map(value => ({ value, label: value }))]} />} />
           </FormField>
           <FormField label="Quantity" error={errors.quantity?.message} required>
             <input {...register('quantity', { valueAsNumber: true })} type="number" min={1} className={inputClass} placeholder="1" />
@@ -314,14 +312,15 @@ export const Enquiries: React.FC = () => {
             <input {...register('expectedDeliveryDate')} type="date" className={inputClass} />
           </FormField>
           <FormField label="Assigned To">
-            <select {...register('assignedTo')} className={inputClass}>
-              {TEAM_MEMBERS.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <Controller name="assignedTo" control={control} render={({ field }) =>
+ <PremiumSelect label="Assigned employee" value={field.value || TEAM_MEMBERS[0]} onChange={field.onChange}
+  options={TEAM_MEMBERS.map(value => ({ value, label: value }))} />} />
           </FormField>
           <FormField label="Status">
-            <select {...register('status')} className={inputClass}>
-              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <Controller name="status" control={control} render={({ field }) =>
+ <PremiumSelect label="Enquiry status" value={field.value || 'New'} onChange={field.onChange}
+  options={STATUSES.map(value => ({ value, label: value,
+   color: value === 'Converted' ? '#059669' : value === 'Closed/Lost' ? '#64748b' : value === 'New' ? '#2563eb' : '#d97706' }))} />} />
           </FormField>
           <div className="sm:col-span-2">
             <FormField label="Requirement / Description" error={errors.requirement?.message} required>
