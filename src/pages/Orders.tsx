@@ -408,9 +408,9 @@ export const Orders: React.FC = () => {
             </div>
           }
         >
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-900">To change an order stage, open Order Details → Update Status. Changes there are recorded in the audit history.</div>
             {[
-              { label: 'Order Status', field: 'status', type: 'select', options: ORDER_STATUSES },
               { label: 'Payment Status', field: 'paymentStatus', type: 'select', options: PAYMENT_STATUSES },
               { label: 'Order Date', field: 'orderDate', type: 'date' },
               { label: 'Delivery Date', field: 'deliveryDate', type: 'date' },
@@ -419,9 +419,8 @@ export const Orders: React.FC = () => {
               <div key={f.field}>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">{f.label}</label>
                 {f.type === 'select' ? (
-                  <select value={(editModal as any)[f.field]} onChange={e => setEditModal(prev => prev ? { ...prev, [f.field]: e.target.value } : null)} className={inputClass}>
-                    {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
+                  <PremiumSelect label={f.label} value={(editModal as any)[f.field]} onChange={value => setEditModal(prev => prev ? { ...prev, [f.field]: value } : null)}
+                    options={(f.options || []).map(value => ({ value, label: value, color: value === 'Paid' ? '#059669' : '#d97706' }))} />
                 ) : (
                   <input type={f.type} value={(editModal as any)[f.field]} onChange={e => setEditModal(prev => prev ? { ...prev, [f.field]: f.type === 'number' ? parseFloat(e.target.value) : e.target.value } : null)} className={inputClass} />
                 )}
@@ -444,19 +443,16 @@ export const Orders: React.FC = () => {
           </div>
         }
       >
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer <span className="text-red-500">*</span></label>
-            <select value={newOrderForm.customerId} onChange={e => setNewOrderForm(f => ({ ...f, customerId: e.target.value }))} className={inputClass}>
-              <option value="">Select customer...</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.companyName}</option>)}
-            </select>
+            <PremiumSelect label="Customer" value={newOrderForm.customerId} onChange={value => setNewOrderForm(f => ({ ...f, customerId: value }))}
+              options={[{ value: '', label: 'Select customer...' }, ...customers.map(c => ({ value: c.id, label: c.companyName }))]} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Product</label>
-            <select value={newOrderForm.product} onChange={e => setNewOrderForm(f => ({ ...f, product: e.target.value }))} className={inputClass}>
-              {PRODUCTS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+            <PremiumSelect label="Product" value={newOrderForm.product} onChange={value => setNewOrderForm(f => ({ ...f, product: value }))}
+              options={PRODUCTS.map(value => ({ value, label: value }))} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Quantity</label>
@@ -476,9 +472,8 @@ export const Orders: React.FC = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Payment Status</label>
-            <select value={newOrderForm.paymentStatus} onChange={e => setNewOrderForm(f => ({ ...f, paymentStatus: e.target.value }))} className={inputClass}>
-              {PAYMENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <PremiumSelect label="Payment status" value={newOrderForm.paymentStatus} onChange={value => setNewOrderForm(f => ({ ...f, paymentStatus: value }))}
+              options={PAYMENT_STATUSES.map(value => ({ value, label: value, color: value === 'Paid' ? '#059669' : '#d97706' }))} />
           </div>
           <div className="col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
