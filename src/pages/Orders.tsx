@@ -297,6 +297,14 @@ export const Orders: React.FC = () => {
             <div className="bg-slate-50 rounded-xl p-4">
               <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Order Progress</h4>
               <WorkflowStepper steps={getWorkflowSteps(viewingOrder)} />
+               {ORDER_EXCEPTION_STATUSES.includes(viewingOrder.status) && (
+                 <div className={`mt-4 rounded-lg border p-3 text-sm ${viewingOrder.status === 'On Hold' ? 'border-orange-200 bg-orange-50 text-orange-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}>
+                   <StatusBadge status={viewingOrder.status} />
+                   <p className="mt-2">{viewingOrder.status === 'On Hold'
+                     ? 'Progression is paused. Resume to return to the last active stage.'
+                     : 'This order is cancelled and its workflow is closed.'}</p>
+                 </div>
+               )
               {nextOrderStatus && (
                 <button type="button" onClick={() => setStatusModalOpen(true)}
                   className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800">
@@ -378,7 +386,7 @@ export const Orders: React.FC = () => {
                           <div className="h-full bg-violet-600 rounded-full" style={{ width: `${job.progress}%` }} />
                         </div>
                       </div>
-                      <button onClick={() => { setViewingOrder(null); navigate('/production'); }} className="text-violet-600 hover:text-violet-700 p-2 rounded-lg hover:bg-violet-100 transition-colors">
+                      <button onClick={() => { setViewingOrder(null); navigate('/production?open=' + encodeURIComponent(job.id)); }} aria-label={`Open production job ${job.jobNumber}`} title="View production job" className="text-violet-600 hover:text-violet-700 p-2 rounded-lg hover:bg-violet-100 transition-colors">
                         <ArrowRight className="w-5 h-5" />
                       </button>
                     </div>
@@ -395,7 +403,27 @@ export const Orders: React.FC = () => {
                   <Factory className="w-4 h-4" /> Create Production Job
                 </button>
               )}
-              <button onClick={() => { setViewingOrder(null); setEditModal({ ...viewingOrder }); }} className="flex items-center gap-2 text-slate-700 bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
+              {/* Exceptional statuses are separate from normal order progression. */}
+               {!['Completed','Cancelled'].includes(viewingOrder.status) && (
+                 <div className="flex w-full flex-wrap gap-2">
+                   {viewingOrder.status === 'On Hold' ? (
+                     <button type="button" onClick={() => setExceptionAction('resume')}
+                       className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-800 hover:bg-teal-100">
+                       <PlayCircle className="h-4 w-4" /> Resume Order
+                     </button>
+                   ) : (
+                     <button type="button" onClick={() => setExceptionAction('hold')}
+                       className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100">
+                       <PauseCircle className="h-4 w-4" /> Put On Hold
+                     </button>
+                   )}
+                   <button type="button" onClick={() => setExceptionAction('cancel')}
+                     className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800 hover:bg-rose-100">
+                     <Ban className="h-4 w-4" /> Cancel Order
+                   </button>
+                 </div>
+               )}
+               <button onClick={() => { setViewingOrder(null); setEditModal({ ...viewingOrder }); }} className="flex items-center gap-2 text-slate-700 bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
                 <Edit2 className="w-4 h-4" /> Edit Order
               </button>
               <button onClick={() => { setDeleteTarget(viewingOrder); setViewingOrder(null); }} className="flex items-center gap-2 text-red-600 bg-red-50 hover:bg-red-100 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
@@ -432,7 +460,31 @@ export const Orders: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Edit Modal */}
+      {/* Confirm exceptional and destructive status changes with an audit note. */}
+       <Modal open={!!exceptionAction && !!currentOrder}
+         onClose={() => { setExceptionAction(null); setExceptionNote(''); }}
+         title={exceptionAction === 'hold' ? 'Put Order On Hold' : exceptionAction === 'resume' ? 'Resume Order' : 'Cancel Order'}
+         subtitle={currentOrder?.orderNumber}
+         footer={<div className="flex flex-wrap justify-end gap-3">
+           <button type="button" onClick={() => { setExceptionAction(null); setExceptionNote(''); }}
+             className="cursor-pointer rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50">Back</button>
+           <button type="button" onClick={handleException}
+             className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold text-white ${exceptionAction === 'cancel' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+             {exceptionAction === 'hold' ? 'Confirm Hold' : exceptionAction === 'resume' ? 'Confirm Resume' : 'Confirm Cancellation'}
+           </button>
+         </div>}>
+         <div className="space-y-3">
+           <p className="text-sm leading-6 text-slate-700">{exceptionAction === 'cancel'
+             ? 'Cancelling closes this order and cannot be reversed through the demo workflow. It will be recorded in the status history.'
+             : exceptionAction === 'hold' ? 'Pauses normal progression until the order is resumed.'
+               : 'Returns the order to the stage it was in before being placed on hold.'}</p>
+           <label htmlFor="exception-note" className="block text-sm font-medium text-slate-700">Status note (optional)</label>
+           <textarea id="exception-note" rows={3} maxLength={500} value={exceptionNote}
+             onChange={event => setExceptionNote(event.target.value)} placeholder="Explain the change for the status history..."
+             className={inputClass} />
+         </div>
+       </Modal>
+       {/* Edit Modal */}
       {editModal && (
         <Modal open={!!editModal} onClose={() => setEditModal(null)} title={`Edit ${editModal.orderNumber}`} size="lg"
           footer={
