@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAccessibleOverlay } from './useAccessibleOverlay';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, X } from 'lucide-react';
 
@@ -23,14 +24,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onConfirm,
   onCancel,
 }) => {
-  React.useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open, onCancel]);
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  useAccessibleOverlay(open, onCancel, dialogRef);
 
   const variantStyles = {
     danger: { icon: 'text-red-500', bg: 'bg-red-50', btn: 'bg-red-600 hover:bg-red-700 text-white' },
@@ -56,7 +51,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 z-10"
+            ref={dialogRef} tabIndex={-1} className="relative bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-5 z-10"
             role="dialog"
             aria-modal="true"
             aria-labelledby="confirm-title"
