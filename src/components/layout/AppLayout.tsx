@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from './Sidebar';
@@ -13,10 +13,15 @@ const pageVariants = {
 
 export const AppLayout: React.FC = () => {
   const location = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
 
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [location.pathname]);
+  // The content is scrolled inside <main>, not the browser window.
+  // Reset instantly before the next route is painted, including links
+  // that change the search query while staying on the same path.
+  useLayoutEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+    window.scrollTo(0, 0);
+  }, [location.key]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F7F9FC]">
@@ -26,7 +31,7 @@ export const AppLayout: React.FC = () => {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto">
+        <main ref={mainRef} className="flex-1 overflow-y-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
