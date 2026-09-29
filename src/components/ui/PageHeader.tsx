@@ -21,10 +21,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   actions,
 }) => {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-4 sm:mb-6">
       <div>
         {breadcrumbs && breadcrumbs.length > 0 && (
-          <nav className="flex items-center gap-1 mb-1.5" aria-label="Breadcrumb">
+          <nav className="flex min-w-0 flex-wrap items-center gap-1 mb-1.5" aria-label="Breadcrumb">
             {breadcrumbs.map((crumb, index) => (
               <React.Fragment key={index}>
                 {index > 0 && <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
@@ -39,7 +39,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="text-2xl font-bold text-slate-900"
+          className="break-words text-xl font-bold leading-tight text-slate-900 sm:text-2xl"
         >
           {title}
         </motion.h1>
@@ -48,7 +48,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.2, delay: 0.05 }}
-            className="text-sm text-slate-500 mt-1"
+            className="break-words text-sm leading-relaxed text-slate-500 mt-1"
           >
             {subtitle}
           </motion.p>
@@ -59,7 +59,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, delay: 0.1 }}
-          className="flex items-center gap-3 flex-shrink-0"
+          className="flex min-w-0 w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3"
         >
           {actions}
         </motion.div>
