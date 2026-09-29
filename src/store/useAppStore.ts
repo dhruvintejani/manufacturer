@@ -10,6 +10,19 @@ import {
   seedOrders, seedProductionJobs, seedActivities, seedNotifications
 } from '../data/seedData';
 
+export interface DemoProfile {
+  name: string;
+  email: string;
+  role: string;
+  phone: string;
+}
+export const defaultDemoProfile: DemoProfile = {
+  name: 'Alex Morgan',
+  email: 'alex.morgan@forgeflow.com',
+  role: 'Operations Manager',
+  phone: '+1 555 000 0001',
+};
+
 interface AppStore {
   // State
   customers: Customer[];
@@ -19,6 +32,8 @@ interface AppStore {
   productionJobs: ProductionJob[];
   activities: Activity[];
   notifications: Notification[];
+  profile: DemoProfile;
+  setProfile: (profile: DemoProfile) => void;
   sidebarCollapsed: boolean;
   sidebarMobileOpen: boolean;
 
@@ -80,6 +95,8 @@ export const useAppStore = create<AppStore>()(
       productionJobs: seedProductionJobs,
       activities: seedActivities,
       notifications: seedNotifications,
+      profile: defaultDemoProfile,
+      setProfile: (profile) => set({ profile }),
       sidebarCollapsed: false,
       sidebarMobileOpen: false,
 
@@ -416,6 +433,7 @@ export const useAppStore = create<AppStore>()(
           productionJobs: seedProductionJobs,
           activities: seedActivities,
           notifications: seedNotifications,
+          profile: defaultDemoProfile,
         });
       },
     }),
@@ -430,6 +448,7 @@ export const useAppStore = create<AppStore>()(
         productionJobs: state.productionJobs,
         activities: state.activities,
         notifications: state.notifications,
+        profile: state.profile,
         sidebarCollapsed: state.sidebarCollapsed,
       }),
     }
