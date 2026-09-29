@@ -94,7 +94,11 @@ export const Customers: React.FC = () => {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    deleteCustomer(deleteTarget.id);
+    if (!deleteCustomer(deleteTarget.id)) {
+      toast.error('Cannot delete a customer linked to enquiries, quotations or orders.');
+      setDeleteTarget(null);
+      return;
+    }
     toast.success(`${deleteTarget.companyName} has been deleted.`);
     setDeleteTarget(null);
     if (viewingCustomer?.id === deleteTarget.id) setViewingCustomer(null);
