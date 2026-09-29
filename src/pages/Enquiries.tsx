@@ -14,6 +14,7 @@ import { Enquiry } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { StatCard } from '../components/ui/StatCard';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { RowActions } from '../components/ui/RowActions';
 import { Modal } from '../components/ui/Modal';
 import { Drawer } from '../components/ui/Drawer';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -252,29 +253,11 @@ export const Enquiries: React.FC = () => {
                           <StatusBadge status={enq.status} />
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-1 opacity-100 transition-opacity">
-                            <button
-                              onClick={() => setViewingEnquiry(enq)}
-                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="View"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => openEdit(enq)}
-                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                              title="Edit"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteTarget(enq)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                          <RowActions label={`Actions for ${enq.id}`} actions={[
+  { label: 'View details', onClick: () => setViewingEnquiry(enq), icon: <Eye className="h-4 w-4" /> },
+  { label: 'Edit enquiry', onClick: () => openEdit(enq), icon: <Edit2 className="h-4 w-4" /> },
+  { label: 'Delete enquiry', onClick: () => setDeleteTarget(enq), icon: <Trash2 className="h-4 w-4" />, danger: true },
+]} />
                         </td>
                       </motion.tr>
                     );
