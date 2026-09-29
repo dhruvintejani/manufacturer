@@ -111,7 +111,11 @@ export const Enquiries: React.FC = () => {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    deleteEnquiry(deleteTarget.id);
+    if (!deleteEnquiry(deleteTarget.id)) {
+      toast.error('Cannot delete an enquiry while it has linked quotations.');
+      setDeleteTarget(null);
+      return;
+    }
     toast.success('Enquiry deleted.');
     setDeleteTarget(null);
     setViewingEnquiry(null);
