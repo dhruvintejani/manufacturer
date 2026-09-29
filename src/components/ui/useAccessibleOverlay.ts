@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 
 const openOverlayTokens: symbol[] = [];
 let originalBodyOverflow = '';
@@ -8,7 +8,7 @@ const focusableSelector = 'button:not(:disabled), [href], input:not(:disabled), 
 export function useAccessibleOverlay(
   open: boolean,
   onClose: () => void,
-  dialogRef: React.RefObject<HTMLElement | null>,
+  dialogRef: RefObject<HTMLElement | null>,
 ) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
