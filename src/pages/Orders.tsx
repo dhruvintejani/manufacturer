@@ -304,7 +304,7 @@ export const Orders: React.FC = () => {
                      ? 'Progression is paused. Resume to return to the last active stage.'
                      : 'This order is cancelled and its workflow is closed.'}</p>
                  </div>
-               )
+               )}
               {nextOrderStatus && (
                 <button type="button" onClick={() => setStatusModalOpen(true)}
                   className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800">
