@@ -158,9 +158,13 @@ test('navigating from a scrolled section starts the next section at the top', as
 test('table next, previous and numbered pages all start at the top', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 540 });
   await page.goto('/customers');
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     const key = 'forgeflow-storage';
-    const saved = JSON.parse(window.localStorage.getItem(key));
+    let saved = JSON.parse(window.localStorage.getItem(key));
+    if (!saved) {
+      const { seedCustomers } = await import('/src/data/seedData.ts');
+      saved = { state: { customers: seedCustomers }, version: 0 };
+    }
     const existing = saved.state.customers[0];
     for (let n = 0; n < 5; n++) {
       saved.state.customers.push({ ...existing, id: 'TEST-C' + n, companyName: 'Extra Demo Customer ' + n });
