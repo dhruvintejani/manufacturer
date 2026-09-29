@@ -1,0 +1,430 @@
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import {
+  ShoppingCart, Plus, Eye, Edit2, Trash2,
+  Factory, CheckCircle, ArrowRight, DollarSign
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useAppStore } from '../store/useAppStore';
+import { Order } from '../types';
+import { PageHeader } from '../components/ui/PageHeader';
+import { StatCard } from '../components/ui/StatCard';
+import { StatusBadge } from '../components/ui/StatusBadge';
+import { Drawer } from '../components/ui/Drawer';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { SearchInput } from '../components/ui/SearchInput';
+import { Pagination } from '../components/ui/Pagination';
+import { EmptyState } from '../components/ui/EmptyState';
+import { WorkflowStepper } from '../components/ui/WorkflowStepper';
+import { formatDate, formatCurrency } from '../utils/formatters';
+import { Modal } from '../components/ui/Modal';
+
+const ITEMS_PER_PAGE = 8;
+const ORDER_STATUSES = ['Confirmed', 'Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'];
+const PAYMENT_STATUSES = ['Pending', 'Partial', 'Paid', 'Overdue'];
+const PRODUCTS = ['Pressure Vessel', 'Heat Exchanger', 'Storage Tank', 'Industrial Dryer', 'Reactor', 'Column', 'Boiler System'];
+const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
+
+const getWorkflowSteps = (status: string) => {
+  const steps = ['Confirmed', 'Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'];
+  const idx = steps.indexOf(status);
+  return steps.map((s, i) => ({
+    label: s,
+    status: i < idx ? 'completed' : i === idx ? 'current' : 'pending' as any,
+  }));
+};
+
+export const Orders: React.FC = () => {
+  const navigate = useNavigate();
+  const { orders, customers, productionJobs, addOrder, updateOrder, deleteOrder, addProductionJob } = useAppStore();
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentFilter, setPaymentFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
+  const [editModal, setEditModal] = useState<Order | null>(null);
+  const [createJobOpen, setCreateJobOpen] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [newOrderForm, setNewOrderForm] = useState({
+    customerId: '', quotationId: '', product: PRODUCTS[0],
+    quantity: 1, orderDate: new Date().toISOString().split('T')[0],
+    deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
+    totalAmount: 0, paymentStatus: 'Pending', status: 'Confirmed', notes: '',
+  });
+
+  const filtered = useMemo(() => {
+    return orders.filter(o => {
+      const customer = customers.find(c => c.id === o.customerId);
+      const matchSearch = !search ||
+        o.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
+        o.product.toLowerCase().includes(search.toLowerCase()) ||
+        customer?.companyName.toLowerCase().includes(search.toLowerCase());
+      const matchStatus = statusFilter === 'all' || o.status === statusFilter;
+      const matchPayment = paymentFilter === 'all' || o.paymentStatus === paymentFilter;
+      return matchSearch && matchStatus && matchPayment;
+    });
+  }, [orders, customers, search, statusFilter, paymentFilter]);
+
+  const sorted = [...filtered].sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+  const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
+  const paginated = sorted.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  const getCustomer = (id: string) => customers.find(c => c.id === id);
+  const getJob = (orderId: string) => productionJobs.find(j => j.orderId === orderId);
+
+  const stats = {
+    total: orders.length,
+    active: orders.filter(o => !['Completed', 'Dispatched'].includes(o.status)).length,
+    inProduction: orders.filter(o => o.status === 'Production').length,
+    completed: orders.filter(o => o.status === 'Completed').length,
+    pendingPayment: orders.filter(o => ['Pending', 'Overdue'].includes(o.paymentStatus)).length,
+  };
+
+  const handleCreateJob = (order: Order) => {
+    const newJob = addProductionJob({
+      jobNumber: '',
+      orderId: order.id,
+      product: order.product,
+      quantity: order.quantity,
+      startDate: new Date().toISOString().split('T')[0],
+      expectedCompletion: order.deliveryDate,
+      assignedTeam: 'Fabrication Team A',
+      status: 'Planning',
+      progress: 0,
+      notes: '',
+      stages: [
+        { name: 'Planning', status: 'in-progress' },
+        { name: 'Material Preparation', status: 'pending' },
+        { name: 'Fabrication', status: 'pending' },
+        { name: 'Assembly', status: 'pending' },
+        { name: 'Quality Check', status: 'pending' },
+        { name: 'Ready', status: 'pending' },
+        { name: 'Completed', status: 'pending' },
+      ],
+    });
+    toast.success(`Production job ${newJob.jobNumber} created!`);
+    setCreateJobOpen(false);
+    setViewingOrder(null);
+    navigate('/production');
+  };
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    deleteOrder(deleteTarget.id);
+    toast.success('Order deleted.');
+    setDeleteTarget(null);
+    setViewingOrder(null);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editModal) return;
+    updateOrder(editModal.id, editModal);
+    toast.success('Order updated.');
+    setEditModal(null);
+    if (viewingOrder?.id === editModal.id) setViewingOrder(prev => prev ? { ...prev, ...editModal } : null);
+  };
+
+  const handleAddOrder = () => {
+    if (!newOrderForm.customerId || !newOrderForm.product) { toast.error('Please fill required fields.'); return; }
+    const order = addOrder({ ...newOrderForm as any, orderNumber: '' });
+    toast.success(`Order ${order.orderNumber} created.`);
+    setAddModalOpen(false);
+    setNewOrderForm({
+      customerId: '', quotationId: '', product: PRODUCTS[0],
+      quantity: 1, orderDate: new Date().toISOString().split('T')[0],
+      deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
+      totalAmount: 0, paymentStatus: 'Pending', status: 'Confirmed', notes: '',
+    });
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      <PageHeader
+        title="Orders"
+        subtitle="Track customer orders from confirmation to completion."
+        breadcrumbs={[{ label: 'Dashboard' }, { label: 'Orders' }]}
+        actions={
+          <button
+            onClick={() => setAddModalOpen(true)}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5"
+          >
+            <Plus className="w-4 h-4" /> New Order
+          </button>
+        }
+      />
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard title="Total Orders" value={stats.total} icon={<ShoppingCart className="w-5 h-5 text-blue-600" />} iconBg="bg-blue-50" index={0} />
+        <StatCard title="Active Orders" value={stats.active} icon={<ArrowRight className="w-5 h-5 text-amber-600" />} iconBg="bg-amber-50" index={1} />
+        <StatCard title="In Production" value={stats.inProduction} icon={<Factory className="w-5 h-5 text-violet-600" />} iconBg="bg-violet-50" index={2} />
+        <StatCard title="Completed" value={stats.completed} change={25} icon={<CheckCircle className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={3} />
+        <StatCard title="Pending Payment" value={stats.pendingPayment} icon={<DollarSign className="w-5 h-5 text-rose-600" />} iconBg="bg-rose-50" index={4} />
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <SearchInput value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search by order no., customer or product..." className="flex-1 max-w-md" />
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+          <option value="all">All Status</option>
+          {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select value={paymentFilter} onChange={e => { setPaymentFilter(e.target.value); setPage(1); }} className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+          <option value="all">All Payment</option>
+          {PAYMENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+
+      {/* Table */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        {paginated.length === 0 ? (
+          <EmptyState icon={<ShoppingCart className="w-8 h-8" />} title="No orders found" description="Orders created from approved quotations will appear here." action={<button onClick={() => setAddModalOpen(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium"><Plus className="w-4 h-4" /> New Order</button>} />
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    {['Order ID', 'Customer', 'Product', 'Qty', 'Order Date', 'Delivery', 'Amount', 'Status', 'Payment', 'Actions'].map(h => (
+                      <th key={h} className="text-left text-xs font-semibold text-slate-500 px-6 py-3.5">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginated.map((order, i) => {
+                    const customer = getCustomer(order.customerId);
+                    return (
+                      <motion.tr key={order.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }} className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors group">
+                        <td className="px-6 py-4">
+                          <button onClick={() => setViewingOrder(order)} className="text-xs font-mono font-semibold text-blue-600 hover:text-blue-700">{order.orderNumber}</button>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-slate-900">{customer?.companyName || 'Unknown'}</div>
+                        </td>
+                        <td className="px-6 py-4"><span className="text-sm text-slate-700">{order.product}</span></td>
+                        <td className="px-6 py-4"><span className="text-sm text-slate-700">{order.quantity}</span></td>
+                        <td className="px-6 py-4"><span className="text-xs text-slate-500">{formatDate(order.orderDate)}</span></td>
+                        <td className="px-6 py-4"><span className="text-xs text-slate-500">{formatDate(order.deliveryDate)}</span></td>
+                        <td className="px-6 py-4"><span className="text-sm font-semibold text-slate-900">{formatCurrency(order.totalAmount)}</span></td>
+                        <td className="px-6 py-4"><StatusBadge status={order.status} /></td>
+                        <td className="px-6 py-4"><StatusBadge status={order.paymentStatus} /></td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => setViewingOrder(order)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><Eye className="w-4 h-4" /></button>
+                            <button onClick={() => setEditModal({ ...order })} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                            <button onClick={() => setDeleteTarget(order)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100">
+              <Pagination currentPage={page} totalPages={totalPages} totalItems={sorted.length} itemsPerPage={ITEMS_PER_PAGE} onPageChange={setPage} />
+            </div>
+          </>
+        )}
+      </motion.div>
+
+      {/* View Drawer */}
+      {viewingOrder && (
+        <Drawer open={!!viewingOrder} onClose={() => setViewingOrder(null)} title={viewingOrder.orderNumber} subtitle="Order Details">
+          <div className="p-6 space-y-6">
+            {/* Workflow */}
+            <div className="bg-slate-50 rounded-xl p-4">
+              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Order Progress</h4>
+              <WorkflowStepper steps={getWorkflowSteps(viewingOrder.status)} />
+            </div>
+
+            {/* Details */}
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { label: 'Customer', value: getCustomer(viewingOrder.customerId)?.companyName || 'Unknown', span: true },
+                { label: 'Quotation', value: viewingOrder.quotationId },
+                { label: 'Product', value: viewingOrder.product },
+                { label: 'Quantity', value: `${viewingOrder.quantity} units` },
+                { label: 'Order Date', value: formatDate(viewingOrder.orderDate) },
+                { label: 'Delivery Date', value: formatDate(viewingOrder.deliveryDate) },
+                { label: 'Total Amount', value: formatCurrency(viewingOrder.totalAmount) },
+              ].map((item: any) => (
+                <div key={item.label} className={item.span ? 'col-span-2' : ''}>
+                  <div className="text-xs text-slate-500">{item.label}</div>
+                  <div className="text-sm font-semibold text-slate-900 mt-0.5">{item.value}</div>
+                </div>
+              ))}
+              <div>
+                <div className="text-xs text-slate-500">Order Status</div>
+                <div className="mt-1"><StatusBadge status={viewingOrder.status} /></div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500">Payment Status</div>
+                <div className="mt-1"><StatusBadge status={viewingOrder.paymentStatus} /></div>
+              </div>
+            </div>
+
+            {viewingOrder.notes && (
+              <div>
+                <div className="text-xs text-slate-500">Notes</div>
+                <div className="text-sm text-slate-900 mt-1 leading-relaxed bg-slate-50 rounded-lg p-3">{viewingOrder.notes}</div>
+              </div>
+            )}
+
+            {/* Production Job */}
+            {(() => {
+              const job = getJob(viewingOrder.id);
+              if (job) {
+                return (
+                  <div className="bg-violet-50 rounded-xl p-4 border border-violet-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs text-violet-600 font-semibold uppercase tracking-wider">Production Job</div>
+                        <div className="text-sm font-bold text-slate-900 mt-1">{job.jobNumber}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <StatusBadge status={job.status} />
+                          <span className="text-xs text-slate-600">{job.progress}% complete</span>
+                        </div>
+                        <div className="mt-2 h-1.5 bg-violet-200 rounded-full overflow-hidden w-48">
+                          <div className="h-full bg-violet-600 rounded-full" style={{ width: `${job.progress}%` }} />
+                        </div>
+                      </div>
+                      <button onClick={() => { setViewingOrder(null); navigate('/production'); }} className="text-violet-600 hover:text-violet-700 p-2 rounded-lg hover:bg-violet-100 transition-colors">
+                        <ArrowRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Actions */}
+            <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
+              {!getJob(viewingOrder.id) && viewingOrder.status === 'Confirmed' && (
+                <button onClick={() => setCreateJobOpen(true)} className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
+                  <Factory className="w-4 h-4" /> Create Production Job
+                </button>
+              )}
+              <button onClick={() => { setViewingOrder(null); setEditModal({ ...viewingOrder }); }} className="flex items-center gap-2 text-slate-700 bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
+                <Edit2 className="w-4 h-4" /> Edit Order
+              </button>
+              <button onClick={() => { setDeleteTarget(viewingOrder); setViewingOrder(null); }} className="flex items-center gap-2 text-red-600 bg-red-50 hover:bg-red-100 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </Drawer>
+      )}
+
+      {/* Edit Modal */}
+      {editModal && (
+        <Modal open={!!editModal} onClose={() => setEditModal(null)} title={`Edit ${editModal.orderNumber}`} size="lg"
+          footer={
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setEditModal(null)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+              <button onClick={handleSaveEdit} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm">Save Changes</button>
+            </div>
+          }
+        >
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              { label: 'Order Status', field: 'status', type: 'select', options: ORDER_STATUSES },
+              { label: 'Payment Status', field: 'paymentStatus', type: 'select', options: PAYMENT_STATUSES },
+              { label: 'Order Date', field: 'orderDate', type: 'date' },
+              { label: 'Delivery Date', field: 'deliveryDate', type: 'date' },
+              { label: 'Total Amount', field: 'totalAmount', type: 'number' },
+            ].map(f => (
+              <div key={f.field}>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">{f.label}</label>
+                {f.type === 'select' ? (
+                  <select value={(editModal as any)[f.field]} onChange={e => setEditModal(prev => prev ? { ...prev, [f.field]: e.target.value } : null)} className={inputClass}>
+                    {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <input type={f.type} value={(editModal as any)[f.field]} onChange={e => setEditModal(prev => prev ? { ...prev, [f.field]: f.type === 'number' ? parseFloat(e.target.value) : e.target.value } : null)} className={inputClass} />
+                )}
+              </div>
+            ))}
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
+              <textarea rows={3} value={editModal.notes} onChange={e => setEditModal(prev => prev ? { ...prev, notes: e.target.value } : null)} className={inputClass} />
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Add Order Modal */}
+      <Modal open={addModalOpen} onClose={() => setAddModalOpen(false)} title="New Order" size="lg"
+        footer={
+          <div className="flex justify-end gap-3">
+            <button onClick={() => setAddModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+            <button onClick={handleAddOrder} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm">Create Order</button>
+          </div>
+        }
+      >
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer <span className="text-red-500">*</span></label>
+            <select value={newOrderForm.customerId} onChange={e => setNewOrderForm(f => ({ ...f, customerId: e.target.value }))} className={inputClass}>
+              <option value="">Select customer...</option>
+              {customers.map(c => <option key={c.id} value={c.id}>{c.companyName}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Product</label>
+            <select value={newOrderForm.product} onChange={e => setNewOrderForm(f => ({ ...f, product: e.target.value }))} className={inputClass}>
+              {PRODUCTS.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Quantity</label>
+            <input type="number" min={1} value={newOrderForm.quantity} onChange={e => setNewOrderForm(f => ({ ...f, quantity: parseInt(e.target.value) || 1 }))} className={inputClass} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Order Date</label>
+            <input type="date" value={newOrderForm.orderDate} onChange={e => setNewOrderForm(f => ({ ...f, orderDate: e.target.value }))} className={inputClass} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Delivery Date</label>
+            <input type="date" value={newOrderForm.deliveryDate} onChange={e => setNewOrderForm(f => ({ ...f, deliveryDate: e.target.value }))} className={inputClass} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Total Amount</label>
+            <input type="number" min={0} value={newOrderForm.totalAmount} onChange={e => setNewOrderForm(f => ({ ...f, totalAmount: parseFloat(e.target.value) || 0 }))} className={inputClass} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Payment Status</label>
+            <select value={newOrderForm.paymentStatus} onChange={e => setNewOrderForm(f => ({ ...f, paymentStatus: e.target.value }))} className={inputClass}>
+              {PAYMENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
+            <textarea rows={2} value={newOrderForm.notes} onChange={e => setNewOrderForm(f => ({ ...f, notes: e.target.value }))} className={inputClass} placeholder="Additional order notes..." />
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={createJobOpen}
+        title="Create Production Job"
+        description={`Create a production job for order ${viewingOrder?.orderNumber || ''}? This will move the order status to Production.`}
+        confirmLabel="Create Job"
+        variant="info"
+        onConfirm={() => viewingOrder && handleCreateJob(viewingOrder)}
+        onCancel={() => setCreateJobOpen(false)}
+      />
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete Order"
+        description={`Delete order ${deleteTarget?.orderNumber}? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
+    </div>
+  );
+};
