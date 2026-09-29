@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  ShoppingCart, Plus, Eye, Edit2, Trash2,
+  ShoppingCart, Plus, Eye, Edit2, Trash2, PauseCircle, PlayCircle, Ban,
   Factory, CheckCircle, ArrowRight, DollarSign, ArrowDownUp
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -24,17 +24,24 @@ import { PremiumSelect } from '../components/ui/PremiumSelect';
 
 const ITEMS_PER_PAGE = 8;
 const ORDER_STATUSES = ['Confirmed', 'Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'];
+const ORDER_EXCEPTION_STATUSES = ['On Hold', 'Cancelled'];
 const PAYMENT_STATUSES = ['Pending', 'Partial', 'Paid', 'Overdue'];
 const STATUS_COLORS: Record<string, string> = {
   Confirmed: '#2563eb', Production: '#7c3aed', 'Quality Check': '#d97706',
   Ready: '#0d9488', Dispatched: '#0891b2', Completed: '#059669',
+  'On Hold': '#c2410c', Cancelled: '#be123c',
 };
 const PRODUCTS = ['Pressure Vessel', 'Heat Exchanger', 'Storage Tank', 'Industrial Dryer', 'Reactor', 'Column', 'Boiler System'];
 const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
 
-const getWorkflowSteps = (status: string) => {
+const getWorkflowSteps = (order: Order) => {
   const steps = ['Confirmed', 'Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'];
-  const idx = steps.indexOf(status);
+  const lastException = [...(order.statusHistory || [])].reverse().find(event => event.to === order.status);
+  const previousStage = lastException?.from === 'On Hold'
+    ? [...(order.statusHistory || [])].reverse().find(event => event.to === 'On Hold')?.from
+    : lastException?.from;
+  const effectiveStatus = ['On Hold', 'Cancelled'].includes(order.status) ? previousStage || 'Confirmed' : order.status;
+  const idx = steps.indexOf(effectiveStatus);
   return steps.map((s, i) => ({
     label: s,
     status: i < idx ? 'completed' : i === idx ? 'current' : 'pending' as any,
@@ -43,16 +50,27 @@ const getWorkflowSteps = (status: string) => {
 
 export const Orders: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { orders, customers, productionJobs, addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus, profile } = useAppStore();
+  const { orders, customers, productionJobs, addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus, changeOrderException, profile } = useAppStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') === 'active' ? 'active' : 'all');
   const [paymentFilter, setPaymentFilter] = useState(searchParams.get('payment') === 'pending' ? 'pending' : 'all');
   const [newestFirst, setNewestFirst] = useState(true);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [statusNote, setStatusNote] = useState('');
+  const [exceptionAction, setExceptionAction] = useState<'hold' | 'resume' | 'cancel' | null>(null);
+  const [exceptionNote, setExceptionNote] = useState('');
   const [page, setPage] = useState(1);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+
+  // ?open=ID is a deep link from customer records, notifications and dashboard activity.
+  useEffect(() => {
+    const openId = new URLSearchParams(location.search).get('open');
+    if (!openId) return;
+    const record = orders.find(o => o.id === openId);
+    if (record) setViewingOrder(record);
+  }, [location.search, orders]);
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
   const [editModal, setEditModal] = useState<Order | null>(null);
   const [createJobOpen, setCreateJobOpen] = useState(false);
@@ -71,7 +89,7 @@ export const Orders: React.FC = () => {
         o.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
         o.product.toLowerCase().includes(search.toLowerCase()) ||
         customer?.companyName.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? o.status !== 'Completed' : o.status === statusFilter);
+      const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? !['Completed','Cancelled'].includes(o.status) : o.status === statusFilter);
       const matchPayment = paymentFilter === 'all' || (paymentFilter === 'pending' ? ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus) : o.paymentStatus === paymentFilter);
       return matchSearch && matchStatus && matchPayment;
     });
@@ -85,7 +103,7 @@ export const Orders: React.FC = () => {
 
   const stats = {
     total: orders.length,
-    active: orders.filter(o => o.status !== 'Completed').length,
+    active: orders.filter(o => !['Completed','Cancelled'].includes(o.status)).length,
     inProduction: orders.filter(o => o.status === 'Production').length,
     completed: orders.filter(o => o.status === 'Completed').length,
     pendingPayment: orders.filter(o => ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus)).length,
@@ -154,6 +172,20 @@ export const Orders: React.FC = () => {
     toast.success(`Order moved to ${nextOrderStatus}.`);
   };
 
+  const handleException = () => {
+    if (!currentOrder || !exceptionAction) return;
+    if (!changeOrderException(currentOrder.id, exceptionAction, profile.name, exceptionNote)) {
+      toast.error('The selected status change is unavailable. Refresh the order and try again.');
+      setExceptionAction(null);
+      return;
+    }
+    setViewingOrder(useAppStore.getState().orders.find(order => order.id === currentOrder.id) || null);
+    toast.success(exceptionAction === 'hold' ? 'Order put on hold.' :
+      exceptionAction === 'resume' ? 'Order resumed at its previous stage.' : 'Order cancelled.');
+    setExceptionAction(null);
+    setExceptionNote('');
+  };
+
   const handleAddOrder = () => {
     if (!newOrderForm.customerId || !newOrderForm.product) { toast.error('Please fill required fields.'); return; }
     const order = addOrder({ ...newOrderForm as any, orderNumber: '' });
@@ -196,7 +228,7 @@ export const Orders: React.FC = () => {
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search by order no., customer or product..." className="flex-1 max-w-md" />
         <PremiumSelect label="Order status filter" value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }}
-          options={[{ value: 'all', label: 'All Status' }, { value: 'active', label: 'Active Orders' }, ...ORDER_STATUSES.map(value => ({ value, label: value, color: STATUS_COLORS[value] }))]} className="w-full sm:w-48" />
+          options={[{ value: 'all', label: 'All Status' }, { value: 'active', label: 'Active Orders' }, ...[...ORDER_STATUSES, ...ORDER_EXCEPTION_STATUSES].map(value => ({ value, label: value, color: STATUS_COLORS[value] }))]} className="w-full sm:w-48" />
         <PremiumSelect label="Payment status filter" value={paymentFilter} onChange={value => { setPaymentFilter(value); setPage(1); }}
           options={[{ value: 'all', label: 'All Payments' }, { value: 'pending', label: 'Pending / Partial / Overdue', color: '#d97706' },
             ...PAYMENT_STATUSES.map(value => ({ value, label: value, color: value === 'Paid' ? '#059669' : '#d97706' }))]} className="w-full sm:w-60" />
@@ -266,7 +298,15 @@ export const Orders: React.FC = () => {
             {/* Workflow */}
             <div className="bg-slate-50 rounded-xl p-4">
               <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Order Progress</h4>
-              <WorkflowStepper steps={getWorkflowSteps(viewingOrder.status)} />
+              <WorkflowStepper steps={getWorkflowSteps(viewingOrder)} />
+               {ORDER_EXCEPTION_STATUSES.includes(viewingOrder.status) && (
+                 <div className={`mt-4 rounded-lg border p-3 text-sm ${viewingOrder.status === 'On Hold' ? 'border-orange-200 bg-orange-50 text-orange-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}>
+                   <StatusBadge status={viewingOrder.status} />
+                   <p className="mt-2">{viewingOrder.status === 'On Hold'
+                     ? 'Progression is paused. Resume to return to the last active stage.'
+                     : 'This order is cancelled and its workflow is closed.'}</p>
+                 </div>
+               )}
               {nextOrderStatus && (
                 <button type="button" onClick={() => setStatusModalOpen(true)}
                   className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800">
@@ -348,7 +388,7 @@ export const Orders: React.FC = () => {
                           <div className="h-full bg-violet-600 rounded-full" style={{ width: `${job.progress}%` }} />
                         </div>
                       </div>
-                      <button onClick={() => { setViewingOrder(null); navigate('/production'); }} className="text-violet-600 hover:text-violet-700 p-2 rounded-lg hover:bg-violet-100 transition-colors">
+                      <button onClick={() => { setViewingOrder(null); navigate('/production?open=' + encodeURIComponent(job.id)); }} aria-label={`Open production job ${job.jobNumber}`} title="View production job" className="text-violet-600 hover:text-violet-700 p-2 rounded-lg hover:bg-violet-100 transition-colors">
                         <ArrowRight className="w-5 h-5" />
                       </button>
                     </div>
@@ -365,7 +405,27 @@ export const Orders: React.FC = () => {
                   <Factory className="w-4 h-4" /> Create Production Job
                 </button>
               )}
-              <button onClick={() => { setViewingOrder(null); setEditModal({ ...viewingOrder }); }} className="flex items-center gap-2 text-slate-700 bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
+              {/* Exceptional statuses are separate from normal order progression. */}
+               {!['Completed','Cancelled'].includes(viewingOrder.status) && (
+                 <div className="flex w-full flex-wrap gap-2">
+                   {viewingOrder.status === 'On Hold' ? (
+                     <button type="button" onClick={() => setExceptionAction('resume')}
+                       className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-800 hover:bg-teal-100">
+                       <PlayCircle className="h-4 w-4" /> Resume Order
+                     </button>
+                   ) : (
+                     <button type="button" onClick={() => setExceptionAction('hold')}
+                       className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100">
+                       <PauseCircle className="h-4 w-4" /> Put On Hold
+                     </button>
+                   )}
+                   <button type="button" onClick={() => setExceptionAction('cancel')}
+                     className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800 hover:bg-rose-100">
+                     <Ban className="h-4 w-4" /> Cancel Order
+                   </button>
+                 </div>
+               )}
+               <button onClick={() => { setViewingOrder(null); setEditModal({ ...viewingOrder }); }} className="flex items-center gap-2 text-slate-700 bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
                 <Edit2 className="w-4 h-4" /> Edit Order
               </button>
               <button onClick={() => { setDeleteTarget(viewingOrder); setViewingOrder(null); }} className="flex items-center gap-2 text-red-600 bg-red-50 hover:bg-red-100 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
@@ -402,7 +462,31 @@ export const Orders: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Edit Modal */}
+      {/* Confirm exceptional and destructive status changes with an audit note. */}
+       <Modal open={!!exceptionAction && !!currentOrder}
+         onClose={() => { setExceptionAction(null); setExceptionNote(''); }}
+         title={exceptionAction === 'hold' ? 'Put Order On Hold' : exceptionAction === 'resume' ? 'Resume Order' : 'Cancel Order'}
+         subtitle={currentOrder?.orderNumber}
+         footer={<div className="flex flex-wrap justify-end gap-3">
+           <button type="button" onClick={() => { setExceptionAction(null); setExceptionNote(''); }}
+             className="cursor-pointer rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50">Back</button>
+           <button type="button" onClick={handleException}
+             className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold text-white ${exceptionAction === 'cancel' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+             {exceptionAction === 'hold' ? 'Confirm Hold' : exceptionAction === 'resume' ? 'Confirm Resume' : 'Confirm Cancellation'}
+           </button>
+         </div>}>
+         <div className="space-y-3">
+           <p className="text-sm leading-6 text-slate-700">{exceptionAction === 'cancel'
+             ? 'Cancelling closes this order and cannot be reversed through the demo workflow. It will be recorded in the status history.'
+             : exceptionAction === 'hold' ? 'Pauses normal progression until the order is resumed.'
+               : 'Returns the order to the stage it was in before being placed on hold.'}</p>
+           <label htmlFor="exception-note" className="block text-sm font-medium text-slate-700">Status note (optional)</label>
+           <textarea id="exception-note" rows={3} maxLength={500} value={exceptionNote}
+             onChange={event => setExceptionNote(event.target.value)} placeholder="Explain the change for the status history..."
+             className={inputClass} />
+         </div>
+       </Modal>
+       {/* Edit Modal */}
       {editModal && (
         <Modal open={!!editModal} onClose={() => setEditModal(null)} title={`Edit ${editModal.orderNumber}`} size="lg"
           footer={

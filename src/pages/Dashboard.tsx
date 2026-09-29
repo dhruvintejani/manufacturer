@@ -61,7 +61,7 @@ export const Dashboard: React.FC = () => {
   // KPI calculations
   const totalEnquiries = enquiries.length;
   const pendingQuotations = quotations.filter(q => ['Draft', 'Sent', 'Negotiation'].includes(q.status)).length;
-  const activeOrders = orders.filter(o => o.status !== 'Completed').length;
+  const activeOrders = orders.filter(o => !['Completed', 'Cancelled'].includes(o.status)).length;
   const activeJobs = productionJobs.filter(j => j.status !== 'Completed').length;
   const pendingPayments = orders
     .filter(o => ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus)).length;
@@ -75,6 +75,10 @@ export const Dashboard: React.FC = () => {
     new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()
   ).slice(0, 5);
 
+  const activityPath: Record<string, string> = {
+    enquiry: '/enquiries', quotation: '/quotations', order: '/orders',
+    production: '/production', customer: '/customers',
+  };
   const getCustomer = (id: string) => customers.find(c => c.id === id);
 
   const prodStats = productionJobs.reduce((acc, j) => {
@@ -359,16 +363,21 @@ export const Dashboard: React.FC = () => {
                   initial={{ opacity: 0, x: 8 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.35 + i * 0.05 }}
-                  className="flex items-start gap-3"
                 >
-                  <div className={`w-7 h-7 rounded-lg ${config.bg} ${config.color} flex items-center justify-center flex-shrink-0 mt-0.5`}>
-                    {config.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-slate-900">{activity.title}</p>
-                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed line-clamp-2">{activity.description}</p>
-                    <p className="text-[10px] text-slate-400 mt-1">{formatRelativeTime(activity.timestamp)}</p>
-                  </div>
+                  <button type="button"
+                    onClick={() => navigate((activityPath[activity.type] || '/dashboard') +
+                      (activity.relatedId ? `?open=${encodeURIComponent(activity.relatedId)}` : ''))}
+                    aria-label={`Open activity: ${activity.title}`}
+                    className="flex w-full cursor-pointer items-start gap-3 rounded-lg p-2 text-left transition-colors hover:bg-blue-50 focus-visible:bg-blue-50">
+                    <div className={`w-7 h-7 rounded-lg ${config.bg} ${config.color} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+                      {config.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-900">{activity.title}</p>
+                      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed line-clamp-2">{activity.description}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">{formatRelativeTime(activity.timestamp)}</p>
+                    </div>
+                  </button>
                 </motion.div>
               );
             })}

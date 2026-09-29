@@ -52,22 +52,22 @@ export const Header: React.FC = () => {
     ...customers.filter(c =>
       c.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.contactPerson.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 3).map(c => ({ type: 'Customer', label: c.companyName, sub: c.contactPerson, path: '/customers' })),
+    ).slice(0, 3).map(c => ({ type: 'Customer', label: c.companyName, sub: c.contactPerson, path: '/customers?open=' + encodeURIComponent(c.id) })),
     ...enquiries.filter(e =>
       e.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.product.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 3).map(e => ({ type: 'Enquiry', label: e.id, sub: e.product, path: '/enquiries' })),
+    ).slice(0, 3).map(e => ({ type: 'Enquiry', label: e.id, sub: e.product, path: '/enquiries?open=' + encodeURIComponent(e.id) })),
     ...quotations.filter(q =>
       q.quotationNumber.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 2).map(q => ({ type: 'Quotation', label: q.quotationNumber, sub: q.status, path: '/quotations' })),
+    ).slice(0, 2).map(q => ({ type: 'Quotation', label: q.quotationNumber, sub: q.status, path: '/quotations?open=' + encodeURIComponent(q.id) })),
     ...orders.filter(o =>
       o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       o.product.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 2).map(o => ({ type: 'Order', label: o.orderNumber, sub: o.product, path: '/orders' })),
+    ).slice(0, 2).map(o => ({ type: 'Order', label: o.orderNumber, sub: o.product, path: '/orders?open=' + encodeURIComponent(o.id) })),
     ...productionJobs.filter(p =>
       p.jobNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.product.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 2).map(p => ({ type: 'Production', label: p.jobNumber, sub: p.product, path: '/production' })),
+    ).slice(0, 2).map(p => ({ type: 'Production', label: p.jobNumber, sub: p.product, path: '/production?open=' + encodeURIComponent(p.id) })),
   ] : [];
 
   const typeColors: Record<string, string> = {
@@ -142,6 +142,9 @@ export const Header: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1.5 ml-auto">
+          <span className="hidden lg:inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-800" title="ForgeFlow demo data is stored in this browser">
+            Demo Environment
+          </span>
           {/* Notifications */}
           <div ref={notifRef} className="relative">
             <button
@@ -182,7 +185,7 @@ export const Header: React.FC = () => {
                     {notifications.slice(0, 8).map(n => (
                       <button
                         key={n.id}
-                        onClick={() => { markNotificationRead(n.id); setNotifOpen(false); if (n.relatedType) navigate(`/${n.relatedType === 'enquiry' ? 'enquiries' : n.relatedType === 'quotation' ? 'quotations' : n.relatedType === 'order' ? 'orders' : n.relatedType}`); }}
+                        onClick={() => { markNotificationRead(n.id); setNotifOpen(false); if (n.relatedType) navigate('/' + ({ enquiry: 'enquiries', quotation: 'quotations', order: 'orders', production: 'production', customer: 'customers' }[n.relatedType] || 'dashboard') + (n.relatedId ? '?open=' + encodeURIComponent(n.relatedId) : '')); }}
                         className={cn('w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50', !n.read && 'bg-blue-50/50')}
                       >
                         <div className={cn('w-2 h-2 rounded-full mt-1.5 flex-shrink-0', !n.read ? 'bg-blue-500' : 'bg-transparent')} />

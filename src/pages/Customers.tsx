@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, Plus, Edit2, Trash2, Eye, MapPin, Mail, Phone, Building2, Globe } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
@@ -55,6 +56,8 @@ const FormField = ({ label, error, children, required }: { label: string; error?
 const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
 
 export const Customers: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { customers, enquiries, quotations, orders, addCustomer, updateCustomer, deleteCustomer } = useAppStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -62,6 +65,14 @@ export const Customers: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
+
+  // ?open=ID is a deep link from customer records, notifications and dashboard activity.
+  useEffect(() => {
+    const openId = new URLSearchParams(location.search).get('open');
+    if (!openId) return;
+    const record = customers.find(c => c.id === openId);
+    if (record) setViewingCustomer(record);
+  }, [location.search, customers]);
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<CustomerFormData>({
@@ -129,7 +140,9 @@ export const Customers: React.FC = () => {
     enquiries: enquiries.filter(e => e.customerId === customerId).length,
     quotations: quotations.filter(q => q.customerId === customerId).length,
     orders: orders.filter(o => o.customerId === customerId).length,
-    revenue: orders.filter(o => o.customerId === customerId).reduce((s, o) => s + o.totalAmount, 0),
+    activeOrders: orders.filter(o => o.customerId === customerId && !['Completed', 'Cancelled'].includes(o.status)).length,
+    completedOrders: orders.filter(o => o.customerId === customerId && o.status === 'Completed').length,
+    revenue: orders.filter(o => o.customerId === customerId).reduce((total, order) => total + order.totalAmount, 0),
   });
 
   return (
@@ -374,7 +387,7 @@ export const Customers: React.FC = () => {
             {(() => {
               const stats = getCustomerStats(viewingCustomer.id);
               return (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
                   {[
                     { label: 'Enquiries', value: stats.enquiries, color: 'text-blue-600' },
                     { label: 'Quotations', value: stats.quotations, color: 'text-amber-600' },
@@ -389,6 +402,43 @@ export const Customers: React.FC = () => {
                 </div>
               );
             })()}
+
+            {/* All related records are deep links, not dead-end summary numbers. */}
+            {([
+              { title: 'Enquiries', path: '/enquiries', records: enquiries.filter(e => e.customerId === viewingCustomer.id).map(e => ({
+                id: e.id, heading: e.id, detail: e.product, status: e.status,
+              })) },
+              { title: 'Quotations', path: '/quotations', records: quotations.filter(q => q.customerId === viewingCustomer.id).map(q => ({
+                id: q.id, heading: q.quotationNumber, detail: formatDate(q.date), status: q.status,
+              })) },
+              { title: 'Orders', path: '/orders', records: orders.filter(o => o.customerId === viewingCustomer.id).map(o => ({
+                id: o.id, heading: o.orderNumber, detail: o.product, status: o.status,
+              })) },
+            ] as const).map(section => (
+              <section key={section.title} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3">
+                  <h4 className="text-sm font-semibold text-slate-900">{section.title} <span className="font-normal text-slate-500">({section.records.length})</span></h4>
+                  <button type="button" onClick={() => navigate(section.path)}
+                    className="cursor-pointer text-xs font-semibold text-blue-700 hover:text-blue-900 focus-visible:ring-2 focus-visible:ring-blue-500">
+                    View all
+                  </button>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {section.records.length ? section.records.map(record => (
+                    <button type="button" key={record.id}
+                      onClick={() => navigate(`${section.path}?open=${encodeURIComponent(record.id)}`)}
+                      aria-label={`Open ${record.heading}`}
+                      className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-blue-50 focus-visible:bg-blue-50">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-blue-700">{record.heading}</span>
+                        <span className="block truncate text-xs text-slate-500">{record.detail}</span>
+                      </span>
+                      <StatusBadge status={record.status} size="sm" />
+                    </button>
+                  )) : <p className="px-4 py-4 text-sm text-slate-500">No linked {section.title.toLowerCase()} yet.</p>}
+                </div>
+              </section>
+            ))}
 
             {/* Details */}
             <div className="space-y-4">

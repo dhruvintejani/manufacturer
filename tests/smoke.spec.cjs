@@ -10,7 +10,7 @@ test('all application sections render without JS crashes at desktop and 100-200%
   const failures = [];
   page.on('pageerror', error => failures.push(error.message));
   await page.setViewportSize({ width: 1440, height: 900 });
-  for (const zoom of [1, 1.25, 1.5, 2]) {
+  for (const zoom of [1, 1.25, 1.5, 1.75, 2]) {
     for (const route of ['dashboard', 'customers', 'enquiries', 'quotations', 'orders', 'production', 'reports', 'settings']) {
       await page.goto('/' + route);
       await page.evaluate(factor => { document.documentElement.style.zoom = String(factor); }, zoom);
@@ -188,4 +188,146 @@ test('table next, previous and numbered pages all start at the top', async ({ pa
   await checkPage('Next page', 2);
   await checkPage('Previous page', 1);
   await checkPage('2', 2);
+});
+
+test('help has dedicated manufacturing workflow guidance, not settings', async ({ page }) => {
+  await page.goto('/help');
+  await expect(page.getByRole('heading', { name: 'Help & Support' })).toBeVisible();
+  await expect(page.getByText(/This preview stores operational changes/)).toBeVisible();
+  await page.getByRole('button', { name: 'Quotations', exact: true }).click();
+  await expect(page.getByText(/Prepare Email opens your email application/)).toBeVisible();
+});
+
+test('dashboard activity deep-links to its exact record', async ({ page }) => {
+  await page.goto('/dashboard');
+  await page.getByRole('button', { name: 'Open activity: New enquiry received' }).click();
+  await expect(page).toHaveURL(/enquiries\?open=ENQ-2026-0482/);
+  await expect(page.getByRole('dialog', { name: /ENQ-2026-0482/ })).toBeVisible();
+});
+
+test('customer details show actionable related enquiries, quotations and orders', async ({ page }) => {
+  await page.goto('/customers?open=C001');
+  const drawer = page.getByRole('dialog', { name: /Global Traders Pvt. Ltd./ });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole('heading', { name: /Enquiries/ })).toBeVisible();
+  await expect(drawer.getByRole('heading', { name: /Quotations/ })).toBeVisible();
+  await expect(drawer.getByRole('heading', { name: /Orders/ })).toBeVisible();
+  await drawer.getByRole('button', { name: 'Open ENQ-2026-0482' }).click();
+  await expect(page).toHaveURL(/enquiries\?open=ENQ-2026-0482/);
+  await expect(page.getByRole('dialog', { name: /ENQ-2026-0482/ })).toBeVisible();
+});
+
+test('order hold, resume, cancellation and audit history survive refresh', async ({ page }) => {
+  await page.goto('/orders?open=ORD-2026-0055');
+  const drawer = page.getByRole('dialog', { name: /ORD-2026-0055/ });
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole('button', { name: 'Put On Hold' }).click();
+  await page.getByLabel('Status note (optional)').fill('Supplier component pending');
+  await page.getByRole('button', { name: 'Confirm Hold' }).click();
+  await expect(drawer.getByText('Supplier component pending')).toBeVisible();
+  await expect(drawer.getByRole('button', { name: /Update Status/ })).toHaveCount(0);
+  await drawer.getByRole('button', { name: 'Resume Order' }).click();
+  await page.getByRole('button', { name: 'Confirm Resume' }).click();
+  await expect(drawer.getByRole('button', { name: /Update Status/ })).toBeVisible();
+  await drawer.getByRole('button', { name: 'Cancel Order' }).click();
+  await page.getByRole('button', { name: 'Confirm Cancellation' }).click();
+  await expect(drawer.getByText('This order is cancelled and its workflow is closed.')).toBeVisible();
+  await expect(drawer.getByRole('button', { name: 'Resume Order' })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('dialog', { name: /ORD-2026-0055/ }).getByText('This order is cancelled and its workflow is closed.')).toBeVisible();
+});
+
+test('end-to-end manufacturing flow: enquiry to quoted, produced, dispatched and completed order', async ({ page }) => {
+  test.setTimeout(100_000);
+  // Begin with an unquoted enquiry; use application actions rather than rewriting store records.
+  await page.goto('/enquiries?open=ENQ-2026-0478');
+  await page.getByRole('dialog', { name: 'ENQ-2026-0478' }).getByRole('button', { name: 'Create Quotation' }).click();
+  const editor = page.getByRole('dialog', { name: 'Quotation editor' });
+  await expect(editor).toBeVisible();
+  await expect(editor.getByRole('button', { name: 'Linked enquiry' })).toContainText('ENQ-2026-0478');
+  await editor.locator('input[type="number"]').nth(0).fill('2');
+  await editor.locator('input[type="number"]').nth(1).fill('2500');
+  await expect(editor.getByRole('button', { name: 'Preview' })).toBeVisible();
+  // Save first to give the customer quotation a persistent number.
+  // The editor's separate unsaved-PDF action is covered by the draft-quotation test.
+  await editor.getByRole('button', { name: 'Save Draft' }).click({ timeout: 12_000 });
+
+  const quoteId = await page.evaluate(() => {
+    const data = JSON.parse(localStorage.getItem('forgeflow-storage')).state;
+    return data.quotations.find(q => q.enquiryId === 'ENQ-2026-0478')?.id;
+  });
+  expect(quoteId).toBeTruthy();
+  await page.goto('/quotations?open=' + encodeURIComponent(quoteId));
+  const quote = page.getByRole('dialog', { name: /QT-/ });
+  await expect(quote).toBeVisible();
+  const pdf = page.waitForEvent('download', { timeout: 15_000 });
+  await quote.getByRole('button', { name: 'PDF', exact: true }).click({ timeout: 12_000 });
+  expect((await pdf).suggestedFilename()).toMatch(/\.pdf$/i);
+  await quote.getByRole('button', { name: 'Mark as Sent' }).click();
+  await quote.getByRole('button', { name: 'Mark Approved' }).click();
+  await quote.getByRole('button', { name: 'Convert to Order' }).click();
+  await page.getByRole('dialog', { name: 'Convert to Order' }).getByRole('button', { name: 'Convert to Order' }).click();
+  await expect(page).toHaveURL(/\/orders$/);
+
+  const orderId = await page.evaluate(qId =>
+    JSON.parse(localStorage.getItem('forgeflow-storage')).state.orders.find(o => o.quotationId === qId)?.id,
+    quoteId,
+  );
+  expect(orderId).toBeTruthy();
+  await page.goto('/orders?open=' + encodeURIComponent(orderId));
+  await page.getByRole('dialog', { name: /ORD-/ }).getByRole('button', { name: 'Create Production Job' }).click();
+  await page.getByRole('dialog', { name: 'Create Production Job' }).getByRole('button', { name: 'Create Job' }).click();
+  await expect(page).toHaveURL(/\/production$/);
+
+  const jobId = await page.evaluate(oId =>
+    JSON.parse(localStorage.getItem('forgeflow-storage')).state.productionJobs.find(j => j.orderId === oId)?.id,
+    orderId,
+  );
+  expect(jobId).toBeTruthy();
+  await page.goto('/production?open=' + encodeURIComponent(jobId));
+  for (const status of ['In Production', 'Quality Check', 'Ready', 'Completed']) {
+    await page.getByRole('button', { name: 'Update production status' }).click();
+    await page.getByRole('option', { name: status, exact: true }).click();
+  }
+
+  await page.goto('/orders?open=' + encodeURIComponent(orderId));
+  const order = page.getByRole('dialog', { name: /ORD-/ });
+  await expect(order.getByRole('button', { name: /Update Status.*Dispatched/ })).toBeVisible();
+  await order.getByRole('button', { name: /Update Status.*Dispatched/ }).click();
+  await page.getByRole('button', { name: 'Confirm Update' }).click();
+  await order.getByRole('button', { name: /Update Status.*Completed/ }).click();
+  await page.getByRole('button', { name: 'Confirm Update' }).click();
+  await page.reload();
+  await expect(page.getByRole('dialog', { name: /ORD-/ }).getByText('Completed', { exact: true }).first()).toBeVisible();
+  const state = await page.evaluate(id => JSON.parse(localStorage.getItem('forgeflow-storage')).state.orders.find(o => o.id === id), orderId);
+  expect(state.status).toBe('Completed');
+  expect(state.statusHistory.some(change => change.to === 'Dispatched')).toBe(true);
+  expect(state.statusHistory.some(change => change.to === 'Completed')).toBe(true);
+});
+
+test('tablet and laptop sizes keep every route usable without page-level horizontal overflow', async ({ page }) => {
+  const failures = [];
+  page.on('pageerror', error => failures.push(error.message));
+  for (const width of [768, 1024]) {
+    await page.setViewportSize({ width, height: 820 });
+    for (const route of ['dashboard', 'customers', 'enquiries', 'quotations', 'orders', 'production', 'reports', 'settings', 'help']) {
+      await page.goto('/' + route);
+      await expect(page.locator('main')).not.toBeEmpty();
+      const delta = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(delta, route + ' at ' + width + 'px viewport').toBeLessThan(4);
+    }
+  }
+  expect(failures).toEqual([]);
+});
+
+test('quotation editor from enquiry stays open and exports an unsaved PDF preview', async ({ page }) => {
+  await page.goto('/enquiries?open=ENQ-2026-0478');
+  await page.getByRole('dialog', { name: 'ENQ-2026-0478' }).getByRole('button', { name: 'Create Quotation' }).click();
+  const editor = page.getByRole('dialog', { name: 'Quotation editor' });
+  await expect(editor.getByRole('button', { name: 'Linked enquiry' })).toContainText('ENQ-2026-0478');
+  await editor.locator('input[type="number"]').nth(1).fill('1800');
+  const download = page.waitForEvent('download', { timeout: 15_000 });
+  await editor.getByRole('button', { name: 'Generate PDF' }).click({ timeout: 12_000 });
+  expect((await download).suggestedFilename()).toMatch(/quotation.*\.pdf/i);
+  await expect(editor).toBeVisible();
 });

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -54,6 +54,14 @@ export const Production: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState(new URLSearchParams(location.search).get('status') === 'active' ? 'active' : 'all');
   const [page, setPage] = useState(1);
   const [viewingJob, setViewingJob] = useState<ProductionJob | null>(null);
+
+  // ?open=ID is a deep link from customer records, notifications and dashboard activity.
+  useEffect(() => {
+    const openId = new URLSearchParams(location.search).get('open');
+    if (!openId) return;
+    const record = productionJobs.find(job => job.id === openId);
+    if (record) setViewingJob(record);
+  }, [location.search, productionJobs]);
   const [deleteTarget, setDeleteTarget] = useState<ProductionJob | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [newJobForm, setNewJobForm] = useState({
@@ -87,7 +95,21 @@ export const Production: React.FC = () => {
     completed: productionJobs.filter(j => j.status === 'Completed').length,
   };
 
+  const canChangeProduction = (job: ProductionJob) => {
+    const linked = orders.find(order => order.id === job.orderId);
+    if (linked && ['On Hold', 'Cancelled'].includes(linked.status)) {
+      toast.error(`Order ${linked.orderNumber} is ${linked.status.toLowerCase()}. Resume or resolve the order first.`);
+      return false;
+    }
+    if (job.status === 'Completed') {
+      toast.error('Completed production jobs cannot be reopened through the demo workflow.');
+      return false;
+    }
+    return true;
+  };
+
   const handleUpdateProgress = (job: ProductionJob, progress: number) => {
+    if (!canChangeProduction(job)) return;
     let status = job.status;
     if (progress >= 100) status = 'Completed';
     else if (progress >= 85) status = 'Quality Check';
@@ -98,6 +120,7 @@ export const Production: React.FC = () => {
   };
 
   const handleStatusChange = (job: ProductionJob, status: string) => {
+    if (!canChangeProduction(job)) return;
     const milestone: Record<string, number> = { Planning: 0, 'In Production': 20, 'Quality Check': 85, Ready: 95, Completed: 100 };
     const progress = status === 'Delayed' ? job.progress : Math.max(job.progress, milestone[status] || 0);
     const stages = withStageProgress(job, progress);
@@ -120,6 +143,8 @@ export const Production: React.FC = () => {
       return;
     }
     if (productionJobs.some(job => job.orderId === newJobForm.orderId)) { toast.error('A production job already exists for that order.'); return; }
+    const linkedOrder = orders.find(order => order.id === newJobForm.orderId);
+    if (!linkedOrder || ['Completed', 'Cancelled', 'On Hold'].includes(linkedOrder.status)) { toast.error('Select an active order before starting production.'); return; }
     const job = addProductionJob({
       jobNumber: '',
       ...newJobForm,
@@ -310,6 +335,8 @@ export const Production: React.FC = () => {
                 max={100}
                 step={5}
                 value={viewingJob.progress}
+                disabled={viewingJob.status === 'Completed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))}
+                aria-label="Production progress percentage"
                 onChange={e => handleUpdateProgress(viewingJob, parseInt(e.target.value))}
                 className="w-full accent-blue-600"
               />
@@ -323,7 +350,8 @@ export const Production: React.FC = () => {
             {/* Status Change */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Update Status</label>
-              <PremiumSelect label="Update production status" value={viewingJob.status} onChange={value => handleStatusChange(viewingJob, value)}
+              <PremiumSelect label="Update production status" value={viewingJob.status}
+                disabled={viewingJob.status === 'Completed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))} onChange={value => handleStatusChange(viewingJob, value)}
                 options={PRODUCTION_STATUSES.map(value => ({ value, label: value, color: statusColorMap[value] }))} />
             </div>
 
@@ -354,7 +382,7 @@ export const Production: React.FC = () => {
             </div>
 
             {/* Mark Complete */}
-            {viewingJob.status !== 'Completed' && (
+            {viewingJob.status !== 'Completed' && !orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status)) && (
               <button
                 onClick={() => {
                   handleUpdateProgress(viewingJob, 100);
@@ -396,7 +424,7 @@ export const Production: React.FC = () => {
                   product: selected?.product || f.product, quantity: selected?.quantity || f.quantity,
                   expectedCompletion: selected?.deliveryDate || f.expectedCompletion }));
               }}
-              options={[{ value: '', label: 'Select order...' }, ...orders.filter(o => !productionJobs.some(j => j.orderId === o.id)).map(o => ({ value: o.id, label: `${o.orderNumber} — ${o.product}` }))]} />
+              options={[{ value: '', label: 'Select order...' }, ...orders.filter(o => !productionJobs.some(j => j.orderId === o.id) && !['Completed','Cancelled','On Hold'].includes(o.status)).map(o => ({ value: o.id, label: `${o.orderNumber} — ${o.product}` }))]} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Product</label>

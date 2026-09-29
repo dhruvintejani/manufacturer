@@ -89,6 +89,14 @@ export const Quotations: React.FC = () => {
   useAccessibleOverlay(modalOpen, dismissQuotationModal, quotationDialogRef);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
   const [viewingQuotation, setViewingQuotation] = useState<Quotation | null>(null);
+
+  // ?open=ID is a deep link from customer records, notifications and dashboard activity.
+  useEffect(() => {
+    const openId = new URLSearchParams(location.search).get('open');
+    if (!openId) return;
+    const record = quotations.find(q => q.id === openId);
+    if (record) setViewingQuotation(record);
+  }, [location.search, quotations]);
   const [deleteTarget, setDeleteTarget] = useState<Quotation | null>(null);
   const [convertOrderOpen, setConvertOrderOpen] = useState(false);
   const [form, setForm] = useState<QuotationFormState>(defaultForm());
@@ -109,7 +117,13 @@ export const Quotations: React.FC = () => {
       setForm(newForm);
       setEditingQuotation(null);
       setModalOpen(true);
-      window.history.replaceState({}, document.title);
+      // Consume the router navigation payload without navigating a second time.
+      // A second replace-navigation can remount the quotation editor mid-interaction
+      // when arriving from the enquiry detail drawer. Preserve React Router's key/idx.
+      const historyEntry = window.history.state;
+      if (historyEntry && typeof historyEntry === 'object') {
+        window.history.replaceState({ ...historyEntry, usr: null }, '', window.location.href);
+      }
     }
   }, [location.state]);
 
@@ -391,7 +405,7 @@ export const Quotations: React.FC = () => {
                   <h2 className="text-lg font-semibold text-slate-900">{editingQuotation ? `Edit ${editingQuotation.quotationNumber}` : 'Create Quotation'}</h2>
                   <p className="text-sm text-slate-500 mt-0.5">Complete all sections for a professional quotation</p>
                 </div>
-                <button onClick={() => setModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
+                <button onClick={() => setModalOpen(false)} aria-label="Close quotation editor" title="Close" className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
               </div>
               <div className="flex-1 overflow-y-auto p-6 space-y-5">
                 {/* Customer & Meta */}
