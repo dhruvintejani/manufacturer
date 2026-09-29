@@ -169,7 +169,7 @@ export const Enquiries: React.FC = () => {
         <StatCard title="New" value={stats.new} icon={<Plus className="w-5 h-5 text-slate-600" />} iconBg="bg-slate-100" index={1} />
         <StatCard title="In Progress" value={stats.inProgress} icon={<User className="w-5 h-5 text-amber-600" />} iconBg="bg-amber-50" index={2} />
         <StatCard title="Quotation Sent" value={stats.quotationSent} icon={<FileText className="w-5 h-5 text-violet-600" />} iconBg="bg-violet-50" index={3} />
-        <StatCard title="Converted" value={stats.converted} change={14.5} icon={<ArrowRight className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={4} />
+        <StatCard title="Converted" value={stats.converted} icon={<ArrowRight className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={4} />
       </div>
 
       {/* Filters */}
