@@ -1,7 +1,9 @@
 const { test, expect } = require('@playwright/test');
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => window.localStorage.removeItem('forgeflow-storage'));
+  // Clear only once per test, not on subsequent navigations or reloads under test.
+  await page.goto('/');
+  await page.evaluate(() => window.localStorage.removeItem('forgeflow-storage'));
 });
 
 test('all application sections render without JS crashes at desktop and 100-200% zoom', async ({ page }) => {
