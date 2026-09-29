@@ -131,8 +131,9 @@ export function exportQuotationPdf(quotation: Quotation, customer?: Customer, pr
 
   if (preview) {
     const url = pdf.output('bloburl');
-    const tab = window.open(url, '_blank', 'noopener,noreferrer');
-    if (!tab) window.location.assign(url);
+    const tab = window.open(url, '_blank');
+    if (tab) tab.opener = null;
+    else pdf.save('quotation-preview.pdf');
   } else {
     pdf.save((quotation.quotationNumber || 'quotation-draft').replace(/[^a-z0-9-_]/gi, '_') + '.pdf');
   }
