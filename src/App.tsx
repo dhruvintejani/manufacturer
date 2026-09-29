@@ -9,6 +9,7 @@ import { Orders } from './pages/Orders';
 import { Production } from './pages/Production';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
+import { Help } from './pages/Help';
 
 const App: React.FC = () => {
   return (
@@ -24,7 +25,7 @@ const App: React.FC = () => {
           <Route path="production" element={<Production />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<Settings />} />
-          <Route path="help" element={<Settings />} />
+          <Route path="help" element={<Help />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
