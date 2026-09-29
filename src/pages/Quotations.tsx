@@ -397,17 +397,17 @@ export const Quotations: React.FC = () => {
       {/* Create/Edit Modal */}
       <AnimatePresence>
         {modalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 16 }} transition={{ duration: 0.2 }} ref={quotationDialogRef} tabIndex={-1} className="relative bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92dvh] flex flex-col z-10" role="dialog" aria-modal="true" aria-label="Quotation editor">
-              <div className="flex items-center justify-between p-6 border-b border-slate-100">
+            <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 16 }} transition={{ duration: 0.2 }} ref={quotationDialogRef} tabIndex={-1} className="relative z-10 flex max-h-[calc(100dvh-1rem)] w-full min-w-0 max-w-[calc(100vw-1rem)] flex-col rounded-xl bg-white shadow-2xl sm:max-h-[92dvh] sm:max-w-4xl" role="dialog" aria-modal="true" aria-label="Quotation editor">
+              <div className="flex shrink-0 items-start justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:p-6">
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-900">{editingQuotation ? `Edit ${editingQuotation.quotationNumber}` : 'Create Quotation'}</h2>
+                  <h2 className="min-w-0 break-words text-base font-semibold text-slate-900 sm:text-lg">{editingQuotation ? `Edit ${editingQuotation.quotationNumber}` : 'Create Quotation'}</h2>
                   <p className="text-sm text-slate-500 mt-0.5">Complete all sections for a professional quotation</p>
                 </div>
                 <button onClick={() => setModalOpen(false)} aria-label="Close quotation editor" title="Close" className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
               </div>
-              <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              <div className="min-h-0 min-w-0 flex-1 space-y-5 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4 sm:p-6">
                 {/* Customer & Meta */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="sm:col-span-2">
@@ -456,7 +456,7 @@ export const Quotations: React.FC = () => {
                       <Plus className="w-3.5 h-3.5" /> Add Line Item
                     </button>
                   </div>
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-200">
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead className="bg-slate-50">
@@ -539,7 +539,7 @@ export const Quotations: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex-shrink-0 border-t border-slate-100 p-4 sm:p-6 flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+              <div className="flex max-h-[37dvh] shrink-0 flex-wrap items-center justify-stretch gap-2 overflow-y-auto border-t border-slate-100 p-3 sm:max-h-none sm:justify-end sm:p-6">
                 <button onClick={() => setModalOpen(false)} className="px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
                 <button onClick={() => previewFormPdf(true)} className="px-3 py-2 text-sm font-semibold text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50">Preview</button>
                 <button onClick={() => previewFormPdf(false)} className="px-3 py-2 text-sm font-semibold text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"><Download className="inline h-4 w-4" /> Generate PDF</button>
@@ -568,7 +568,7 @@ export const Quotations: React.FC = () => {
             </div>
 
             {/* Status & Meta */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <StatusBadge status={viewingQuotation.status} />
               <span className="text-sm text-slate-500">•</span>
               <span className="text-sm text-slate-600">Dated {formatDate(viewingQuotation.date)}</span>
@@ -584,7 +584,7 @@ export const Quotations: React.FC = () => {
                   <div className="bg-blue-50 rounded-xl p-4 col-span-2">
                     <div className="text-xs text-blue-600 font-semibold mb-1">Customer</div>
                     <div className="text-base font-bold text-slate-900">{customer?.companyName}</div>
-                    <div className="text-sm text-slate-600 mt-0.5">{customer?.contactPerson} • {customer?.email}</div>
+                    <div className="break-all text-sm text-slate-600 mt-0.5">{customer?.contactPerson} • {customer?.email}</div>
                   </div>
                 </div>
               );
@@ -593,8 +593,9 @@ export const Quotations: React.FC = () => {
             {/* Items */}
             <div>
               <h4 className="text-sm font-semibold text-slate-900 mb-3">Line Items</h4>
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <table className="w-full">
+              <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-200">
+                <div role="region" aria-label="Quotation line items" tabIndex={0} className="w-full max-w-full overflow-x-auto overscroll-x-contain">
+                  <table className="min-w-[560px] w-full">
                   <thead className="bg-slate-50">
                     <tr>
                       {['Product', 'Qty', 'Unit Price', 'Disc.', 'Tax', 'Total'].map(h => (
@@ -617,9 +618,10 @@ export const Quotations: React.FC = () => {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-                <div className="flex justify-end bg-slate-50 border-t border-slate-200 px-4 py-4">
-                  <div className="space-y-1 w-52">
+                  </table>
+                </div>
+                <div className="flex justify-end bg-slate-50 border-t border-slate-200 px-3 py-3 sm:px-4 sm:py-4">
+                  <div className="min-w-0 max-w-full w-52">
                     <div className="flex justify-between text-sm text-slate-600"><span>Subtotal</span><span>{formatCurrency(viewingQuotation.subtotal, viewingQuotation.currency)}</span></div>
                     <div className="flex justify-between text-sm text-slate-600"><span>Discount</span><span className="text-red-500">−{formatCurrency(viewingQuotation.discountAmount, viewingQuotation.currency)}</span></div>
                     <div className="flex justify-between text-sm text-slate-600"><span>Tax</span><span>{formatCurrency(viewingQuotation.taxAmount, viewingQuotation.currency)}</span></div>
@@ -637,9 +639,9 @@ export const Quotations: React.FC = () => {
                 { label: 'Warranty', value: viewingQuotation.warranty },
                 viewingQuotation.notes ? { label: 'Notes', value: viewingQuotation.notes } : null,
               ].filter(Boolean).map((t: any) => (
-                <div key={t.label} className="flex gap-3">
+                <div key={t.label} className="flex min-w-0 flex-wrap gap-1 sm:gap-3">
                   <span className="text-slate-500 font-medium w-36 flex-shrink-0">{t.label}</span>
-                  <span className="text-slate-900">{t.value}</span>
+                  <span className="min-w-0 break-words text-slate-900">{t.value}</span>
                 </div>
               ))}
             </div>
