@@ -138,3 +138,50 @@ test('linked customers cannot be deleted, avoiding orphaned manufacturing record
   await expect(page.getByText('Cannot delete a customer linked to enquiries, quotations or orders.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Global Traders Pvt. Ltd.', exact: true })).toBeVisible();
 });
+
+test('navigating from a scrolled section starts the next section at the top', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 540 });
+  await page.goto('/dashboard');
+  const main = page.locator('main');
+  const previousScroll = await main.evaluate(element => {
+    element.scrollTop = element.scrollHeight;
+    return element.scrollTop;
+  });
+  expect(previousScroll).toBeGreaterThan(50);
+
+  await page.getByRole('link', { name: 'Customers', exact: true }).click();
+  await expect(page).toHaveURL(/\/customers$/);
+  await expect(page.getByRole('heading', { name: 'Customers', exact: true })).toBeVisible();
+  await expect.poll(() => main.evaluate(element => element.scrollTop)).toBe(0);
+});
+
+test('table next, previous and numbered pages all start at the top', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 540 });
+  await page.goto('/customers');
+  await page.evaluate(() => {
+    const key = 'forgeflow-storage';
+    const saved = JSON.parse(window.localStorage.getItem(key));
+    const existing = saved.state.customers[0];
+    for (let n = 0; n < 5; n++) {
+      saved.state.customers.push({ ...existing, id: 'TEST-C' + n, companyName: 'Extra Demo Customer ' + n });
+    }
+    window.localStorage.setItem(key, JSON.stringify(saved));
+  });
+  await page.reload();
+
+  const main = page.locator('main');
+  async function checkPage(buttonName, activePage) {
+    const before = await main.evaluate(element => {
+      element.scrollTop = element.scrollHeight;
+      return element.scrollTop;
+    });
+    expect(before).toBeGreaterThan(50);
+    await page.getByRole('button', { name: buttonName, exact: true }).click();
+    await expect(page.getByRole('button', { name: String(activePage), exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect.poll(() => main.evaluate(element => element.scrollTop)).toBe(0);
+  }
+
+  await checkPage('Next page', 2);
+  await checkPage('Previous page', 1);
+  await checkPage('2', 2);
+});
