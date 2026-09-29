@@ -64,7 +64,7 @@ export const Dashboard: React.FC = () => {
   // KPI calculations
   const totalEnquiries = enquiries.length;
   const pendingQuotations = quotations.filter(q => ['Draft', 'Sent', 'Negotiation'].includes(q.status)).length;
-  const activeOrders = orders.filter(o => !['Completed', 'Cancelled'].includes(o.status)).length;
+  const activeOrders = orders.filter(o => o.status !== 'Completed').length;
   const activeJobs = productionJobs.filter(j => j.status !== 'Completed').length;
   const pendingPayments = orders
     .filter(o => ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus))
@@ -95,7 +95,7 @@ export const Dashboard: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -122,7 +122,7 @@ export const Dashboard: React.FC = () => {
           className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-xl px-3.5 py-2 shadow-sm"
         >
           <Clock className="w-4 h-4 text-slate-400" />
-          <span className="font-medium">Apr 20 – Apr 26, 2026</span>
+          <span className="font-medium">{new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
         </motion.div>
       </div>
 
@@ -131,7 +131,6 @@ export const Dashboard: React.FC = () => {
         <StatCard
           title="Total Enquiries"
           value={totalEnquiries}
-          change={12.5}
           icon={<ClipboardList className="w-5 h-5 text-blue-600" />}
           iconBg="bg-blue-50"
           onClick={() => navigate('/enquiries')}
@@ -140,25 +139,22 @@ export const Dashboard: React.FC = () => {
         <StatCard
           title="Pending Quotations"
           value={pendingQuotations}
-          change={8.4}
           icon={<FileText className="w-5 h-5 text-amber-600" />}
           iconBg="bg-amber-50"
-          onClick={() => navigate('/quotations')}
+          onClick={() => navigate('/quotations?status=pending')}
           index={1}
         />
         <StatCard
           title="Active Orders"
           value={activeOrders}
-          change={5.2}
           icon={<ShoppingCart className="w-5 h-5 text-emerald-600" />}
           iconBg="bg-emerald-50"
-          onClick={() => navigate('/orders')}
+          onClick={() => navigate('/orders?status=active')}
           index={2}
         />
         <StatCard
           title="Production Jobs"
           value={activeJobs}
-          change={14.1}
           icon={<Factory className="w-5 h-5 text-violet-600" />}
           iconBg="bg-violet-50"
           onClick={() => navigate('/production')}
@@ -167,10 +163,9 @@ export const Dashboard: React.FC = () => {
         <StatCard
           title="Pending Payments"
           value={formatCurrency(pendingPayments)}
-          change={-3.2}
           icon={<DollarSign className="w-5 h-5 text-rose-600" />}
           iconBg="bg-rose-50"
-          onClick={() => navigate('/orders')}
+          onClick={() => navigate('/orders?payment=pending')}
           index={4}
         />
       </div>
