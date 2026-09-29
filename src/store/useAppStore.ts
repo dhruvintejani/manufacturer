@@ -40,23 +40,23 @@ interface AppStore {
   // Customer actions
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt'>) => Customer;
   updateCustomer: (id: string, data: Partial<Customer>) => void;
-  deleteCustomer: (id: string) => void;
+  deleteCustomer: (id: string) => boolean;
 
   // Enquiry actions
   addEnquiry: (enquiry: Omit<Enquiry, 'id' | 'enquiryDate'>) => Enquiry;
   updateEnquiry: (id: string, data: Partial<Enquiry>) => void;
-  deleteEnquiry: (id: string) => void;
+  deleteEnquiry: (id: string) => boolean;
 
   // Quotation actions
   addQuotation: (quotation: Omit<Quotation, 'id'>) => Quotation;
   updateQuotation: (id: string, data: Partial<Quotation>) => void;
-  deleteQuotation: (id: string) => void;
+  deleteQuotation: (id: string) => boolean;
 
   // Order actions
   addOrder: (order: Omit<Order, 'id'>) => Order;
   updateOrder: (id: string, data: Partial<Order>, changedBy?: string, note?: string) => void;
   advanceOrderStatus: (id: string, changedBy: string, note?: string) => boolean;
-  deleteOrder: (id: string) => void;
+  deleteOrder: (id: string) => boolean;
 
   // Production actions
   addProductionJob: (job: Omit<ProductionJob, 'id'>) => ProductionJob;
@@ -125,7 +125,12 @@ export const useAppStore = create<AppStore>()(
         set(s => ({ customers: s.customers.map(c => c.id === id ? { ...c, ...data } : c) }));
       },
       deleteCustomer: (id) => {
+        const state = get();
+        if (state.enquiries.some(e => e.customerId === id) ||
+            state.quotations.some(q => q.customerId === id) ||
+            state.orders.some(o => o.customerId === id)) return false;
         set(s => ({ customers: s.customers.filter(c => c.id !== id) }));
+        return true;
       },
 
       // Enquiry CRUD
@@ -168,7 +173,9 @@ export const useAppStore = create<AppStore>()(
         set(s => ({ enquiries: s.enquiries.map(e => e.id === id ? { ...e, ...data } : e) }));
       },
       deleteEnquiry: (id) => {
+        if (get().quotations.some(q => q.enquiryId === id)) return false;
         set(s => ({ enquiries: s.enquiries.filter(e => e.id !== id) }));
+        return true;
       },
 
       // Quotation CRUD
@@ -243,7 +250,14 @@ export const useAppStore = create<AppStore>()(
         }
       },
       deleteQuotation: (id) => {
-        set(s => ({ quotations: s.quotations.filter(q => q.id !== id) }));
+        if (get().orders.some(o => o.quotationId === id)) return false;
+        set(s => ({
+          quotations: s.quotations.filter(q => q.id !== id),
+          enquiries: s.enquiries.map(e => e.quotationId === id
+            ? { ...e, quotationId: undefined, status: e.status === 'Quotation Sent' ? 'Contacted' : e.status }
+            : e),
+        }));
+        return true;
       },
 
       // Order CRUD
@@ -324,7 +338,17 @@ export const useAppStore = create<AppStore>()(
         return true;
       },
       deleteOrder: (id) => {
-        set(s => ({ orders: s.orders.filter(o => o.id !== id) }));
+        if (get().productionJobs.some(j => j.orderId === id)) return false;
+        const order = get().orders.find(o => o.id === id);
+        set(s => ({
+          orders: s.orders.filter(o => o.id !== id),
+          quotations: s.quotations.map(q => q.orderId === id ? { ...q, orderId: undefined } : q),
+          enquiries: s.enquiries.map(e =>
+            order && s.quotations.some(q => q.id === order.quotationId && q.enquiryId === e.id) && e.status === 'Converted'
+              ? { ...e, status: 'Quotation Sent' }
+              : e),
+        }));
+        return true;
       },
 
       // Production CRUD
@@ -396,7 +420,10 @@ export const useAppStore = create<AppStore>()(
         }
       },
       deleteProductionJob: (id) => {
-        set(s => ({ productionJobs: s.productionJobs.filter(j => j.id !== id) }));
+        set(s => ({
+          productionJobs: s.productionJobs.filter(j => j.id !== id),
+          orders: s.orders.map(o => o.productionJobId === id ? { ...o, productionJobId: undefined } : o),
+        }));
       },
 
       // Notifications
