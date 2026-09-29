@@ -357,21 +357,21 @@ export const Customers: React.FC = () => {
           title={viewingCustomer.companyName}
           subtitle="Customer Profile"
         >
-          <div className="p-6 space-y-6">
+          <div className="min-w-0 space-y-4 p-3 sm:space-y-6 sm:p-6">
             {/* Header */}
-            <div className="flex items-start gap-4">
+            <div className="flex min-w-0 flex-wrap items-start gap-3 sm:gap-4">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
                 <span className="text-white text-lg font-bold">
                   {viewingCustomer.companyName.slice(0, 2).toUpperCase()}
                 </span>
               </div>
               <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-bold text-slate-900">{viewingCustomer.companyName}</h3>
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <h3 className="min-w-0 break-words text-lg font-bold text-slate-900 sm:text-xl">{viewingCustomer.companyName}</h3>
                   <StatusBadge status={viewingCustomer.status} />
                 </div>
                 <div className="flex flex-wrap gap-4 mt-2">
-                  <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                  <div className="flex min-w-0 items-center gap-1.5 break-all text-sm text-slate-600">
                     <Mail className="w-3.5 h-3.5 text-slate-400" />
                     {viewingCustomer.email}
                   </div>
@@ -394,8 +394,8 @@ export const Customers: React.FC = () => {
                     { label: 'Orders', value: stats.orders, color: 'text-emerald-600' },
                     { label: 'Revenue', value: formatCurrency(stats.revenue), color: 'text-violet-600' },
                   ].map(s => (
-                    <div key={s.label} className="bg-slate-50 rounded-xl p-3 text-center">
-                      <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
+                    <div key={s.label} className="min-w-0 rounded-xl bg-slate-50 p-2 text-center sm:p-3">
+                      <div className={`break-words text-base font-bold sm:text-xl ${s.color}`}>{s.value}</div>
                       <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
                     </div>
                   ))}
