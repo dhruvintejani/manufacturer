@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -54,6 +54,14 @@ export const Production: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState(new URLSearchParams(location.search).get('status') === 'active' ? 'active' : 'all');
   const [page, setPage] = useState(1);
   const [viewingJob, setViewingJob] = useState<ProductionJob | null>(null);
+
+  // ?open=ID is a deep link from customer records, notifications and dashboard activity.
+  useEffect(() => {
+    const openId = new URLSearchParams(location.search).get('open');
+    if (!openId) return;
+    const record = productionJobs.find(job => job.id === openId);
+    if (record) setViewingJob(record);
+  }, [location.search, productionJobs]);
   const [deleteTarget, setDeleteTarget] = useState<ProductionJob | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [newJobForm, setNewJobForm] = useState({
