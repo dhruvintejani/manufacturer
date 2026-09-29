@@ -193,7 +193,7 @@ test('table next, previous and numbered pages all start at the top', async ({ pa
 test('help has dedicated manufacturing workflow guidance, not settings', async ({ page }) => {
   await page.goto('/help');
   await expect(page.getByRole('heading', { name: 'Help & Support' })).toBeVisible();
-  await expect(page.getByText('This preview stores operational changes')).toBeVisible();
+  await expect(page.getByText(/This preview stores operational changes/)).toBeVisible();
   await page.getByRole('button', { name: 'Quotations', exact: true }).click();
   await expect(page.getByText(/Prepare Email opens your email application/)).toBeVisible();
 });
