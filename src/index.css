@@ -158,3 +158,22 @@ select { appearance: none; padding-right: 2.2rem !important; background-image: l
   .page-shell { padding: 0.875rem; padding-bottom: max(2rem, env(safe-area-inset-bottom, 0px)); gap: 1rem; }
   .page-shell .recharts-wrapper, .page-shell .recharts-surface { max-width: 100%; }
 }
+
+
+/* Robust HTML chart rendering: these bars and rings remain visible even when
+   Recharts/SVG cannot measure a mobile Safari viewport. Animate only the
+   entrance; never animate measured chart heights or obscure the actual data. */
+@keyframes chart-appear {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes chart-pop {
+  from { opacity: 0.65; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+.chart-appear { animation: chart-appear 350ms ease-out both; }
+.chart-donut { animation: chart-pop 480ms ease-out both; }
+.chart-bar { animation: chart-appear 400ms ease-out both; transform-origin: bottom; }
+@media (prefers-reduced-motion: reduce) {
+  .chart-appear, .chart-bar, .chart-donut { animation: none !important; }
+}

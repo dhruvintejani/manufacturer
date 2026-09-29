@@ -16,7 +16,11 @@ module.exports = defineConfig({
     ...devices['Desktop Chrome'],
   },
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1 --port 4173 --strictPort',
+    // CI exercises the same minified, single-file bundle Vercel deploys,
+    // not only Vite's development server (which can mask Safari chart issues).
+    command: process.env.PLAYWRIGHT_PRODUCTION === '1'
+      ? 'npm run preview -- --host 127.0.0.1 --port 4173 --strictPort'
+      : 'npm run dev -- --host 127.0.0.1 --port 4173 --strictPort',
     port: 4173,
     timeout: 120_000,
     reuseExistingServer: !process.env.CI,

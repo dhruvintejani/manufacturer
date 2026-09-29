@@ -25,11 +25,11 @@ export const ChartAlternative: React.FC<{
   children: React.ReactNode;
 }> = ({ title, fallback, children }) => (
   <>
-    <div data-html-chart={title} className={prefersHtmlCharts ? 'block' : 'block sm:hidden'}>
+    <div data-html-chart={title} className={prefersHtmlCharts ? 'chart-appear block' : 'chart-appear block lg:hidden'}>
       {fallback}
     </div>
     {!prefersHtmlCharts && (
-      <div data-svg-chart={title} className="hidden min-w-0 sm:block">
+      <div data-svg-chart={title} className="hidden min-w-0 lg:block">
         {children}
       </div>
     )}
@@ -70,7 +70,7 @@ export const AccessibleBars: React.FC<{
                     aria-label={row.label + ': ' + item.label + ' ' + valueLabel(value)}
                     title={row.label + ' — ' + item.label + ': ' + valueLabel(value)}
                     data-chart-value={value}
-                    className="max-w-6 min-w-1 flex-1 rounded-t-[3px]"
+                    className="chart-bar max-w-6 min-w-1 flex-1 rounded-t-[3px] transition-[filter] duration-200 hover:brightness-90"
                     style={{ height: value ? Math.max(6, value / max * 126) : 2, background: value ? item.color : '#e2e8f0' }}
                   />;
                 })}
@@ -109,7 +109,7 @@ export const AccessibleDonut: React.FC<{
   return (
     <div role="group" aria-label={title} className="flex min-w-0 flex-col items-center gap-4 py-2">
       <div role="img" aria-label={title + ': ' + positive.map(item => item.name + ' ' + item.value).join(', ')}
-        data-chart-total={total} className="relative h-40 w-40 shrink-0 rounded-full"
+        data-chart-total={total} className="chart-donut relative h-40 w-40 shrink-0 rounded-full"
         style={{ background: `conic-gradient(${segments.join(', ')})` }}>
         <div className="absolute inset-[29px] flex flex-col items-center justify-center rounded-full bg-white shadow-inner">
           <span className="text-2xl font-bold text-slate-900">{total}</span>
@@ -144,7 +144,7 @@ export const AccessibleHorizontalBars: React.FC<{
         </div>
         <div className="h-3 overflow-hidden rounded-full bg-slate-100">
           <div role="img" aria-label={item.label + ': ' + valueLabel(item.value)}
-            data-chart-value={item.value} className="h-full rounded-full"
+            data-chart-value={item.value} className="chart-bar h-full rounded-full"
             style={{ width: (item.value / max * 100) + '%', background: color }} />
         </div>
       </div>)}

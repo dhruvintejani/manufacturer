@@ -158,17 +158,23 @@ test('navigating from a scrolled section starts the next section at the top', as
 test('table next, previous and numbered pages all start at the top', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 540 });
   await page.goto('/customers');
-  await page.evaluate(async () => {
+  await page.evaluate(() => {
+    // Use a complete test fixture rather than importing TypeScript source by
+    // /src/...; production builds intentionally contain only bundled assets.
     const key = 'forgeflow-storage';
-    let saved = JSON.parse(window.localStorage.getItem(key));
-    if (!saved) {
-      const { seedCustomers } = await import('/src/data/seedData.ts');
-      saved = { state: { customers: seedCustomers }, version: 0 };
-    }
-    const existing = saved.state.customers[0];
-    for (let n = 0; n < 5; n++) {
-      saved.state.customers.push({ ...existing, id: 'TEST-C' + n, companyName: 'Extra Demo Customer ' + n });
-    }
+    const saved = JSON.parse(window.localStorage.getItem(key) || 'null') || { state: {}, version: 0 };
+    const existing = saved.state.customers?.[0] || {
+      id: 'TEST-SEED', companyName: 'Demo Customer', contactPerson: 'Test Operator',
+      email: 'operator@example.test', phone: '555-0100', country: 'India',
+      address: 'Demo Street', taxNumber: 'DEMO-TAX', notes: '',
+      status: 'active', createdAt: '2026-01-15T08:30:00Z',
+    };
+    saved.state.customers = [
+      ...(saved.state.customers || [existing]),
+      ...Array.from({ length: 16 }, (_, n) => ({
+        ...existing, id: 'TEST-C' + n, companyName: 'Extra Demo Customer ' + n,
+      })),
+    ];
     window.localStorage.setItem(key, JSON.stringify(saved));
   });
   await page.reload();

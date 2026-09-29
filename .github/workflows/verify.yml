@@ -33,7 +33,10 @@ jobs:
       - run: npm ci
       - run: npm install --no-save --package-lock=false @playwright/test@1.55.1
       - run: npx playwright install --with-deps chromium webkit
+      - run: npm run build
       - run: npx playwright test
+        env:
+          PLAYWRIGHT_PRODUCTION: '1'
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
