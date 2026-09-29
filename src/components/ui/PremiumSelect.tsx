@@ -39,16 +39,18 @@ export const PremiumSelect: React.FC<PremiumSelectProps> = ({
     const outside = (event: PointerEvent) => {
       if (!root.current?.contains(event.target as Node) && !menu.current?.contains(event.target as Node)) setOpen(false);
     };
-    const dismissOnScroll = (event: Event) => {
-      if (event.target !== menu.current) setOpen(false);
+    // Programmatic scrolling (e.g. keyboard navigation or browser testing) must not
+    // unmount a selected option while it is being activated.
+    const dismissOnWheel = (event: WheelEvent) => {
+      if (!menu.current?.contains(event.target as Node)) setOpen(false);
     };
     const dismissOnResize = () => setOpen(false);
     document.addEventListener('pointerdown', outside);
-    window.addEventListener('scroll', dismissOnScroll, true);
+    window.addEventListener('wheel', dismissOnWheel, { capture: true, passive: true });
     window.addEventListener('resize', dismissOnResize);
     return () => {
       document.removeEventListener('pointerdown', outside);
-      window.removeEventListener('scroll', dismissOnScroll, true);
+      window.removeEventListener('wheel', dismissOnWheel, true);
       window.removeEventListener('resize', dismissOnResize);
     };
   }, [open]);
