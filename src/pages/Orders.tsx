@@ -209,7 +209,11 @@ export const Orders: React.FC = () => {
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
                     {['Order ID', 'Customer', 'Product', 'Qty', 'Order Date', 'Delivery', 'Amount', 'Status', 'Payment', 'Actions'].map(h => (
-                      <th key={h} className="text-left text-xs font-semibold text-slate-500 px-6 py-3.5">{h}</th>
+                      <th key={h} scope="col" className="text-left text-xs font-semibold text-slate-500 px-6 py-3.5">
+                        {h === 'Order Date' ? <button type="button" onClick={() => { setNewestFirst(v => !v); setPage(1); }}
+                          className="inline-flex items-center gap-1 hover:text-blue-700" title="Toggle order date sorting"
+                          aria-label="Sort orders by date">Order Date <ArrowDownUp className="h-3.5 w-3.5" /></button> : h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
