@@ -10,6 +10,7 @@ import { ProductionJob } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { StatCard } from '../components/ui/StatCard';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { RowActions } from '../components/ui/RowActions';
 import { Drawer } from '../components/ui/Drawer';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SearchInput } from '../components/ui/SearchInput';
@@ -226,10 +227,10 @@ export const Production: React.FC = () => {
                       </td>
                       <td className="px-6 py-4"><StatusBadge status={job.status} /></td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-1 opacity-100 transition-opacity">
-                          <button onClick={() => setViewingJob(job)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => { setDeleteTarget(job); }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
-                        </div>
+                        <RowActions label={`Actions for ${job.jobNumber}`} actions={[
+  { label: 'View details', onClick: () => setViewingJob(job), icon: <Eye className="h-4 w-4" /> },
+  { label: 'Delete job', onClick: () => setDeleteTarget(job), icon: <Trash2 className="h-4 w-4" />, danger: true },
+]} />
                       </td>
                     </motion.tr>
                   ))}
