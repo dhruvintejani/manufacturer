@@ -20,6 +20,8 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { WorkflowStepper } from '../components/ui/WorkflowStepper';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { calculateQuotationTotals } from '../utils/calculations';
+import { PremiumSelect } from '../components/ui/PremiumSelect';
+import { exportQuotationPdf } from '../utils/quotationPdf';
 
 const ITEMS_PER_PAGE = 8;
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'SAR', 'SGD'];
@@ -83,7 +85,6 @@ export const Quotations: React.FC = () => {
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
   const [viewingQuotation, setViewingQuotation] = useState<Quotation | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Quotation | null>(null);
-  const [_sendConfirmOpen, setSendConfirmOpen] = useState(false);
   const [convertOrderOpen, setConvertOrderOpen] = useState(false);
   const [form, setForm] = useState<QuotationFormState>(defaultForm());
 
@@ -143,7 +144,11 @@ export const Quotations: React.FC = () => {
 
   const handleSave = (status = form.status) => {
     if (!form.customerId) { toast.error('Please select a customer.'); return; }
-    if (form.items.length === 0) { toast.error('Add at least one line item.'); return; }
+    if (form.items.length === 0 || form.items.some(item => !item.product || !Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.unitPrice) || item.unitPrice < 0 || item.discount < 0 || item.discount > 100 || item.tax < 0 || item.tax > 100)) {
+      toast.error('Add valid products, quantities, unit prices, discounts and tax.'); return;
+    }
+    if (!form.date || !form.validity || form.validity < form.date) { toast.error('Validity must be on or after the quotation date.'); return; }
+    if (form.enquiryId && enquiries.find(e => e.id === form.enquiryId)?.customerId !== form.customerId) { toast.error('Enquiry must belong to the selected customer.'); return; }
 
     // Recalculate item totals before saving
     const itemsWithTotals = form.items.map(item => ({
@@ -170,11 +175,35 @@ export const Quotations: React.FC = () => {
   };
 
   const handleSend = (q: Quotation) => {
-    const cust = customers.find(c => c.id === q.customerId);
+    const customer = customers.find(c => c.id === q.customerId);
+    if (!customer?.email) { toast.error('Customer email is missing.'); return; }
+    const subject = encodeURIComponent(`Quotation ${q.quotationNumber} - Manufacturing request`);
+    const body = encodeURIComponent(`Hello ${customer.contactPerson || customer.companyName},\n\nPlease find our quotation ${q.quotationNumber} for review.\n\nRegards,\nManufacturing team`);
+    window.location.href = `mailto:${customer.email}?subject=${subject}&body=${body}`;
+    toast('Email draft opened. Download the PDF and attach it before sending.', { duration: 6000 });
+  };
+
+  const handleMarkSent = (q: Quotation) => {
     updateQuotation(q.id, { status: 'Sent' });
-    toast.success(`Quotation sent to ${cust?.email || 'customer'}.`);
-    setSendConfirmOpen(false);
-    setViewingQuotation(null);
+    setViewingQuotation(prev => prev ? { ...prev, status: 'Sent' } : null);
+    toast.success('Quotation marked as sent.');
+  };
+
+  const currentDraftQuotation = (): Quotation => ({
+    ...form,
+    id: editingQuotation?.id || 'PREVIEW',
+    quotationNumber: editingQuotation?.quotationNumber || 'DRAFT-PREVIEW',
+    enquiryId: form.enquiryId || undefined,
+    status: form.status as Quotation['status'],
+    items: form.items.map(item => ({ ...item, total: calcItemTotal(item) })),
+    ...totals,
+  });
+
+  const previewFormPdf = (preview: boolean) => {
+    if (!form.customerId || form.items.some(item => !item.product || item.quantity <= 0)) {
+      toast.error('Choose a customer and complete at least one product before previewing.'); return;
+    }
+    exportQuotationPdf(currentDraftQuotation(), customers.find(c => c.id === form.customerId), preview);
   };
 
   const handleApprove = (q: Quotation) => {
@@ -212,110 +241,8 @@ export const Quotations: React.FC = () => {
   };
 
   const handlePDF = (q: Quotation) => {
-    const customer = customers.find(c => c.id === q.customerId);
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`
-      <html><head><title>${q.quotationNumber}</title>
-      <style>
-        body { font-family: Inter, Arial, sans-serif; color: #0F172A; padding: 40px; max-width: 800px; margin: 0 auto; font-size: 13px; }
-        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; border-bottom: 2px solid #2563EB; padding-bottom: 20px; }
-        .brand { font-size: 22px; font-weight: 800; color: #2563EB; }
-        .brand-sub { font-size: 11px; color: #64748B; margin-top: 2px; }
-        .title { font-size: 28px; font-weight: 700; color: #0F172A; margin-bottom: 24px; }
-        .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
-        .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748B; margin-bottom: 8px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-        th { background: #F1F5F9; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748B; }
-        td { padding: 10px 12px; border-bottom: 1px solid #F1F5F9; vertical-align: top; }
-        .total-section { margin-left: auto; width: 260px; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px; }
-        .total-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
-        .grand-total { font-size: 16px; font-weight: 800; color: #2563EB; padding-top: 8px; border-top: 2px solid #2563EB; margin-top: 8px; }
-        .terms { margin-top: 24px; }
-        .term-row { display: grid; grid-template-columns: 140px 1fr; gap: 8px; padding: 4px 0; }
-        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #E2E8F0; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-        .sig-line { border-top: 1px solid #0F172A; padding-top: 8px; margin-top: 40px; font-size: 12px; }
-        @media print { body { padding: 20px; } }
-      </style>
-      </head><body>
-      <div class="header">
-        <div>
-          <div class="brand">⚡ ForgeFlow</div>
-          <div class="brand-sub">Manufacturing Operations Platform</div>
-        </div>
-        <div style="text-align:right; font-size: 12px; color: #64748B;">
-          <div><strong>Quotation #</strong>${q.quotationNumber}</div>
-          <div><strong>Date:</strong> ${formatDate(q.date)}</div>
-          <div><strong>Valid Until:</strong> ${formatDate(q.validity)}</div>
-        </div>
-      </div>
-      <div class="title">QUOTATION</div>
-      <div class="meta">
-        <div>
-          <div class="section-title">Bill To</div>
-          <div style="font-weight: 700; font-size: 14px;">${customer?.companyName || 'Customer'}</div>
-          <div>${customer?.contactPerson || ''}</div>
-          <div>${customer?.email || ''}</div>
-          <div>${customer?.phone || ''}</div>
-          <div>${customer?.address || ''}</div>
-          ${customer?.taxNumber ? `<div>Tax: ${customer.taxNumber}</div>` : ''}
-        </div>
-        <div>
-          <div class="section-title">From</div>
-          <div style="font-weight: 700; font-size: 14px;">ForgeFlow Manufacturing</div>
-          <div>operations@forgeflow.com</div>
-          <div>+1 (555) 000-0000</div>
-        </div>
-      </div>
-      <table>
-        <thead><tr>
-          <th>Product / Description</th>
-          <th style="text-align:right">Qty</th>
-          <th style="text-align:right">Unit Price</th>
-          <th style="text-align:right">Discount</th>
-          <th style="text-align:right">Tax</th>
-          <th style="text-align:right">Total</th>
-        </tr></thead>
-        <tbody>
-          ${q.items.map(item => `<tr>
-            <td><strong>${item.product}</strong><br><span style="color:#64748B;font-size:11px">${item.description}</span></td>
-            <td style="text-align:right">${item.quantity}</td>
-            <td style="text-align:right">${formatCurrency(item.unitPrice, q.currency)}</td>
-            <td style="text-align:right">${item.discount}%</td>
-            <td style="text-align:right">${item.tax}%</td>
-            <td style="text-align:right"><strong>${formatCurrency(item.total, q.currency)}</strong></td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-      <div style="display:flex; justify-content:flex-end;">
-        <div class="total-section">
-          <div class="total-row"><span>Subtotal</span><span>${formatCurrency(q.subtotal, q.currency)}</span></div>
-          <div class="total-row"><span>Discount</span><span>− ${formatCurrency(q.discountAmount, q.currency)}</span></div>
-          <div class="total-row"><span>Tax</span><span>${formatCurrency(q.taxAmount, q.currency)}</span></div>
-          <div class="total-row grand-total"><span>Grand Total</span><span>${formatCurrency(q.total, q.currency)}</span></div>
-        </div>
-      </div>
-      <div class="terms">
-        <div class="section-title">Terms & Conditions</div>
-        <div class="term-row"><span style="color:#64748B;font-size:12px">Delivery Lead Time</span><span>${q.deliveryLeadTime}</span></div>
-        <div class="term-row"><span style="color:#64748B;font-size:12px">Payment Terms</span><span>${q.paymentTerms}</span></div>
-        <div class="term-row"><span style="color:#64748B;font-size:12px">Warranty</span><span>${q.warranty}</span></div>
-        ${q.notes ? `<div class="term-row"><span style="color:#64748B;font-size:12px">Notes</span><span>${q.notes}</span></div>` : ''}
-      </div>
-      <div class="footer">
-        <div>
-          <div class="section-title">Authorized By</div>
-          <div class="sig-line">Alex Morgan<br><span style="color:#64748B">Operations Manager</span></div>
-        </div>
-        <div>
-          <div class="section-title">Customer Acceptance</div>
-          <div class="sig-line"><span style="color:#64748B">Signature / Stamp</span></div>
-        </div>
-      </div>
-      <script>window.onload = () => window.print();</script>
-      </body></html>
-    `);
-    win.document.close();
+    exportQuotationPdf(q, customers.find(c => c.id === q.customerId));
+    toast.success('Quotation PDF generated.');
   };
 
   const filtered = useMemo(() => {
@@ -348,7 +275,7 @@ export const Quotations: React.FC = () => {
   const hasOrder = (q: Quotation) => !!q.orderId || orders.some(o => o.quotationId === q.id);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Quotations"
         subtitle="Create, manage and track customer quotations."
