@@ -75,11 +75,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
         onClick={() => mobile && setSidebarMobileOpen(false)}
         title={collapsed ? item.label : undefined}
         className={cn(
-          'group relative flex items-center gap-3 rounded-xl transition-all duration-150',
+          'group relative flex cursor-pointer items-center gap-3 rounded-lg border-l-[3px] transition-colors duration-150',
           collapsed ? 'px-2.5 py-2.5 justify-center' : 'px-3 py-2.5',
           isActive
-            ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-900/30'
-            : 'text-slate-400 hover:text-white hover:bg-white/8'
+            ? 'border-blue-300 bg-blue-600/85 text-white shadow-sm'
+            : 'border-transparent text-slate-300 hover:text-white hover:bg-white/10'
         )}
       >
         <span className="flex-shrink-0">{item.icon}</span>
@@ -112,6 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
 
       {/* Main Nav */}
       <div className="px-3 flex-1 overflow-y-auto sidebar-scroll">
+        <div className="px-3 pb-2 text-[10px] font-bold tracking-[.18em] text-slate-400 uppercase">Workspace</div>
         <div className="space-y-1">
           {navItems.map(item => (
             <NavItemComp key={item.path} item={item} />
@@ -119,6 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
         </div>
 
         <div className="mt-6 pt-4 border-t border-white/10 space-y-1">
+          {!collapsed && <div className="px-3 pb-2 text-[10px] font-bold tracking-[.18em] text-slate-400 uppercase">Manage</div>}
           {bottomItems.map(item => (
             <NavItemComp key={item.path} item={item} />
           ))}
@@ -127,8 +129,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
 
       {/* User section */}
       <div className="p-3 border-t border-white/10">
-        <div className={cn(
-          'flex items-center gap-3 rounded-xl p-2.5 hover:bg-white/10 transition-colors cursor-pointer',
+        <NavLink to="/settings" onClick={() => mobile && setSidebarMobileOpen(false)} aria-label="Account settings" className={cn(
+          'flex items-center gap-3 rounded-lg p-2.5 hover:bg-white/10 transition-colors cursor-pointer',
           collapsed && 'justify-center'
         )}>
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
@@ -148,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </NavLink>
       </div>
 
       {/* Collapse toggle (desktop only) */}
@@ -182,7 +184,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="fixed left-0 top-0 bottom-0 w-72 z-40 relative"
+              className="fixed left-0 top-0 bottom-0 w-[min(18rem,90vw)] z-40"
             >
               <button
                 onClick={() => setSidebarMobileOpen(false)}
@@ -204,7 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
       initial={false}
       animate={{ width: sidebarCollapsed ? 72 : 264 }}
       transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-      className="hidden lg:block flex-shrink-0 h-screen sticky top-0 relative overflow-visible"
+      className="relative hidden lg:block flex-shrink-0 h-screen overflow-visible"
       style={{ background: '#0F1F3D' }}
     >
       {sidebarContent}
