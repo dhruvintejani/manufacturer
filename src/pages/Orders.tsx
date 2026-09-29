@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  ShoppingCart, Plus, Eye, Edit2, Trash2,
+  ShoppingCart, Plus, Eye, Edit2, Trash2, PauseCircle, PlayCircle, Ban,
   Factory, CheckCircle, ArrowRight, DollarSign, ArrowDownUp
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -24,17 +24,22 @@ import { PremiumSelect } from '../components/ui/PremiumSelect';
 
 const ITEMS_PER_PAGE = 8;
 const ORDER_STATUSES = ['Confirmed', 'Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'];
+const ORDER_EXCEPTION_STATUSES = ['On Hold', 'Cancelled'];
 const PAYMENT_STATUSES = ['Pending', 'Partial', 'Paid', 'Overdue'];
 const STATUS_COLORS: Record<string, string> = {
   Confirmed: '#2563eb', Production: '#7c3aed', 'Quality Check': '#d97706',
   Ready: '#0d9488', Dispatched: '#0891b2', Completed: '#059669',
+  'On Hold': '#c2410c', Cancelled: '#be123c',
 };
 const PRODUCTS = ['Pressure Vessel', 'Heat Exchanger', 'Storage Tank', 'Industrial Dryer', 'Reactor', 'Column', 'Boiler System'];
 const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
 
-const getWorkflowSteps = (status: string) => {
+const getWorkflowSteps = (order: Order) => {
   const steps = ['Confirmed', 'Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'];
-  const idx = steps.indexOf(status);
+  const effectiveStatus = order.status === 'On Hold' || order.status === 'Cancelled'
+    ? [...(order.statusHistory || [])].reverse().find(event => event.to === order.status)?.from || 'Confirmed'
+    : order.status;
+  const idx = steps.indexOf(effectiveStatus);
   return steps.map((s, i) => ({
     label: s,
     status: i < idx ? 'completed' : i === idx ? 'current' : 'pending' as any,
@@ -45,13 +50,15 @@ export const Orders: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { orders, customers, productionJobs, addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus, profile } = useAppStore();
+  const { orders, customers, productionJobs, addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus, changeOrderException, profile } = useAppStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') === 'active' ? 'active' : 'all');
   const [paymentFilter, setPaymentFilter] = useState(searchParams.get('payment') === 'pending' ? 'pending' : 'all');
   const [newestFirst, setNewestFirst] = useState(true);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [statusNote, setStatusNote] = useState('');
+  const [exceptionAction, setExceptionAction] = useState<'hold' | 'resume' | 'cancel' | null>(null);
+  const [exceptionNote, setExceptionNote] = useState('');
   const [page, setPage] = useState(1);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
 
@@ -80,7 +87,7 @@ export const Orders: React.FC = () => {
         o.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
         o.product.toLowerCase().includes(search.toLowerCase()) ||
         customer?.companyName.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? o.status !== 'Completed' : o.status === statusFilter);
+      const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? !['Completed','Cancelled'].includes(o.status) : o.status === statusFilter);
       const matchPayment = paymentFilter === 'all' || (paymentFilter === 'pending' ? ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus) : o.paymentStatus === paymentFilter);
       return matchSearch && matchStatus && matchPayment;
     });
@@ -94,7 +101,7 @@ export const Orders: React.FC = () => {
 
   const stats = {
     total: orders.length,
-    active: orders.filter(o => o.status !== 'Completed').length,
+    active: orders.filter(o => !['Completed','Cancelled'].includes(o.status)).length,
     inProduction: orders.filter(o => o.status === 'Production').length,
     completed: orders.filter(o => o.status === 'Completed').length,
     pendingPayment: orders.filter(o => ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus)).length,
@@ -163,6 +170,20 @@ export const Orders: React.FC = () => {
     toast.success(`Order moved to ${nextOrderStatus}.`);
   };
 
+  const handleException = () => {
+    if (!currentOrder || !exceptionAction) return;
+    if (!changeOrderException(currentOrder.id, exceptionAction, profile.name, exceptionNote)) {
+      toast.error('The selected status change is unavailable. Refresh the order and try again.');
+      setExceptionAction(null);
+      return;
+    }
+    setViewingOrder(useAppStore.getState().orders.find(order => order.id === currentOrder.id) || null);
+    toast.success(exceptionAction === 'hold' ? 'Order put on hold.' :
+      exceptionAction === 'resume' ? 'Order resumed at its previous stage.' : 'Order cancelled.');
+    setExceptionAction(null);
+    setExceptionNote('');
+  };
+
   const handleAddOrder = () => {
     if (!newOrderForm.customerId || !newOrderForm.product) { toast.error('Please fill required fields.'); return; }
     const order = addOrder({ ...newOrderForm as any, orderNumber: '' });
@@ -205,7 +226,7 @@ export const Orders: React.FC = () => {
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search by order no., customer or product..." className="flex-1 max-w-md" />
         <PremiumSelect label="Order status filter" value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }}
-          options={[{ value: 'all', label: 'All Status' }, { value: 'active', label: 'Active Orders' }, ...ORDER_STATUSES.map(value => ({ value, label: value, color: STATUS_COLORS[value] }))]} className="w-full sm:w-48" />
+          options={[{ value: 'all', label: 'All Status' }, { value: 'active', label: 'Active Orders' }, ...[...ORDER_STATUSES, ...ORDER_EXCEPTION_STATUSES].map(value => ({ value, label: value, color: STATUS_COLORS[value] }))]} className="w-full sm:w-48" />
         <PremiumSelect label="Payment status filter" value={paymentFilter} onChange={value => { setPaymentFilter(value); setPage(1); }}
           options={[{ value: 'all', label: 'All Payments' }, { value: 'pending', label: 'Pending / Partial / Overdue', color: '#d97706' },
             ...PAYMENT_STATUSES.map(value => ({ value, label: value, color: value === 'Paid' ? '#059669' : '#d97706' }))]} className="w-full sm:w-60" />
@@ -275,7 +296,7 @@ export const Orders: React.FC = () => {
             {/* Workflow */}
             <div className="bg-slate-50 rounded-xl p-4">
               <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Order Progress</h4>
-              <WorkflowStepper steps={getWorkflowSteps(viewingOrder.status)} />
+              <WorkflowStepper steps={getWorkflowSteps(viewingOrder)} />
               {nextOrderStatus && (
                 <button type="button" onClick={() => setStatusModalOpen(true)}
                   className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800">
