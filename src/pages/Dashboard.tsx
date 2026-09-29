@@ -61,7 +61,7 @@ export const Dashboard: React.FC = () => {
   // KPI calculations
   const totalEnquiries = enquiries.length;
   const pendingQuotations = quotations.filter(q => ['Draft', 'Sent', 'Negotiation'].includes(q.status)).length;
-  const activeOrders = orders.filter(o => o.status !== 'Completed').length;
+  const activeOrders = orders.filter(o => !['Completed', 'Cancelled'].includes(o.status)).length;
   const activeJobs = productionJobs.filter(j => j.status !== 'Completed').length;
   const pendingPayments = orders
     .filter(o => ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus)).length;
