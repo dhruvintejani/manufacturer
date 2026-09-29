@@ -43,7 +43,7 @@ test('mobile navigation and application pages remain usable', async ({ page }) =
 test('orders advance one stage at a time and retain an audited history after refresh', async ({ page }) => {
   await page.goto('/orders');
   await page.getByPlaceholder('Search by order no., customer or product...').fill('ORD-2026-0055');
-  await page.getByRole('button', { name: 'ORD-2026-0055' }).click();
+  await page.getByRole('button', { name: 'ORD-2026-0055', exact: true }).click();
   await expect(page.getByText('Status History')).toBeVisible();
   await page.getByRole('button', { name: /Update Status/ }).click();
   await page.getByLabel('Update note (optional)').fill('Fabrication scheduled after materials arrived.');
@@ -52,14 +52,14 @@ test('orders advance one stage at a time and retain an audited history after ref
   await expect(page.getByText(/Updated by Alex Morgan/)).toBeVisible();
   await page.reload();
   await page.getByPlaceholder('Search by order no., customer or product...').fill('ORD-2026-0055');
-  await page.getByRole('button', { name: 'ORD-2026-0055' }).click();
+  await page.getByRole('button', { name: 'ORD-2026-0055', exact: true }).click();
   await expect(page.getByText('Fabrication scheduled after materials arrived.')).toBeVisible();
 });
 
 test('enquiry detail shows contact actions and supports closing an enquiry', async ({ page }) => {
   await page.goto('/enquiries');
   await page.getByPlaceholder('Search by enquiry ID, customer or product...').fill('ENQ-2026-0478');
-  await page.getByRole('button', { name: 'ENQ-2026-0478' }).click();
+  await page.getByRole('button', { name: 'ENQ-2026-0478', exact: true }).click();
   await expect(page.getByText('Customer Information')).toBeVisible();
   await expect(page.getByText('Contact Person')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Contact Customer' })).toHaveAttribute('href', /mailto:/);
@@ -89,14 +89,14 @@ test('quotation can be created, previewed as PDF, and saved as draft', async ({ 
 test('production milestone updates are reflected on linked orders', async ({ page }) => {
   await page.goto('/production');
   await page.getByPlaceholder('Search by job no., product or order...').fill('PJ-0045');
-  await page.getByRole('button', { name: 'PJ-0045' }).click();
+  await page.getByRole('button', { name: 'PJ-0045', exact: true }).click();
   await page.getByRole('button', { name: 'Update production status' }).click();
   await page.getByRole('option', { name: 'Quality Check' }).click();
   await expect(page.getByText(/status updated to Quality Check/)).toBeVisible();
   await page.reload();
   await page.getByPlaceholder('Search by job no., product or order...').fill('PJ-0045');
-  await page.getByRole('button', { name: 'PJ-0045' }).click();
-  await expect(page.getByText('85%')).toBeVisible();
+  await page.getByRole('button', { name: 'PJ-0045', exact: true }).click();
+  await expect(page.getByRole('dialog').getByText('85%')).toBeVisible();
 });
 
 test('dashboard KPI cards lead to filtered worklists', async ({ page }) => {
