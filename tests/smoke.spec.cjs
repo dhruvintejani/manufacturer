@@ -248,10 +248,9 @@ test('end-to-end manufacturing flow: enquiry to quoted, produced, dispatched and
   await editor.locator('input[type="number"]').nth(0).fill('2');
   await editor.locator('input[type="number"]').nth(1).fill('2500');
   await expect(editor.getByRole('button', { name: 'Preview' })).toBeVisible();
-  const fileEvent = page.waitForEvent('download');
-  await editor.getByRole('button', { name: 'Generate PDF' }).click();
-  expect((await fileEvent).suggestedFilename()).toMatch(/quotation.*\.pdf/i);
-  await editor.getByRole('button', { name: 'Save Draft' }).click();
+  // Save first to give the customer quotation a persistent number.
+  // The editor's separate unsaved-PDF action is covered by the draft-quotation test.
+  await editor.getByRole('button', { name: 'Save Draft' }).click({ timeout: 12_000 });
 
   const quoteId = await page.evaluate(() => {
     const data = JSON.parse(localStorage.getItem('forgeflow-storage')).state;
@@ -261,6 +260,9 @@ test('end-to-end manufacturing flow: enquiry to quoted, produced, dispatched and
   await page.goto('/quotations?open=' + encodeURIComponent(quoteId));
   const quote = page.getByRole('dialog', { name: /QT-/ });
   await expect(quote).toBeVisible();
+  const pdf = page.waitForEvent('download', { timeout: 15_000 });
+  await quote.getByRole('button', { name: 'PDF', exact: true }).click({ timeout: 12_000 });
+  expect((await pdf).suggestedFilename()).toMatch(/\.pdf$/i);
   await quote.getByRole('button', { name: 'Mark as Sent' }).click();
   await quote.getByRole('button', { name: 'Mark Approved' }).click();
   await quote.getByRole('button', { name: 'Convert to Order' }).click();
@@ -301,4 +303,19 @@ test('end-to-end manufacturing flow: enquiry to quoted, produced, dispatched and
   expect(state.status).toBe('Completed');
   expect(state.statusHistory.some(change => change.to === 'Dispatched')).toBe(true);
   expect(state.statusHistory.some(change => change.to === 'Completed')).toBe(true);
+});
+
+test('tablet and laptop sizes keep every route usable without page-level horizontal overflow', async ({ page }) => {
+  const failures = [];
+  page.on('pageerror', error => failures.push(error.message));
+  for (const width of [768, 1024]) {
+    await page.setViewportSize({ width, height: 820 });
+    for (const route of ['dashboard', 'customers', 'enquiries', 'quotations', 'orders', 'production', 'reports', 'settings', 'help']) {
+      await page.goto('/' + route);
+      await expect(page.locator('main')).not.toBeEmpty();
+      const delta = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(delta, route + ' at ' + width + 'px viewport').toBeLessThan(4);
+    }
+  }
+  expect(failures).toEqual([]);
 });
