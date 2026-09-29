@@ -243,7 +243,11 @@ export const Quotations: React.FC = () => {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    deleteQuotation(deleteTarget.id);
+    if (!deleteQuotation(deleteTarget.id)) {
+      toast.error('Cannot delete a quotation while it has linked orders.');
+      setDeleteTarget(null);
+      return;
+    }
     toast.success('Quotation deleted.');
     setDeleteTarget(null);
   };
