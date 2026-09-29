@@ -39,7 +39,8 @@ interface AppStore {
 
   // Order actions
   addOrder: (order: Omit<Order, 'id'>) => Order;
-  updateOrder: (id: string, data: Partial<Order>) => void;
+  updateOrder: (id: string, data: Partial<Order>, changedBy?: string, note?: string) => void;
+  advanceOrderStatus: (id: string, changedBy: string, note?: string) => boolean;
   deleteOrder: (id: string) => void;
 
   // Production actions
@@ -67,6 +68,7 @@ const generateId = (prefix: string) => {
 };
 
 const now = () => new Date().toISOString();
+const orderWorkflow: OrderStatus[] = ['Confirmed', 'Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'];
 
 export const useAppStore = create<AppStore>()(
   persist(
@@ -271,8 +273,37 @@ export const useAppStore = create<AppStore>()(
         }));
         return order;
       },
-      updateOrder: (id, data) => {
-        set(s => ({ orders: s.orders.map(o => o.id === id ? { ...o, ...data } : o) }));
+      updateOrder: (id, data, changedBy = 'System', note = '') => {
+        const previous = get().orders.find(o => o.id === id);
+        if (!previous) return;
+        const statusChanged = data.status && data.status !== previous.status;
+        const statusHistory = statusChanged
+          ? [...(previous.statusHistory || []), {
+              from: previous.status, to: data.status as OrderStatus,
+              changedBy, changedAt: now(), note: note.trim() || undefined,
+            }]
+          : previous.statusHistory;
+        set(s => ({
+          orders: s.orders.map(o => o.id === id ? {
+            ...o, ...data, statusHistory,
+          } : o),
+        }));
+        if (statusChanged) {
+          get().addActivity({
+            type: 'order',
+            title: 'Order status updated',
+            description: `${previous.orderNumber}: ${previous.status} → ${data.status} by ${changedBy}`,
+            relatedId: previous.id,
+          });
+        }
+      },
+      advanceOrderStatus: (id, changedBy, note = '') => {
+        const order = get().orders.find(o => o.id === id);
+        if (!order) return false;
+        const position = orderWorkflow.indexOf(order.status);
+        if (position < 0 || position >= orderWorkflow.length - 1) return false;
+        get().updateOrder(id, { status: orderWorkflow[position + 1] }, changedBy, note);
+        return true;
       },
       deleteOrder: (id) => {
         set(s => ({ orders: s.orders.filter(o => o.id !== id) }));
