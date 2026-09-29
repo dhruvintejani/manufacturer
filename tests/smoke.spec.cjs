@@ -544,3 +544,42 @@ test('real emulated touch opens mobile form selection sheets without leaving the
     await context.close();
   }
 });
+
+test('navbar search navigates to exact customer, enquiry, quotation, order and production records', async ({ page }) => {
+  const examples = [
+    { term: 'Global Traders', result: /Customer.*Global Traders/, path: /\/customers\?open=C001/, dialog: /Global Traders/ },
+    { term: 'ENQ-2026-0482', result: /ENQ-2026-0482/, path: /\/enquiries\?open=ENQ-2026-0482/, dialog: /ENQ-2026-0482/ },
+    { term: 'QT-2026-0148', result: /QT-2026-0148/, path: /\/quotations\?open=/, dialog: /QT-2026-0148/ },
+    { term: 'ORD-2026-0055', result: /ORD-2026-0055/, path: /\/orders\?open=ORD-2026-0055/, dialog: /ORD-2026-0055/ },
+    { term: 'PJ-0045', result: /PJ-0045/, path: /\/production\?open=/, dialog: /PJ-0045/ },
+  ];
+  for (const item of examples) {
+    await page.goto('/dashboard');
+    const search = page.getByRole('searchbox', { name: 'Search manufacturing records' });
+    await search.fill(item.term);
+    const results = page.getByRole('region', { name: 'Search results' });
+    await expect(results).toBeVisible();
+    await results.getByRole('button', { name: item.result }).first().click();
+    await expect(page).toHaveURL(item.path);
+    await expect(page.getByRole('dialog', { name: item.dialog })).toBeVisible();
+  }
+  await page.getByRole('searchbox', { name: 'Search manufacturing records' }).fill('not-a-real-manufacturer-999');
+  await expect(page.getByRole('region', { name: 'Search results' }).getByRole('status'))
+    .toContainText('No matching records');
+});
+
+test('mobile report charts display real visual bars and donut segments, not empty white SVG frames', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto('/reports');
+  const bars = page.locator('[data-html-chart="Monthly Order Value"]');
+  await expect(bars).toBeVisible();
+  expect(await bars.locator('[data-chart-value]').evaluateAll(elements => elements.some(el =>
+    Number(el.getAttribute('data-chart-value')) > 0 && el.getBoundingClientRect().height >= 6,
+  ))).toBe(true);
+  const donut = page.locator('[data-html-chart="Quotation Status Breakdown"] [data-chart-total]');
+  await expect(donut).toBeVisible();
+  expect(Number(await donut.getAttribute('data-chart-total'))).toBeGreaterThan(0);
+  const bounds = await donut.boundingBox();
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(321);
+  expect(await page.locator('main').evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThan(4);
+});
