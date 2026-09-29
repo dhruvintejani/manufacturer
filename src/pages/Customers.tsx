@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Users, Plus, Edit2, Trash2, Eye, MapPin, Mail, Phone, Building2, Globe } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
@@ -10,6 +10,8 @@ import { Customer } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { StatCard } from '../components/ui/StatCard';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { PremiumSelect } from '../components/ui/PremiumSelect';
+import { RowActions } from '../components/ui/RowActions';
 import { Modal } from '../components/ui/Modal';
 import { Drawer } from '../components/ui/Drawer';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -34,15 +36,21 @@ type CustomerFormData = z.infer<typeof customerSchema>;
 
 const ITEMS_PER_PAGE = 8;
 
-const FormField = ({ label, error, children, required }: { label: string; error?: string; children: React.ReactNode; required?: boolean }) => (
-  <div>
-    <label className="block text-sm font-medium text-slate-700 mb-1.5">
-      {label}{required && <span className="text-red-500 ml-1">*</span>}
-    </label>
-    {children}
-    {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-  </div>
-);
+const FormField = ({ label, error, children, required }: { label: string; error?: string; children: React.ReactNode; required?: boolean }) => {
+  const id = React.useId();
+  const control = React.isValidElement(children)
+    ? React.cloneElement(children as React.ReactElement<{ id?: string }>, { id })
+    : children;
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm font-medium text-slate-700 mb-1.5">
+        {label}{required && <span aria-hidden="true" className="text-red-500 ml-1">*</span>}
+      </label>
+      {control}
+      {error && <p role="alert" className="text-xs text-red-600 mt-1">{error}</p>}
+    </div>
+  );
+};
 
 const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
 
@@ -56,7 +64,7 @@ export const Customers: React.FC = () => {
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<CustomerFormData>({
     resolver: zodResolver(customerSchema) as any,
   });
 
@@ -86,7 +94,11 @@ export const Customers: React.FC = () => {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    deleteCustomer(deleteTarget.id);
+    if (!deleteCustomer(deleteTarget.id)) {
+      toast.error('Cannot delete a customer linked to enquiries, quotations or orders.');
+      setDeleteTarget(null);
+      return;
+    }
     toast.success(`${deleteTarget.companyName} has been deleted.`);
     setDeleteTarget(null);
     if (viewingCustomer?.id === deleteTarget.id) setViewingCustomer(null);
@@ -108,7 +120,9 @@ export const Customers: React.FC = () => {
   const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   const totalActive = customers.filter(c => c.status === 'active').length;
-  const thisMonth = customers.filter(c => c.createdAt.startsWith('2026-03') || c.createdAt.startsWith('2026-04')).length;
+  const today = new Date();
+  const quarterStart = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1);
+  const newThisQuarter = customers.filter(c => { const created = new Date(c.createdAt); return created >= quarterStart && created <= today; }).length;
   const repeat = customers.filter(c => orders.filter(o => o.customerId === c.id).length > 1).length;
 
   const getCustomerStats = (customerId: string) => ({
@@ -119,7 +133,7 @@ export const Customers: React.FC = () => {
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Customers"
         subtitle="Manage your customers and their business information."
@@ -139,7 +153,7 @@ export const Customers: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Total Customers" value={customers.length} icon={<Users className="w-5 h-5 text-blue-600" />} iconBg="bg-blue-50" index={0} />
         <StatCard title="Active Customers" value={totalActive} icon={<Building2 className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={1} />
-        <StatCard title="New This Quarter" value={thisMonth} change={20} icon={<Plus className="w-5 h-5 text-violet-600" />} iconBg="bg-violet-50" index={2} />
+        <StatCard title="New This Quarter" value={newThisQuarter} icon={<Plus className="w-5 h-5 text-violet-600" />} iconBg="bg-violet-50" index={2} />
         <StatCard title="Repeat Customers" value={repeat} icon={<Globe className="w-5 h-5 text-amber-600" />} iconBg="bg-amber-50" index={3} />
       </div>
 
@@ -151,15 +165,9 @@ export const Customers: React.FC = () => {
           placeholder="Search by company, contact, email or country..."
           className="flex-1 max-w-md"
         />
-        <select
-          value={statusFilter}
-          onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-          className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-        >
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
+        <PremiumSelect label="Customer status filter" value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }}
+           options={[{ value: 'all', label: 'All Status' }, { value: 'active', label: 'Active', color: '#059669' }, { value: 'inactive', label: 'Inactive', color: '#94a3b8' }]}
+           className="w-full sm:w-48" />
       </div>
 
       {/* Table */}
@@ -241,29 +249,11 @@ export const Customers: React.FC = () => {
                           <StatusBadge status={customer.status} />
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => setViewingCustomer(customer)}
-                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="View details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => openEdit(customer)}
-                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                              title="Edit"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteTarget(customer)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                          <RowActions label={`Actions for ${customer.companyName}`} actions={[
+  { label: 'View details', onClick: () => setViewingCustomer(customer), icon: <Eye className="h-4 w-4" /> },
+  { label: 'Edit customer', onClick: () => openEdit(customer), icon: <Edit2 className="h-4 w-4" /> },
+  { label: 'Delete customer', onClick: () => setDeleteTarget(customer), icon: <Trash2 className="h-4 w-4" />, danger: true },
+]} />
                         </td>
                       </motion.tr>
                     );
@@ -325,10 +315,10 @@ export const Customers: React.FC = () => {
             <input {...register('country')} className={inputClass} placeholder="e.g. India" />
           </FormField>
           <FormField label="Status">
-            <select {...register('status')} className={inputClass}>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+            <Controller name="status" control={control} render={({ field }) =>
+  <PremiumSelect label="Customer status" value={field.value || 'active'} onChange={field.onChange}
+   options={[{ value: 'active', label: 'Active', color: '#059669' },
+             { value: 'inactive', label: 'Inactive', color: '#94a3b8' }]} />} />
           </FormField>
           <div className="sm:col-span-2">
             <FormField label="Address">

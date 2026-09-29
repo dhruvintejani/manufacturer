@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -12,6 +12,7 @@ import { Quotation, QuotationLineItem } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { StatCard } from '../components/ui/StatCard';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { RowActions } from '../components/ui/RowActions';
 import { Drawer } from '../components/ui/Drawer';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SearchInput } from '../components/ui/SearchInput';
@@ -20,6 +21,9 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { WorkflowStepper } from '../components/ui/WorkflowStepper';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { calculateQuotationTotals } from '../utils/calculations';
+import { PremiumSelect } from '../components/ui/PremiumSelect';
+import { useAccessibleOverlay } from '../components/ui/useAccessibleOverlay';
+import { exportQuotationPdf } from '../utils/quotationPdf';
 
 const ITEMS_PER_PAGE = 8;
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'SAR', 'SGD'];
@@ -77,13 +81,15 @@ export const Quotations: React.FC = () => {
   const { quotations, enquiries, customers, orders, addQuotation, updateQuotation, deleteQuotation, addOrder } = useAppStore();
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(new URLSearchParams(location.search).get('status') === 'pending' ? 'pending' : 'all');
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
+  const quotationDialogRef = useRef<HTMLDivElement>(null);
+  const dismissQuotationModal = () => setModalOpen(false);
+  useAccessibleOverlay(modalOpen, dismissQuotationModal, quotationDialogRef);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
   const [viewingQuotation, setViewingQuotation] = useState<Quotation | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Quotation | null>(null);
-  const [_sendConfirmOpen, setSendConfirmOpen] = useState(false);
   const [convertOrderOpen, setConvertOrderOpen] = useState(false);
   const [form, setForm] = useState<QuotationFormState>(defaultForm());
 
@@ -143,7 +149,11 @@ export const Quotations: React.FC = () => {
 
   const handleSave = (status = form.status) => {
     if (!form.customerId) { toast.error('Please select a customer.'); return; }
-    if (form.items.length === 0) { toast.error('Add at least one line item.'); return; }
+    if (form.items.length === 0 || form.items.some(item => !item.product || !Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.unitPrice) || item.unitPrice < 0 || item.discount < 0 || item.discount > 100 || item.tax < 0 || item.tax > 100)) {
+      toast.error('Add valid products, quantities, unit prices, discounts and tax.'); return;
+    }
+    if (!form.date || !form.validity || form.validity < form.date) { toast.error('Validity must be on or after the quotation date.'); return; }
+    if (form.enquiryId && enquiries.find(e => e.id === form.enquiryId)?.customerId !== form.customerId) { toast.error('Enquiry must belong to the selected customer.'); return; }
 
     // Recalculate item totals before saving
     const itemsWithTotals = form.items.map(item => ({
@@ -159,22 +169,49 @@ export const Quotations: React.FC = () => {
       quotationNumber: editingQuotation?.quotationNumber || '',
     };
 
+    let saved: Quotation;
     if (editingQuotation) {
       updateQuotation(editingQuotation.id, data);
+      saved = useAppStore.getState().quotations.find(q => q.id === editingQuotation.id)!;
       toast.success('Quotation updated successfully.');
     } else {
-      addQuotation(data as any);
+      saved = addQuotation(data as any);
       toast.success('Quotation created successfully.');
     }
     setModalOpen(false);
+    return saved;
   };
 
   const handleSend = (q: Quotation) => {
-    const cust = customers.find(c => c.id === q.customerId);
+    const customer = customers.find(c => c.id === q.customerId);
+    if (!customer?.email) { toast.error('Customer email is missing.'); return; }
+    const subject = encodeURIComponent(`Quotation ${q.quotationNumber} - Manufacturing request`);
+    const body = encodeURIComponent(`Hello ${customer.contactPerson || customer.companyName},\n\nPlease find our quotation ${q.quotationNumber} for review.\n\nRegards,\nManufacturing team`);
+    window.location.href = `mailto:${customer.email}?subject=${subject}&body=${body}`;
+    toast('Email draft opened. Download the PDF and attach it before sending.', { duration: 6000 });
+  };
+
+  const handleMarkSent = (q: Quotation) => {
     updateQuotation(q.id, { status: 'Sent' });
-    toast.success(`Quotation sent to ${cust?.email || 'customer'}.`);
-    setSendConfirmOpen(false);
-    setViewingQuotation(null);
+    setViewingQuotation(prev => prev ? { ...prev, status: 'Sent' } : null);
+    toast.success('Quotation marked as sent.');
+  };
+
+  const currentDraftQuotation = (): Quotation => ({
+    ...form,
+    id: editingQuotation?.id || 'PREVIEW',
+    quotationNumber: editingQuotation?.quotationNumber || 'DRAFT-PREVIEW',
+    enquiryId: form.enquiryId || undefined,
+    status: form.status as Quotation['status'],
+    items: form.items.map(item => ({ ...item, total: calcItemTotal(item) })),
+    ...totals,
+  });
+
+  const previewFormPdf = (preview: boolean) => {
+    if (!form.customerId || form.items.some(item => !item.product || item.quantity <= 0)) {
+      toast.error('Choose a customer and complete at least one product before previewing.'); return;
+    }
+    exportQuotationPdf(currentDraftQuotation(), customers.find(c => c.id === form.customerId), preview);
   };
 
   const handleApprove = (q: Quotation) => {
@@ -206,116 +243,18 @@ export const Quotations: React.FC = () => {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    deleteQuotation(deleteTarget.id);
+    if (!deleteQuotation(deleteTarget.id)) {
+      toast.error('Cannot delete a quotation while it has linked orders.');
+      setDeleteTarget(null);
+      return;
+    }
     toast.success('Quotation deleted.');
     setDeleteTarget(null);
   };
 
   const handlePDF = (q: Quotation) => {
-    const customer = customers.find(c => c.id === q.customerId);
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`
-      <html><head><title>${q.quotationNumber}</title>
-      <style>
-        body { font-family: Inter, Arial, sans-serif; color: #0F172A; padding: 40px; max-width: 800px; margin: 0 auto; font-size: 13px; }
-        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; border-bottom: 2px solid #2563EB; padding-bottom: 20px; }
-        .brand { font-size: 22px; font-weight: 800; color: #2563EB; }
-        .brand-sub { font-size: 11px; color: #64748B; margin-top: 2px; }
-        .title { font-size: 28px; font-weight: 700; color: #0F172A; margin-bottom: 24px; }
-        .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
-        .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748B; margin-bottom: 8px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-        th { background: #F1F5F9; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748B; }
-        td { padding: 10px 12px; border-bottom: 1px solid #F1F5F9; vertical-align: top; }
-        .total-section { margin-left: auto; width: 260px; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px; }
-        .total-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
-        .grand-total { font-size: 16px; font-weight: 800; color: #2563EB; padding-top: 8px; border-top: 2px solid #2563EB; margin-top: 8px; }
-        .terms { margin-top: 24px; }
-        .term-row { display: grid; grid-template-columns: 140px 1fr; gap: 8px; padding: 4px 0; }
-        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #E2E8F0; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-        .sig-line { border-top: 1px solid #0F172A; padding-top: 8px; margin-top: 40px; font-size: 12px; }
-        @media print { body { padding: 20px; } }
-      </style>
-      </head><body>
-      <div class="header">
-        <div>
-          <div class="brand">⚡ ForgeFlow</div>
-          <div class="brand-sub">Manufacturing Operations Platform</div>
-        </div>
-        <div style="text-align:right; font-size: 12px; color: #64748B;">
-          <div><strong>Quotation #</strong>${q.quotationNumber}</div>
-          <div><strong>Date:</strong> ${formatDate(q.date)}</div>
-          <div><strong>Valid Until:</strong> ${formatDate(q.validity)}</div>
-        </div>
-      </div>
-      <div class="title">QUOTATION</div>
-      <div class="meta">
-        <div>
-          <div class="section-title">Bill To</div>
-          <div style="font-weight: 700; font-size: 14px;">${customer?.companyName || 'Customer'}</div>
-          <div>${customer?.contactPerson || ''}</div>
-          <div>${customer?.email || ''}</div>
-          <div>${customer?.phone || ''}</div>
-          <div>${customer?.address || ''}</div>
-          ${customer?.taxNumber ? `<div>Tax: ${customer.taxNumber}</div>` : ''}
-        </div>
-        <div>
-          <div class="section-title">From</div>
-          <div style="font-weight: 700; font-size: 14px;">ForgeFlow Manufacturing</div>
-          <div>operations@forgeflow.com</div>
-          <div>+1 (555) 000-0000</div>
-        </div>
-      </div>
-      <table>
-        <thead><tr>
-          <th>Product / Description</th>
-          <th style="text-align:right">Qty</th>
-          <th style="text-align:right">Unit Price</th>
-          <th style="text-align:right">Discount</th>
-          <th style="text-align:right">Tax</th>
-          <th style="text-align:right">Total</th>
-        </tr></thead>
-        <tbody>
-          ${q.items.map(item => `<tr>
-            <td><strong>${item.product}</strong><br><span style="color:#64748B;font-size:11px">${item.description}</span></td>
-            <td style="text-align:right">${item.quantity}</td>
-            <td style="text-align:right">${formatCurrency(item.unitPrice, q.currency)}</td>
-            <td style="text-align:right">${item.discount}%</td>
-            <td style="text-align:right">${item.tax}%</td>
-            <td style="text-align:right"><strong>${formatCurrency(item.total, q.currency)}</strong></td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-      <div style="display:flex; justify-content:flex-end;">
-        <div class="total-section">
-          <div class="total-row"><span>Subtotal</span><span>${formatCurrency(q.subtotal, q.currency)}</span></div>
-          <div class="total-row"><span>Discount</span><span>− ${formatCurrency(q.discountAmount, q.currency)}</span></div>
-          <div class="total-row"><span>Tax</span><span>${formatCurrency(q.taxAmount, q.currency)}</span></div>
-          <div class="total-row grand-total"><span>Grand Total</span><span>${formatCurrency(q.total, q.currency)}</span></div>
-        </div>
-      </div>
-      <div class="terms">
-        <div class="section-title">Terms & Conditions</div>
-        <div class="term-row"><span style="color:#64748B;font-size:12px">Delivery Lead Time</span><span>${q.deliveryLeadTime}</span></div>
-        <div class="term-row"><span style="color:#64748B;font-size:12px">Payment Terms</span><span>${q.paymentTerms}</span></div>
-        <div class="term-row"><span style="color:#64748B;font-size:12px">Warranty</span><span>${q.warranty}</span></div>
-        ${q.notes ? `<div class="term-row"><span style="color:#64748B;font-size:12px">Notes</span><span>${q.notes}</span></div>` : ''}
-      </div>
-      <div class="footer">
-        <div>
-          <div class="section-title">Authorized By</div>
-          <div class="sig-line">Alex Morgan<br><span style="color:#64748B">Operations Manager</span></div>
-        </div>
-        <div>
-          <div class="section-title">Customer Acceptance</div>
-          <div class="sig-line"><span style="color:#64748B">Signature / Stamp</span></div>
-        </div>
-      </div>
-      <script>window.onload = () => window.print();</script>
-      </body></html>
-    `);
-    win.document.close();
+    exportQuotationPdf(q, customers.find(c => c.id === q.customerId));
+    toast.success('Quotation PDF generated.');
   };
 
   const filtered = useMemo(() => {
@@ -325,7 +264,7 @@ export const Quotations: React.FC = () => {
         q.quotationNumber.toLowerCase().includes(search.toLowerCase()) ||
         customer?.companyName.toLowerCase().includes(search.toLowerCase()) ||
         q.items.some(i => i.product.toLowerCase().includes(search.toLowerCase()));
-      const matchStatus = statusFilter === 'all' || q.status === statusFilter;
+      const matchStatus = statusFilter === 'all' || (statusFilter === 'pending' ? ['Draft', 'Sent', 'Negotiation'].includes(q.status) : q.status === statusFilter);
       return matchSearch && matchStatus;
     });
   }, [quotations, customers, search, statusFilter]);
@@ -348,7 +287,7 @@ export const Quotations: React.FC = () => {
   const hasOrder = (q: Quotation) => !!q.orderId || orders.some(o => o.quotationId === q.id);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Quotations"
         subtitle="Create, manage and track customer quotations."
@@ -368,17 +307,16 @@ export const Quotations: React.FC = () => {
         <StatCard title="Total Quotations" value={stats.total} icon={<FileText className="w-5 h-5 text-blue-600" />} iconBg="bg-blue-50" index={0} />
         <StatCard title="Draft" value={stats.draft} icon={<Package className="w-5 h-5 text-slate-600" />} iconBg="bg-slate-100" index={1} />
         <StatCard title="Sent" value={stats.sent} icon={<Send className="w-5 h-5 text-blue-600" />} iconBg="bg-blue-50" index={2} />
-        <StatCard title="Approved" value={stats.approved} change={stats.approved > 0 ? 20 : 0} icon={<CheckCircle className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={3} />
-        <StatCard title="Rejected" value={stats.rejected} change={stats.rejected > 0 ? -10 : 0} icon={<X className="w-5 h-5 text-red-600" />} iconBg="bg-red-50" index={4} />
+        <StatCard title="Approved" value={stats.approved} icon={<CheckCircle className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={3} />
+        <StatCard title="Rejected" value={stats.rejected} icon={<X className="w-5 h-5 text-red-600" />} iconBg="bg-red-50" index={4} />
       </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search by quotation no., customer or product..." className="flex-1 max-w-md" />
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-          <option value="all">All Status</option>
-          {['Draft','Sent','Negotiation','Approved','Rejected','Expired'].map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <PremiumSelect label="Quotation status filter" value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }}
+          options={[{ value: 'all', label: 'All Status' }, { value: 'pending', label: 'Pending Quotations', color: '#d97706' }, ...['Draft','Sent','Negotiation','Approved','Rejected','Expired'].map(value => ({ value, label: value,
+            color: ['Approved'].includes(value) ? '#059669' : ['Rejected','Expired'].includes(value) ? '#dc2626' : value === 'Draft' ? '#94a3b8' : '#2563eb' }))]} className="w-full sm:w-56" />
       </div>
 
       {/* Table */}
@@ -422,12 +360,12 @@ export const Quotations: React.FC = () => {
                         </td>
                         <td className="px-6 py-4"><StatusBadge status={q.status} /></td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => setViewingQuotation(q)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><Eye className="w-4 h-4" /></button>
-                            <button onClick={() => openEdit(q)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit"><Edit2 className="w-4 h-4" /></button>
-                            <button onClick={() => handlePDF(q)} className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors" title="PDF"><Download className="w-4 h-4" /></button>
-                            <button onClick={() => setDeleteTarget(q)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                          </div>
+                          <RowActions label={`Actions for ${q.quotationNumber}`} actions={[
+  { label: 'View details', onClick: () => setViewingQuotation(q), icon: <Eye className="h-4 w-4" /> },
+  { label: 'Edit quotation', onClick: () => openEdit(q), icon: <Edit2 className="h-4 w-4" /> },
+  { label: 'Generate PDF', onClick: () => handlePDF(q), icon: <Download className="h-4 w-4" /> },
+  { label: 'Delete quotation', onClick: () => setDeleteTarget(q), icon: <Trash2 className="h-4 w-4" />, danger: true },
+]} />
                         </td>
                       </motion.tr>
                     );
@@ -447,7 +385,7 @@ export const Quotations: React.FC = () => {
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 16 }} transition={{ duration: 0.2 }} className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col z-10">
+            <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 16 }} transition={{ duration: 0.2 }} ref={quotationDialogRef} tabIndex={-1} className="relative bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92dvh] flex flex-col z-10" role="dialog" aria-modal="true" aria-label="Quotation editor">
               <div className="flex items-center justify-between p-6 border-b border-slate-100">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">{editingQuotation ? `Edit ${editingQuotation.quotationNumber}` : 'Create Quotation'}</h2>
@@ -457,26 +395,24 @@ export const Quotations: React.FC = () => {
               </div>
               <div className="flex-1 overflow-y-auto p-6 space-y-5">
                 {/* Customer & Meta */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer <span className="text-red-500">*</span></label>
-                    <select value={form.customerId} onChange={e => setForm(f => ({ ...f, customerId: e.target.value }))} className={inputClass}>
-                      <option value="">Select customer...</option>
-                      {customers.map(c => <option key={c.id} value={c.id}>{c.companyName}</option>)}
-                    </select>
+                    <PremiumSelect label="Quotation customer" value={form.customerId}
+                      onChange={value => setForm(f => ({ ...f, customerId: value, enquiryId: f.enquiryId && enquiries.find(e => e.id === f.enquiryId)?.customerId === value ? f.enquiryId : '' }))}
+                      options={[{ value: '', label: 'Select customer...' }, ...customers.map(c => ({ value: c.id, label: c.companyName }))]} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Linked Enquiry</label>
-                    <select value={form.enquiryId} onChange={e => setForm(f => ({ ...f, enquiryId: e.target.value }))} className={inputClass}>
-                      <option value="">None</option>
-                      {enquiries.filter(e => e.customerId === form.customerId || !form.customerId).map(e => <option key={e.id} value={e.id}>{e.id}</option>)}
-                    </select>
+                    <PremiumSelect label="Linked enquiry" value={form.enquiryId}
+                      onChange={value => setForm(f => ({ ...f, enquiryId: value }))}
+                      options={[{ value: '', label: 'None' }, ...enquiries.filter(e => e.customerId === form.customerId).map(e => ({ value: e.id, label: e.id }))]} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Currency</label>
-                    <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} className={inputClass}>
-                      {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <PremiumSelect label="Currency" value={form.currency}
+                      onChange={value => setForm(f => ({ ...f, currency: value }))}
+                      options={CURRENCIES.map(value => ({ value, label: value }))} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Date</label>
@@ -488,9 +424,10 @@ export const Quotations: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Status</label>
-                    <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className={inputClass}>
-                      {['Draft','Sent','Negotiation','Approved','Rejected','Expired'].map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    <PremiumSelect label="Quotation status" value={form.status}
+                      onChange={value => setForm(f => ({ ...f, status: value }))}
+                      options={['Draft','Sent','Negotiation','Approved','Rejected','Expired'].map(value => ({ value, label: value,
+                        color: value === 'Approved' ? '#059669' : ['Rejected','Expired'].includes(value) ? '#dc2626' : '#2563eb' }))} />
                   </div>
                 </div>
 
@@ -521,10 +458,10 @@ export const Quotations: React.FC = () => {
                             return (
                               <tr key={item.id} className="border-t border-slate-100">
                                 <td className="px-3 py-2">
-                                  <select value={item.product} onChange={e => updateItem(idx, 'product', e.target.value)} className={`${inputClass} w-40`}>
-                                    <option value="">Product...</option>
-                                    {PRODUCTS.map(p => <option key={p} value={p}>{p}</option>)}
-                                  </select>
+                                  <PremiumSelect label={`Product for line ${idx + 1}`} value={item.product}
+                                    onChange={value => updateItem(idx, 'product', value)}
+                                    options={[{ value: '', label: 'Product...' }, ...PRODUCTS.map(value => ({ value, label: value }))]}
+                                    className="w-44" />
                                 </td>
                                 <td className="px-3 py-2">
                                   <input value={item.description} onChange={e => updateItem(idx, 'description', e.target.value)} className={`${inputClass} w-48`} placeholder="Description" />
@@ -588,12 +525,13 @@ export const Quotations: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex-shrink-0 border-t border-slate-100 p-6 flex flex-wrap items-center justify-end gap-3">
-                <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">Cancel</button>
-                <button onClick={() => handleSave('Draft')} className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Save Draft</button>
-                <button onClick={() => { handleSave('Sent'); }} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm">
-                  <Send className="w-4 h-4" /> {editingQuotation ? 'Update & Send' : 'Save & Send'}
-                </button>
+              <div className="flex-shrink-0 border-t border-slate-100 p-4 sm:p-6 flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+                <button onClick={() => setModalOpen(false)} className="px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+                <button onClick={() => previewFormPdf(true)} className="px-3 py-2 text-sm font-semibold text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50">Preview</button>
+                <button onClick={() => previewFormPdf(false)} className="px-3 py-2 text-sm font-semibold text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"><Download className="inline h-4 w-4" /> Generate PDF</button>
+                {(!editingQuotation || editingQuotation.status === 'Draft') && <button onClick={() => handleSave('Draft')} className="px-3 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg">Save Draft</button>}
+                {(!editingQuotation || editingQuotation.status === 'Draft') && <button onClick={() => { const q = handleSave('Draft'); if (q) handleSend(q); }} className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"><Send className="h-4 w-4" /> Prepare Email</button>}
+                <button onClick={() => handleSave(form.status)} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm">{editingQuotation ? 'Save Changes' : 'Save Quotation'}</button>
               </div>
             </motion.div>
           </div>
@@ -696,7 +634,12 @@ export const Quotations: React.FC = () => {
             <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
               {viewingQuotation.status === 'Draft' && (
                 <button onClick={() => handleSend(viewingQuotation)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
-                  <Send className="w-4 h-4" /> Send to Customer
+                  <Send className="w-4 h-4" /> Prepare Email
+                </button>
+              )}
+              {viewingQuotation.status === 'Draft' && (
+                <button onClick={() => handleMarkSent(viewingQuotation)} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold">
+                  <CheckCircle className="w-4 h-4" /> Mark as Sent
                 </button>
               )}
               {(viewingQuotation.status === 'Sent' || viewingQuotation.status === 'Negotiation') && !hasOrder(viewingQuotation) && (

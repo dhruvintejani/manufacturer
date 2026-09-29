@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ClipboardList, Plus, Eye, Edit2, Trash2,
-  FileText, ArrowRight, User
+  FileText, ArrowRight, User, Mail, Phone, Archive
 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
@@ -14,6 +14,7 @@ import { Enquiry } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { StatCard } from '../components/ui/StatCard';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { RowActions } from '../components/ui/RowActions';
 import { Modal } from '../components/ui/Modal';
 import { Drawer } from '../components/ui/Drawer';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -21,6 +22,7 @@ import { SearchInput } from '../components/ui/SearchInput';
 import { Pagination } from '../components/ui/Pagination';
 import { EmptyState } from '../components/ui/EmptyState';
 import { WorkflowStepper } from '../components/ui/WorkflowStepper';
+import { PremiumSelect } from '../components/ui/PremiumSelect';
 import { formatDate } from '../utils/formatters';
 
 const enquirySchema = z.object({
@@ -42,15 +44,21 @@ const TEAM_MEMBERS = ['Alex Morgan', 'Sarah Johnson', 'Mike Davis', 'Lisa Chen',
 const STATUSES = ['New', 'Contacted', 'Quotation Sent', 'Negotiation', 'Converted', 'Closed/Lost'];
 
 const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
-const FormField = ({ label, error, children, required }: { label: string; error?: string; children: React.ReactNode; required?: boolean }) => (
-  <div>
-    <label className="block text-sm font-medium text-slate-700 mb-1.5">
-      {label}{required && <span className="text-red-500 ml-1">*</span>}
-    </label>
-    {children}
-    {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-  </div>
-);
+const FormField = ({ label, error, children, required }: { label: string; error?: string; children: React.ReactNode; required?: boolean }) => {
+  const id = React.useId();
+  const control = React.isValidElement(children)
+    ? React.cloneElement(children as React.ReactElement<{ id?: string }>, { id })
+    : children;
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm font-medium text-slate-700 mb-1.5">
+        {label}{required && <span aria-hidden="true" className="text-red-500 ml-1">*</span>}
+      </label>
+      {control}
+      {error && <p role="alert" className="text-xs text-red-600 mt-1">{error}</p>}
+    </div>
+  );
+};
 
 const workflowSteps = (status: string) => {
   const steps = ['New', 'Contacted', 'Quotation Sent', 'Negotiation', 'Converted'];
@@ -73,7 +81,7 @@ export const Enquiries: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<Enquiry | null>(null);
 
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<EnquiryFormData>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<EnquiryFormData>({
     resolver: zodResolver(enquirySchema) as any,
   });
 
@@ -103,7 +111,11 @@ export const Enquiries: React.FC = () => {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    deleteEnquiry(deleteTarget.id);
+    if (!deleteEnquiry(deleteTarget.id)) {
+      toast.error('Cannot delete an enquiry while it has linked quotations.');
+      setDeleteTarget(null);
+      return;
+    }
     toast.success('Enquiry deleted.');
     setDeleteTarget(null);
     setViewingEnquiry(null);
@@ -146,7 +158,7 @@ export const Enquiries: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Enquiries"
         subtitle="Manage and track customer requirements from first contact to conversion."
@@ -167,7 +179,7 @@ export const Enquiries: React.FC = () => {
         <StatCard title="New" value={stats.new} icon={<Plus className="w-5 h-5 text-slate-600" />} iconBg="bg-slate-100" index={1} />
         <StatCard title="In Progress" value={stats.inProgress} icon={<User className="w-5 h-5 text-amber-600" />} iconBg="bg-amber-50" index={2} />
         <StatCard title="Quotation Sent" value={stats.quotationSent} icon={<FileText className="w-5 h-5 text-violet-600" />} iconBg="bg-violet-50" index={3} />
-        <StatCard title="Converted" value={stats.converted} change={14.5} icon={<ArrowRight className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={4} />
+        <StatCard title="Converted" value={stats.converted} icon={<ArrowRight className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={4} />
       </div>
 
       {/* Filters */}
@@ -178,14 +190,9 @@ export const Enquiries: React.FC = () => {
           placeholder="Search by enquiry ID, customer or product..."
           className="flex-1 max-w-md"
         />
-        <select
-          value={statusFilter}
-          onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-          className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-        >
-          <option value="all">All Status</option>
-          {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <PremiumSelect label="Enquiry status filter" value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }}
+          options={[{ value: 'all', label: 'All Status' }, ...STATUSES.map(value => ({ value, label: value,
+            color: value === 'Converted' ? '#059669' : value === 'Closed/Lost' ? '#64748b' : value === 'New' ? '#2563eb' : '#d97706' }))]} className="w-full sm:w-56" />
       </div>
 
       {/* Table */}
@@ -256,29 +263,11 @@ export const Enquiries: React.FC = () => {
                           <StatusBadge status={enq.status} />
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => setViewingEnquiry(enq)}
-                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="View"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => openEdit(enq)}
-                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                              title="Edit"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteTarget(enq)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                          <RowActions label={`Actions for ${enq.id}`} actions={[
+  { label: 'View details', onClick: () => setViewingEnquiry(enq), icon: <Eye className="h-4 w-4" /> },
+  { label: 'Edit enquiry', onClick: () => openEdit(enq), icon: <Edit2 className="h-4 w-4" /> },
+  { label: 'Delete enquiry', onClick: () => setDeleteTarget(enq), icon: <Trash2 className="h-4 w-4" />, danger: true },
+]} />
                         </td>
                       </motion.tr>
                     );
@@ -317,16 +306,14 @@ export const Enquiries: React.FC = () => {
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField label="Customer" error={errors.customerId?.message} required>
-            <select {...register('customerId')} className={inputClass}>
-              <option value="">Select customer...</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.companyName}</option>)}
-            </select>
+            <Controller name="customerId" control={control} render={({ field }) =>
+ <PremiumSelect label="Customer" value={field.value || ''} onChange={field.onChange}
+  options={[{ value: '', label: 'Select customer...' }, ...customers.map(c => ({ value: c.id, label: c.companyName }))]} />} />
           </FormField>
           <FormField label="Product" error={errors.product?.message} required>
-            <select {...register('product')} className={inputClass}>
-              <option value="">Select product...</option>
-              {PRODUCTS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+            <Controller name="product" control={control} render={({ field }) =>
+ <PremiumSelect label="Product" value={field.value || ''} onChange={field.onChange}
+  options={[{ value: '', label: 'Select product...' }, ...PRODUCTS.map(value => ({ value, label: value }))]} />} />
           </FormField>
           <FormField label="Quantity" error={errors.quantity?.message} required>
             <input {...register('quantity', { valueAsNumber: true })} type="number" min={1} className={inputClass} placeholder="1" />
@@ -335,14 +322,15 @@ export const Enquiries: React.FC = () => {
             <input {...register('expectedDeliveryDate')} type="date" className={inputClass} />
           </FormField>
           <FormField label="Assigned To">
-            <select {...register('assignedTo')} className={inputClass}>
-              {TEAM_MEMBERS.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <Controller name="assignedTo" control={control} render={({ field }) =>
+ <PremiumSelect label="Assigned employee" value={field.value || TEAM_MEMBERS[0]} onChange={field.onChange}
+  options={TEAM_MEMBERS.map(value => ({ value, label: value }))} />} />
           </FormField>
           <FormField label="Status">
-            <select {...register('status')} className={inputClass}>
-              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <Controller name="status" control={control} render={({ field }) =>
+ <PremiumSelect label="Enquiry status" value={field.value || 'New'} onChange={field.onChange}
+  options={STATUSES.map(value => ({ value, label: value,
+   color: value === 'Converted' ? '#059669' : value === 'Closed/Lost' ? '#64748b' : value === 'New' ? '#2563eb' : '#d97706' }))} />} />
           </FormField>
           <div className="sm:col-span-2">
             <FormField label="Requirement / Description" error={errors.requirement?.message} required>
@@ -392,11 +380,11 @@ export const Enquiries: React.FC = () => {
                       </div>
                       <div>
                         <div className="text-xs text-slate-500">Email</div>
-                        <div className="text-sm text-slate-900 mt-0.5">{customer?.email}</div>
+                        <a className="mt-0.5 block break-all text-sm text-blue-700 hover:underline" href={customer?.email ? `mailto:${customer.email}` : undefined}>{customer?.email || '—'}</a>
                       </div>
                       <div>
                         <div className="text-xs text-slate-500">Phone</div>
-                        <div className="text-sm text-slate-900 mt-0.5">{customer?.phone}</div>
+                        <a className="mt-0.5 block text-sm text-blue-700 hover:underline" href={customer?.phone ? `tel:${customer.phone.replace(/[^+\d]/g, '')}` : undefined}>{customer?.phone || '—'}</a>
                       </div>
                       <div>
                         <div className="text-xs text-slate-500">Country</div>
@@ -467,6 +455,14 @@ export const Enquiries: React.FC = () => {
 
                   {/* Actions */}
                   <div className="flex flex-wrap gap-3">
+                    {customer?.email && <a href={`mailto:${customer.email}?subject=${encodeURIComponent('Regarding enquiry ' + viewingEnquiry.id)}`}
+                      className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-800 hover:bg-blue-100">
+                      <Mail className="h-4 w-4" /> Contact Customer
+                    </a>}
+                    {customer?.phone && <a href={`tel:${customer.phone.replace(/[^+\d]/g, '')}`} title="Call customer"
+                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                      <Phone className="h-4 w-4" /> Call
+                    </a>}
                     {!viewingEnquiry.quotationId && viewingEnquiry.status !== 'Converted' && viewingEnquiry.status !== 'Closed/Lost' && (
                       <button
                         onClick={() => handleCreateQuotation(viewingEnquiry)}
@@ -483,6 +479,15 @@ export const Enquiries: React.FC = () => {
                       <Edit2 className="w-4 h-4" />
                       Edit
                     </button>
+                    {viewingEnquiry.status !== 'Closed/Lost' && viewingEnquiry.status !== 'Converted' && (
+                      <button type="button" onClick={() => {
+                        updateEnquiry(viewingEnquiry.id, { status: 'Closed/Lost' });
+                        setViewingEnquiry(prev => prev ? { ...prev, status: 'Closed/Lost' } : null);
+                        toast.success('Enquiry closed.');
+                      }} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                        <Archive className="h-4 w-4" /> Close
+                      </button>
+                    )}
                     <button
                       onClick={() => { setDeleteTarget(viewingEnquiry); setViewingEnquiry(null); }}
                       className="flex items-center gap-2 text-red-600 bg-red-50 hover:bg-red-100 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"

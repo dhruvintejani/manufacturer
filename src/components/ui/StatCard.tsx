@@ -32,10 +32,14 @@ export const StatCard: React.FC<StatCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
       onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick(); } } : undefined}
+      aria-label={onClick ? `Open ${title}: ${value}` : undefined}
       className={cn(
-        'bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col gap-4',
+        'bg-white rounded-xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col gap-3 min-w-0',
         'transition-all duration-200',
-        onClick && 'cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-100'
+        onClick && 'cursor-pointer hover:shadow-md hover:border-blue-300 focus-visible:ring-2 focus-visible:ring-blue-500'
       )}
     >
       <div className="flex items-start justify-between">

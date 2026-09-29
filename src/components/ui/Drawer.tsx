@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAccessibleOverlay } from './useAccessibleOverlay';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '../../utils/cn';
@@ -22,18 +23,8 @@ export const Drawer: React.FC<DrawerProps> = ({
   side = 'right',
   width = 'max-w-2xl',
 }) => {
-  React.useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    if (open) document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
-    };
-  }, [open, onClose]);
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  useAccessibleOverlay(open, onClose, dialogRef);
 
   const slideVariants = {
     right: { initial: { x: '100%' }, animate: { x: 0 }, exit: { x: '100%' } },
@@ -58,6 +49,8 @@ export const Drawer: React.FC<DrawerProps> = ({
             animate={variants.animate}
             exit={variants.exit}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            ref={dialogRef}
+            tabIndex={-1}
             className={cn(
               'relative ml-auto h-full bg-white shadow-2xl flex flex-col w-full',
               width

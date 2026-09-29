@@ -20,7 +20,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           <div key={i} className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full" style={{ background: p.fill || p.stroke }} />
             <span className="text-slate-600">{p.name}:</span>
-            <span className="font-semibold text-slate-900">{typeof p.value === 'number' && p.value > 100 ? formatCurrency(p.value) : p.value}</span>
+            <span className="font-semibold text-slate-900">{p.dataKey === 'revenue' ? formatCurrency(Number(p.value)) : p.value}</span>
           </div>
         ))}
       </div>
@@ -46,13 +46,15 @@ const KpiBox = ({ label, value, sub, positive }: { label: string; value: string 
 export const Reports: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Sales');
   const { enquiries, quotations, orders, productionJobs, customers } = useAppStore();
+  const reportingYear = new Date().getFullYear();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const inReportingYear = (date: string) => new Date(date).getFullYear() === reportingYear;
 
   // Sales data
   const salesData = useMemo(() => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return months.map((month, idx) => {
-      const monthOrders = orders.filter(o => new Date(o.orderDate).getMonth() === idx);
-      const monthQuotes = quotations.filter(q => new Date(q.date).getMonth() === idx);
+    return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month, idx) => {
+      const monthOrders = orders.filter(o => inReportingYear(o.orderDate) && new Date(o.orderDate).getMonth() === idx);
+      const monthQuotes = quotations.filter(q => inReportingYear(q.date) && new Date(q.date).getMonth() === idx);
       return {
         month,
         revenue: monthOrders.reduce((s, o) => s + o.totalAmount, 0),
@@ -60,17 +62,18 @@ export const Reports: React.FC = () => {
         orders: monthOrders.length,
       };
     });
-  }, [orders, quotations]);
+  }, [orders, quotations, reportingYear]);
 
   const totalRevenue = orders.reduce((s, o) => s + o.totalAmount, 0);
   const approvedOrders = orders.length;
   const avgOrderValue = approvedOrders > 0 ? totalRevenue / approvedOrders : 0;
-  const conversionRate = quotations.length > 0 ? ((orders.length / quotations.length) * 100).toFixed(1) : '0';
+  const convertedQuotations = quotations.filter(q => orders.some(o => o.quotationId === q.id) || Boolean(q.orderId)).length;
+  const conversionRate = quotations.length > 0 ? ((convertedQuotations / quotations.length) * 100).toFixed(1) : '0';
 
   const quoteVsOrderData = [
-    { name: 'Quotations', value: quotations.length, fill: '#8B5CF6' },
-    { name: 'Orders', value: orders.length, fill: '#10B981' },
-    { name: 'Lost', value: quotations.filter(q => q.status === 'Rejected' || q.status === 'Expired').length, fill: '#EF4444' },
+    { name: 'Open', value: quotations.filter(q => ['Draft','Sent','Negotiation'].includes(q.status)).length, fill: '#8B5CF6' },
+    { name: 'Approved', value: quotations.filter(q => q.status === 'Approved').length, fill: '#10B981' },
+    { name: 'Lost', value: quotations.filter(q => ['Rejected','Expired'].includes(q.status)).length, fill: '#EF4444' },
   ];
 
   // Production data
@@ -87,14 +90,14 @@ export const Reports: React.FC = () => {
     ? Math.round(productionJobs.reduce((s, j) => s + j.progress, 0) / productionJobs.length)
     : 0;
 
-  const prodMonthly = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'].map((month, idx) => ({
+  const prodMonthly = months.map((month, idx) => ({
     month,
-    completed: productionJobs.filter(j => j.status === 'Completed' && new Date(j.expectedCompletion).getMonth() === idx).length,
-    started: productionJobs.filter(j => new Date(j.startDate).getMonth() === idx).length,
+    completed: productionJobs.filter(j => j.status === 'Completed' && inReportingYear(j.expectedCompletion) && new Date(j.expectedCompletion).getMonth() === idx).length,
+    started: productionJobs.filter(j => inReportingYear(j.startDate) && new Date(j.startDate).getMonth() === idx).length,
   }));
 
   // Customer data
-  const newCustomers = customers.filter(c => c.createdAt.startsWith('2026')).length;
+  const newCustomers = customers.filter(c => inReportingYear(c.createdAt)).length;
   const repeatCustomers = customers.filter(c => orders.filter(o => o.customerId === c.id).length > 1).length;
   const topCustomers = customers.map(c => ({
     name: c.companyName.split(' ')[0] + '...',
@@ -113,6 +116,7 @@ export const Reports: React.FC = () => {
   const enqStatusData = [
     { name: 'New', value: enquiries.filter(e => e.status === 'New').length, fill: '#3B82F6' },
     { name: 'Contacted', value: enquiries.filter(e => e.status === 'Contacted').length, fill: '#8B5CF6' },
+    { name: 'Negotiation', value: enquiries.filter(e => e.status === 'Negotiation').length, fill: '#C084FC' },
     { name: 'Quotation Sent', value: enquiries.filter(e => e.status === 'Quotation Sent').length, fill: '#F59E0B' },
     { name: 'Converted', value: enquiries.filter(e => e.status === 'Converted').length, fill: '#10B981' },
     { name: 'Closed/Lost', value: enquiries.filter(e => e.status === 'Closed/Lost').length, fill: '#EF4444' },
@@ -122,19 +126,22 @@ export const Reports: React.FC = () => {
     ? ((enquiries.filter(e => e.status === 'Converted').length / enquiries.length) * 100).toFixed(1)
     : '0';
 
-  const enqMonthly = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'].map((month, idx) => ({
-    month,
-    new: Math.max(2, Math.round(Math.random() * 8 + idx * 0.5)),
-    converted: Math.max(0, Math.round(Math.random() * 3 + idx * 0.3)),
-  }));
+  const enqMonthly = months.map((month, idx) => {
+    const received = enquiries.filter(e => inReportingYear(e.enquiryDate) && new Date(e.enquiryDate).getMonth() === idx);
+    return {
+      month,
+      new: received.length,
+      converted: received.filter(e => e.status === 'Converted').length,
+    };
+  });
 
   const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B6D4'];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Reports & Analytics"
-        subtitle="Insights generated from your manufacturing operations."
+        subtitle={`Records shown are demo data. Monthly charts use ${reportingYear}; order values assume a common reporting currency (no FX conversion).`}
         breadcrumbs={[{ label: 'Dashboard' }, { label: 'Reports' }]}
       />
 
@@ -159,28 +166,28 @@ export const Reports: React.FC = () => {
       {activeTab === 'Sales' && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <KpiBox label="Total Revenue" value={formatCurrency(totalRevenue)} sub="+18.2% from last year" positive={true} />
-            <KpiBox label="Total Orders" value={approvedOrders} sub="+5.1% from last month" positive={true} />
-            <KpiBox label="Avg. Order Value" value={formatCurrency(avgOrderValue)} sub="Per completed order" />
-            <KpiBox label="Quote Conversion" value={`${conversionRate}%`} sub="Quotes to orders" positive={parseFloat(conversionRate) > 50} />
+            <KpiBox label="Total Order Value" value={formatCurrency(totalRevenue)} sub="All recorded orders" />
+            <KpiBox label="Total Orders" value={approvedOrders} />
+            <KpiBox label="Avg. Order Value" value={formatCurrency(avgOrderValue)} sub="Per recorded order" />
+            <KpiBox label="Quote Conversion" value={`${conversionRate}%`} sub="Quotations linked to orders" />
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <div className="xl:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly Revenue</h3>
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly Order Value ({reportingYear})</h3>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={salesData} margin={{ left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={v => v > 0 ? `$${(v/1000).toFixed(0)}k` : '0'} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="revenue" name="Revenue" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="revenue" name="Order value" fill="#3B82F6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">Quotations vs Orders</h3>
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">Quotation Status Breakdown</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie data={quoteVsOrderData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={3} dataKey="value">
@@ -217,9 +224,9 @@ export const Reports: React.FC = () => {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiBox label="Total Jobs" value={productionJobs.length} />
-            <KpiBox label="Completed" value={productionJobs.filter(j => j.status === 'Completed').length} sub="Successfully finished" positive={true} />
-            <KpiBox label="Delayed" value={productionJobs.filter(j => j.status === 'Delayed').length} sub="Behind schedule" positive={false} />
-            <KpiBox label="Avg. Progress" value={`${avgProgress}%`} sub="Across all active jobs" />
+            <KpiBox label="Completed" value={productionJobs.filter(j => j.status === 'Completed').length} sub="Marked completed" />
+            <KpiBox label="Delayed" value={productionJobs.filter(j => j.status === 'Delayed').length} sub="Currently flagged delayed" />
+            <KpiBox label="Avg. Progress" value={`${avgProgress}%`} sub="Across all jobs" />
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -239,7 +246,7 @@ export const Reports: React.FC = () => {
             </div>
 
             <div className="xl:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly Production Activity</h3>
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly Production Activity ({reportingYear})</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={prodMonthly} margin={{ left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />

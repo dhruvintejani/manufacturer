@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ShoppingCart, Plus, Eye, Edit2, Trash2,
-  Factory, CheckCircle, ArrowRight, DollarSign
+  Factory, CheckCircle, ArrowRight, DollarSign, ArrowDownUp
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
@@ -11,6 +11,7 @@ import { Order } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { StatCard } from '../components/ui/StatCard';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { RowActions } from '../components/ui/RowActions';
 import { Drawer } from '../components/ui/Drawer';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SearchInput } from '../components/ui/SearchInput';
@@ -19,10 +20,15 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { WorkflowStepper } from '../components/ui/WorkflowStepper';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { Modal } from '../components/ui/Modal';
+import { PremiumSelect } from '../components/ui/PremiumSelect';
 
 const ITEMS_PER_PAGE = 8;
 const ORDER_STATUSES = ['Confirmed', 'Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'];
 const PAYMENT_STATUSES = ['Pending', 'Partial', 'Paid', 'Overdue'];
+const STATUS_COLORS: Record<string, string> = {
+  Confirmed: '#2563eb', Production: '#7c3aed', 'Quality Check': '#d97706',
+  Ready: '#0d9488', Dispatched: '#0891b2', Completed: '#059669',
+};
 const PRODUCTS = ['Pressure Vessel', 'Heat Exchanger', 'Storage Tank', 'Industrial Dryer', 'Reactor', 'Column', 'Boiler System'];
 const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
 
@@ -37,10 +43,14 @@ const getWorkflowSteps = (status: string) => {
 
 export const Orders: React.FC = () => {
   const navigate = useNavigate();
-  const { orders, customers, productionJobs, addOrder, updateOrder, deleteOrder, addProductionJob } = useAppStore();
+  const [searchParams] = useSearchParams();
+  const { orders, customers, productionJobs, addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus, profile } = useAppStore();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [paymentFilter, setPaymentFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') === 'active' ? 'active' : 'all');
+  const [paymentFilter, setPaymentFilter] = useState(searchParams.get('payment') === 'pending' ? 'pending' : 'all');
+  const [newestFirst, setNewestFirst] = useState(true);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [statusNote, setStatusNote] = useState('');
   const [page, setPage] = useState(1);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
@@ -61,13 +71,13 @@ export const Orders: React.FC = () => {
         o.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
         o.product.toLowerCase().includes(search.toLowerCase()) ||
         customer?.companyName.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = statusFilter === 'all' || o.status === statusFilter;
-      const matchPayment = paymentFilter === 'all' || o.paymentStatus === paymentFilter;
+      const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? o.status !== 'Completed' : o.status === statusFilter);
+      const matchPayment = paymentFilter === 'all' || (paymentFilter === 'pending' ? ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus) : o.paymentStatus === paymentFilter);
       return matchSearch && matchStatus && matchPayment;
     });
   }, [orders, customers, search, statusFilter, paymentFilter]);
 
-  const sorted = [...filtered].sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+  const sorted = [...filtered].sort((a, b) => (newestFirst ? 1 : -1) * (new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()));
   const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
   const paginated = sorted.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
   const getCustomer = (id: string) => customers.find(c => c.id === id);
@@ -75,10 +85,10 @@ export const Orders: React.FC = () => {
 
   const stats = {
     total: orders.length,
-    active: orders.filter(o => !['Completed', 'Dispatched'].includes(o.status)).length,
+    active: orders.filter(o => o.status !== 'Completed').length,
     inProduction: orders.filter(o => o.status === 'Production').length,
     completed: orders.filter(o => o.status === 'Completed').length,
-    pendingPayment: orders.filter(o => ['Pending', 'Overdue'].includes(o.paymentStatus)).length,
+    pendingPayment: orders.filter(o => ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus)).length,
   };
 
   const handleCreateJob = (order: Order) => {
@@ -111,7 +121,11 @@ export const Orders: React.FC = () => {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    deleteOrder(deleteTarget.id);
+    if (!deleteOrder(deleteTarget.id)) {
+      toast.error('Cannot delete an order while production jobs are linked.');
+      setDeleteTarget(null);
+      return;
+    }
     toast.success('Order deleted.');
     setDeleteTarget(null);
     setViewingOrder(null);
@@ -119,10 +133,25 @@ export const Orders: React.FC = () => {
 
   const handleSaveEdit = () => {
     if (!editModal) return;
-    updateOrder(editModal.id, editModal);
+    const { status: _status, statusHistory: _history, ...changes } = editModal;
+    updateOrder(editModal.id, changes);
     toast.success('Order updated.');
     setEditModal(null);
     if (viewingOrder?.id === editModal.id) setViewingOrder(prev => prev ? { ...prev, ...editModal } : null);
+  };
+
+  const currentOrder = viewingOrder ? orders.find(o => o.id === viewingOrder.id) || viewingOrder : null;
+  const currentIndex = currentOrder ? ORDER_STATUSES.indexOf(currentOrder.status) : -1;
+  const nextOrderStatus = currentIndex >= 0 ? ORDER_STATUSES[currentIndex + 1] : undefined;
+
+  const handleAdvanceStatus = () => {
+    if (!currentOrder || !nextOrderStatus) return;
+    if (!advanceOrderStatus(currentOrder.id, profile.name, statusNote)) {
+      toast.error('Order status has changed. Reopen the order and try again.'); return;
+    }
+    setViewingOrder(useAppStore.getState().orders.find(o => o.id === currentOrder.id) || null);
+    setStatusModalOpen(false); setStatusNote('');
+    toast.success(`Order moved to ${nextOrderStatus}.`);
   };
 
   const handleAddOrder = () => {
@@ -139,7 +168,7 @@ export const Orders: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Orders"
         subtitle="Track customer orders from confirmation to completion."
@@ -159,21 +188,18 @@ export const Orders: React.FC = () => {
         <StatCard title="Total Orders" value={stats.total} icon={<ShoppingCart className="w-5 h-5 text-blue-600" />} iconBg="bg-blue-50" index={0} />
         <StatCard title="Active Orders" value={stats.active} icon={<ArrowRight className="w-5 h-5 text-amber-600" />} iconBg="bg-amber-50" index={1} />
         <StatCard title="In Production" value={stats.inProduction} icon={<Factory className="w-5 h-5 text-violet-600" />} iconBg="bg-violet-50" index={2} />
-        <StatCard title="Completed" value={stats.completed} change={25} icon={<CheckCircle className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={3} />
+        <StatCard title="Completed" value={stats.completed} icon={<CheckCircle className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={3} />
         <StatCard title="Pending Payment" value={stats.pendingPayment} icon={<DollarSign className="w-5 h-5 text-rose-600" />} iconBg="bg-rose-50" index={4} />
       </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search by order no., customer or product..." className="flex-1 max-w-md" />
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-          <option value="all">All Status</option>
-          {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={paymentFilter} onChange={e => { setPaymentFilter(e.target.value); setPage(1); }} className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-          <option value="all">All Payment</option>
-          {PAYMENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <PremiumSelect label="Order status filter" value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }}
+          options={[{ value: 'all', label: 'All Status' }, { value: 'active', label: 'Active Orders' }, ...ORDER_STATUSES.map(value => ({ value, label: value, color: STATUS_COLORS[value] }))]} className="w-full sm:w-48" />
+        <PremiumSelect label="Payment status filter" value={paymentFilter} onChange={value => { setPaymentFilter(value); setPage(1); }}
+          options={[{ value: 'all', label: 'All Payments' }, { value: 'pending', label: 'Pending / Partial / Overdue', color: '#d97706' },
+            ...PAYMENT_STATUSES.map(value => ({ value, label: value, color: value === 'Paid' ? '#059669' : '#d97706' }))]} className="w-full sm:w-60" />
       </div>
 
       {/* Table */}
@@ -187,7 +213,11 @@ export const Orders: React.FC = () => {
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
                     {['Order ID', 'Customer', 'Product', 'Qty', 'Order Date', 'Delivery', 'Amount', 'Status', 'Payment', 'Actions'].map(h => (
-                      <th key={h} className="text-left text-xs font-semibold text-slate-500 px-6 py-3.5">{h}</th>
+                      <th key={h} scope="col" className="text-left text-xs font-semibold text-slate-500 px-6 py-3.5">
+                        {h === 'Order Date' ? <button type="button" onClick={() => { setNewestFirst(v => !v); setPage(1); }}
+                          className="inline-flex items-center gap-1 hover:text-blue-700" title="Toggle order date sorting"
+                          aria-label="Sort orders by date">Order Date <ArrowDownUp className="h-3.5 w-3.5" /></button> : h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -210,11 +240,11 @@ export const Orders: React.FC = () => {
                         <td className="px-6 py-4"><StatusBadge status={order.status} /></td>
                         <td className="px-6 py-4"><StatusBadge status={order.paymentStatus} /></td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => setViewingOrder(order)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><Eye className="w-4 h-4" /></button>
-                            <button onClick={() => setEditModal({ ...order })} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit"><Edit2 className="w-4 h-4" /></button>
-                            <button onClick={() => setDeleteTarget(order)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                          </div>
+                          <RowActions label={`Actions for ${order.orderNumber}`} actions={[
+  { label: 'View details', onClick: () => setViewingOrder(order), icon: <Eye className="h-4 w-4" /> },
+  { label: 'Edit order', onClick: () => setEditModal({ ...order }), icon: <Edit2 className="h-4 w-4" /> },
+  { label: 'Delete order', onClick: () => setDeleteTarget(order), icon: <Trash2 className="h-4 w-4" />, danger: true },
+]} />
                         </td>
                       </motion.tr>
                     );
@@ -237,7 +267,35 @@ export const Orders: React.FC = () => {
             <div className="bg-slate-50 rounded-xl p-4">
               <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Order Progress</h4>
               <WorkflowStepper steps={getWorkflowSteps(viewingOrder.status)} />
+              {nextOrderStatus && (
+                <button type="button" onClick={() => setStatusModalOpen(true)}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800">
+                  Update Status <ArrowRight className="h-4 w-4" /> {nextOrderStatus}
+                </button>
+              )}
             </div>
+
+            <section aria-label="Order status audit trail" className="rounded-lg border border-slate-200 bg-white p-4">
+              <h4 className="mb-3 text-sm font-semibold text-slate-900">Status History</h4>
+              {viewingOrder.statusHistory?.length ? (
+                <ol className="space-y-4 border-l-2 border-slate-100 pl-4">
+                  {[...viewingOrder.statusHistory].reverse().map((entry, index) => (
+                    <li key={index} className="relative">
+                      <span aria-hidden="true" className="absolute -left-[23px] top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-blue-600" />
+                      <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-900">
+                        <StatusBadge status={entry.from} size="sm" />
+                        <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
+                        <StatusBadge status={entry.to} size="sm" />
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        Updated by {entry.changedBy} · {new Date(entry.changedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </div>
+                      {entry.note && <p className="mt-1 break-words text-sm text-slate-700">{entry.note}</p>}
+                    </li>
+                  ))}
+                </ol>
+              ) : <p className="text-sm text-slate-500">No status changes recorded yet for this order.</p>}
+            </section>
 
             {/* Details */}
             <div className="grid grid-cols-2 gap-4">
@@ -302,7 +360,7 @@ export const Orders: React.FC = () => {
 
             {/* Actions */}
             <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
-              {!getJob(viewingOrder.id) && viewingOrder.status === 'Confirmed' && (
+              {!getJob(viewingOrder.id) && ['Confirmed', 'Production'].includes(viewingOrder.status) && (
                 <button onClick={() => setCreateJobOpen(true)} className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
                   <Factory className="w-4 h-4" /> Create Production Job
                 </button>
@@ -318,6 +376,32 @@ export const Orders: React.FC = () => {
         </Drawer>
       )}
 
+      {/* Audited next-step status transition */}
+      <Modal open={statusModalOpen && !!currentOrder && !!nextOrderStatus}
+        onClose={() => { setStatusModalOpen(false); setStatusNote(''); }}
+        title={currentOrder ? `Update ${currentOrder.orderNumber}` : 'Update Order'}
+        subtitle="Move the order to the next workflow stage only."
+        footer={<div className="flex flex-wrap justify-end gap-3">
+          <button type="button" onClick={() => { setStatusModalOpen(false); setStatusNote(''); }}
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50">Cancel</button>
+          <button type="button" onClick={handleAdvanceStatus} disabled={!nextOrderStatus}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">Confirm Update</button>
+        </div>}
+      >
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 p-4">
+            <StatusBadge status={currentOrder?.status || ''} />
+            <ArrowRight className="h-4 w-4 text-blue-600" />
+            <StatusBadge status={nextOrderStatus || ''} />
+          </div>
+          <label htmlFor="order-status-note" className="block text-sm font-medium text-slate-700">Update note (optional)</label>
+          <textarea id="order-status-note" rows={3} maxLength={500} value={statusNote}
+            onChange={e => setStatusNote(e.target.value)} placeholder="What changed at this stage?"
+            className={inputClass} />
+          <p className="text-xs text-slate-500">This change will be recorded with your demo operator name and the current time.</p>
+        </div>
+      </Modal>
+
       {/* Edit Modal */}
       {editModal && (
         <Modal open={!!editModal} onClose={() => setEditModal(null)} title={`Edit ${editModal.orderNumber}`} size="lg"
@@ -328,9 +412,9 @@ export const Orders: React.FC = () => {
             </div>
           }
         >
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-900">To change an order stage, open Order Details → Update Status. Changes there are recorded in the audit history.</div>
             {[
-              { label: 'Order Status', field: 'status', type: 'select', options: ORDER_STATUSES },
               { label: 'Payment Status', field: 'paymentStatus', type: 'select', options: PAYMENT_STATUSES },
               { label: 'Order Date', field: 'orderDate', type: 'date' },
               { label: 'Delivery Date', field: 'deliveryDate', type: 'date' },
@@ -339,9 +423,8 @@ export const Orders: React.FC = () => {
               <div key={f.field}>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">{f.label}</label>
                 {f.type === 'select' ? (
-                  <select value={(editModal as any)[f.field]} onChange={e => setEditModal(prev => prev ? { ...prev, [f.field]: e.target.value } : null)} className={inputClass}>
-                    {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
+                  <PremiumSelect label={f.label} value={(editModal as any)[f.field]} onChange={value => setEditModal(prev => prev ? { ...prev, [f.field]: value } : null)}
+                    options={(f.options || []).map(value => ({ value, label: value, color: value === 'Paid' ? '#059669' : '#d97706' }))} />
                 ) : (
                   <input type={f.type} value={(editModal as any)[f.field]} onChange={e => setEditModal(prev => prev ? { ...prev, [f.field]: f.type === 'number' ? parseFloat(e.target.value) : e.target.value } : null)} className={inputClass} />
                 )}
@@ -364,19 +447,16 @@ export const Orders: React.FC = () => {
           </div>
         }
       >
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer <span className="text-red-500">*</span></label>
-            <select value={newOrderForm.customerId} onChange={e => setNewOrderForm(f => ({ ...f, customerId: e.target.value }))} className={inputClass}>
-              <option value="">Select customer...</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.companyName}</option>)}
-            </select>
+            <PremiumSelect label="Customer" value={newOrderForm.customerId} onChange={value => setNewOrderForm(f => ({ ...f, customerId: value }))}
+              options={[{ value: '', label: 'Select customer...' }, ...customers.map(c => ({ value: c.id, label: c.companyName }))]} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Product</label>
-            <select value={newOrderForm.product} onChange={e => setNewOrderForm(f => ({ ...f, product: e.target.value }))} className={inputClass}>
-              {PRODUCTS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+            <PremiumSelect label="Product" value={newOrderForm.product} onChange={value => setNewOrderForm(f => ({ ...f, product: value }))}
+              options={PRODUCTS.map(value => ({ value, label: value }))} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Quantity</label>
@@ -396,9 +476,8 @@ export const Orders: React.FC = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Payment Status</label>
-            <select value={newOrderForm.paymentStatus} onChange={e => setNewOrderForm(f => ({ ...f, paymentStatus: e.target.value }))} className={inputClass}>
-              {PAYMENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <PremiumSelect label="Payment status" value={newOrderForm.paymentStatus} onChange={value => setNewOrderForm(f => ({ ...f, paymentStatus: value }))}
+              options={PAYMENT_STATUSES.map(value => ({ value, label: value, color: value === 'Paid' ? '#059669' : '#d97706' }))} />
           </div>
           <div className="col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>

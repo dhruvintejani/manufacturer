@@ -67,6 +67,14 @@ export interface Quotation {
 export type OrderStatus = 'Confirmed' | 'Production' | 'Quality Check' | 'Ready' | 'Dispatched' | 'Completed';
 export type PaymentStatus = 'Pending' | 'Partial' | 'Paid' | 'Overdue';
 
+export interface OrderStatusEvent {
+  from: OrderStatus;
+  to: OrderStatus;
+  changedBy: string;
+  changedAt: string;
+  note?: string;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -80,6 +88,7 @@ export interface Order {
   paymentStatus: PaymentStatus;
   status: OrderStatus;
   productionJobId?: string;
+  statusHistory?: OrderStatusEvent[];
   notes: string;
 }
 

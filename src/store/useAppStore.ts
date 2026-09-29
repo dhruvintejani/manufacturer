@@ -10,6 +10,19 @@ import {
   seedOrders, seedProductionJobs, seedActivities, seedNotifications
 } from '../data/seedData';
 
+export interface DemoProfile {
+  name: string;
+  email: string;
+  role: string;
+  phone: string;
+}
+export const defaultDemoProfile: DemoProfile = {
+  name: 'Alex Morgan',
+  email: 'alex.morgan@forgeflow.com',
+  role: 'Operations Manager',
+  phone: '+1 555 000 0001',
+};
+
 interface AppStore {
   // State
   customers: Customer[];
@@ -19,28 +32,31 @@ interface AppStore {
   productionJobs: ProductionJob[];
   activities: Activity[];
   notifications: Notification[];
+  profile: DemoProfile;
+  setProfile: (profile: DemoProfile) => void;
   sidebarCollapsed: boolean;
   sidebarMobileOpen: boolean;
 
   // Customer actions
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt'>) => Customer;
   updateCustomer: (id: string, data: Partial<Customer>) => void;
-  deleteCustomer: (id: string) => void;
+  deleteCustomer: (id: string) => boolean;
 
   // Enquiry actions
   addEnquiry: (enquiry: Omit<Enquiry, 'id' | 'enquiryDate'>) => Enquiry;
   updateEnquiry: (id: string, data: Partial<Enquiry>) => void;
-  deleteEnquiry: (id: string) => void;
+  deleteEnquiry: (id: string) => boolean;
 
   // Quotation actions
   addQuotation: (quotation: Omit<Quotation, 'id'>) => Quotation;
   updateQuotation: (id: string, data: Partial<Quotation>) => void;
-  deleteQuotation: (id: string) => void;
+  deleteQuotation: (id: string) => boolean;
 
   // Order actions
   addOrder: (order: Omit<Order, 'id'>) => Order;
-  updateOrder: (id: string, data: Partial<Order>) => void;
-  deleteOrder: (id: string) => void;
+  updateOrder: (id: string, data: Partial<Order>, changedBy?: string, note?: string) => void;
+  advanceOrderStatus: (id: string, changedBy: string, note?: string) => boolean;
+  deleteOrder: (id: string) => boolean;
 
   // Production actions
   addProductionJob: (job: Omit<ProductionJob, 'id'>) => ProductionJob;
@@ -67,6 +83,7 @@ const generateId = (prefix: string) => {
 };
 
 const now = () => new Date().toISOString();
+const orderWorkflow: OrderStatus[] = ['Confirmed', 'Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'];
 
 export const useAppStore = create<AppStore>()(
   persist(
@@ -78,6 +95,8 @@ export const useAppStore = create<AppStore>()(
       productionJobs: seedProductionJobs,
       activities: seedActivities,
       notifications: seedNotifications,
+      profile: defaultDemoProfile,
+      setProfile: (profile) => set({ profile }),
       sidebarCollapsed: false,
       sidebarMobileOpen: false,
 
@@ -106,7 +125,12 @@ export const useAppStore = create<AppStore>()(
         set(s => ({ customers: s.customers.map(c => c.id === id ? { ...c, ...data } : c) }));
       },
       deleteCustomer: (id) => {
+        const state = get();
+        if (state.enquiries.some(e => e.customerId === id) ||
+            state.quotations.some(q => q.customerId === id) ||
+            state.orders.some(o => o.customerId === id)) return false;
         set(s => ({ customers: s.customers.filter(c => c.id !== id) }));
+        return true;
       },
 
       // Enquiry CRUD
@@ -149,7 +173,9 @@ export const useAppStore = create<AppStore>()(
         set(s => ({ enquiries: s.enquiries.map(e => e.id === id ? { ...e, ...data } : e) }));
       },
       deleteEnquiry: (id) => {
+        if (get().quotations.some(q => q.enquiryId === id)) return false;
         set(s => ({ enquiries: s.enquiries.filter(e => e.id !== id) }));
+        return true;
       },
 
       // Quotation CRUD
@@ -170,7 +196,7 @@ export const useAppStore = create<AppStore>()(
         // Update enquiry if linked
         if (data.enquiryId) {
           get().updateEnquiry(data.enquiryId, {
-            status: 'Quotation Sent' as EnquiryStatus,
+            ...(data.status === 'Sent' ? { status: 'Quotation Sent' as EnquiryStatus } : {}),
             quotationId: quotation.id,
           });
         }
@@ -212,6 +238,7 @@ export const useAppStore = create<AppStore>()(
         if (data.status === 'Sent') {
           const q = get().quotations.find(q => q.id === id);
           if (q) {
+            if (q.enquiryId) get().updateEnquiry(q.enquiryId, { status: 'Quotation Sent' });
             const customer = get().customers.find(c => c.id === q.customerId);
             get().addActivity({
               type: 'quotation',
@@ -223,7 +250,14 @@ export const useAppStore = create<AppStore>()(
         }
       },
       deleteQuotation: (id) => {
-        set(s => ({ quotations: s.quotations.filter(q => q.id !== id) }));
+        if (get().orders.some(o => o.quotationId === id)) return false;
+        set(s => ({
+          quotations: s.quotations.filter(q => q.id !== id),
+          enquiries: s.enquiries.map(e => e.quotationId === id
+            ? { ...e, quotationId: undefined, status: e.status === 'Quotation Sent' ? ('Contacted' as EnquiryStatus) : e.status }
+            : e),
+        }));
+        return true;
       },
 
       // Order CRUD
@@ -271,11 +305,50 @@ export const useAppStore = create<AppStore>()(
         }));
         return order;
       },
-      updateOrder: (id, data) => {
-        set(s => ({ orders: s.orders.map(o => o.id === id ? { ...o, ...data } : o) }));
+      updateOrder: (id, data, changedBy = 'System', note = '') => {
+        const previous = get().orders.find(o => o.id === id);
+        if (!previous) return;
+        const statusChanged = data.status && data.status !== previous.status;
+        const statusHistory = statusChanged
+          ? [...(previous.statusHistory || []), {
+              from: previous.status, to: data.status as OrderStatus,
+              changedBy, changedAt: now(), note: note.trim() || undefined,
+            }]
+          : previous.statusHistory;
+        set(s => ({
+          orders: s.orders.map(o => o.id === id ? {
+            ...o, ...data, statusHistory,
+          } : o),
+        }));
+        if (statusChanged) {
+          get().addActivity({
+            type: 'order',
+            title: 'Order status updated',
+            description: `${previous.orderNumber}: ${previous.status} → ${data.status} by ${changedBy}`,
+            relatedId: previous.id,
+          });
+        }
+      },
+      advanceOrderStatus: (id, changedBy, note = '') => {
+        const order = get().orders.find(o => o.id === id);
+        if (!order) return false;
+        const position = orderWorkflow.indexOf(order.status);
+        if (position < 0 || position >= orderWorkflow.length - 1) return false;
+        get().updateOrder(id, { status: orderWorkflow[position + 1] }, changedBy, note);
+        return true;
       },
       deleteOrder: (id) => {
-        set(s => ({ orders: s.orders.filter(o => o.id !== id) }));
+        if (get().productionJobs.some(j => j.orderId === id)) return false;
+        const order = get().orders.find(o => o.id === id);
+        set(s => ({
+          orders: s.orders.filter(o => o.id !== id),
+          quotations: s.quotations.map(q => q.orderId === id ? { ...q, orderId: undefined } : q),
+          enquiries: s.enquiries.map(e =>
+            order && s.quotations.some(q => q.id === order.quotationId && q.enquiryId === e.id) && e.status === 'Converted'
+              ? { ...e, status: 'Quotation Sent' as EnquiryStatus }
+              : e),
+        }));
+        return true;
       },
 
       // Production CRUD
@@ -295,10 +368,11 @@ export const useAppStore = create<AppStore>()(
 
         // Update order status
         if (data.orderId) {
+          const linkedOrder = get().orders.find(o => o.id === data.orderId);
           get().updateOrder(data.orderId, {
-            status: 'Production' as OrderStatus,
+            ...(linkedOrder?.status === 'Confirmed' ? { status: 'Production' as OrderStatus } : {}),
             productionJobId: job.id,
-          });
+          }, 'Production system', `Production job ${job.jobNumber} created`);
         }
         get().addActivity({
           type: 'production',
@@ -321,22 +395,35 @@ export const useAppStore = create<AppStore>()(
         return job;
       },
       updateProductionJob: (id, data) => {
+        const previous = get().productionJobs.find(j => j.id === id);
+        if (!previous) return;
         set(s => ({ productionJobs: s.productionJobs.map(j => j.id === id ? { ...j, ...data } : j) }));
-        if (data.status === 'Completed') {
-          const job = get().productionJobs.find(j => j.id === id);
-          if (job) {
-            get().updateOrder(job.orderId, { status: 'Ready' as OrderStatus });
-            get().addActivity({
-              type: 'production',
-              title: 'Production completed',
-              description: `Production job ${job.jobNumber} completed. ${job.product} ready for dispatch.`,
-              relatedId: id,
-            });
+        if (data.status && data.status !== previous.status) {
+          get().addActivity({
+            type: 'production',
+            title: data.status === 'Completed' ? 'Production completed' : 'Production status updated',
+            description: `Job ${previous.jobNumber}: ${previous.status} → ${data.status}`,
+            relatedId: id,
+          });
+          // Production milestones advance (never rewind) the associated order.
+          const target: OrderStatus | null = data.status === 'Quality Check' ? 'Quality Check'
+            : ['Ready', 'Completed'].includes(data.status) ? 'Ready' : null;
+          const linked = get().orders.find(o => o.id === previous.orderId);
+          if (target && linked) {
+            const from = orderWorkflow.indexOf(linked.status);
+            const to = orderWorkflow.indexOf(target);
+            for (let index = from + 1; index <= to; index++) {
+              get().updateOrder(linked.id, { status: orderWorkflow[index] }, 'Production system',
+                `Job ${previous.jobNumber} moved to ${data.status}`);
+            }
           }
         }
       },
       deleteProductionJob: (id) => {
-        set(s => ({ productionJobs: s.productionJobs.filter(j => j.id !== id) }));
+        set(s => ({
+          productionJobs: s.productionJobs.filter(j => j.id !== id),
+          orders: s.orders.map(o => o.productionJobId === id ? { ...o, productionJobId: undefined } : o),
+        }));
       },
 
       // Notifications
@@ -373,6 +460,7 @@ export const useAppStore = create<AppStore>()(
           productionJobs: seedProductionJobs,
           activities: seedActivities,
           notifications: seedNotifications,
+          profile: defaultDemoProfile,
         });
       },
     }),
@@ -387,6 +475,7 @@ export const useAppStore = create<AppStore>()(
         productionJobs: state.productionJobs,
         activities: state.activities,
         notifications: state.notifications,
+        profile: state.profile,
         sidebarCollapsed: state.sidebarCollapsed,
       }),
     }

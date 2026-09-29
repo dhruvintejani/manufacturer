@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAccessibleOverlay } from './useAccessibleOverlay';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '../../utils/cn';
@@ -30,18 +31,8 @@ export const Modal: React.FC<ModalProps> = ({
   size = 'lg',
   footer,
 }) => {
-  React.useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    if (open) document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
-    };
-  }, [open, onClose]);
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  useAccessibleOverlay(open, onClose, dialogRef);
 
   return (
     <AnimatePresence>
@@ -60,8 +51,10 @@ export const Modal: React.FC<ModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 16 }}
             transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+            ref={dialogRef}
+            tabIndex={-1}
             className={cn(
-              'relative bg-white rounded-2xl shadow-2xl w-full flex flex-col max-h-[90vh] z-10',
+              'relative bg-white rounded-xl shadow-2xl w-full flex flex-col max-h-[90dvh] z-10',
               sizeClasses[size]
             )}
             role="dialog"

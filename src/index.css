@@ -119,3 +119,29 @@ input, select, textarea {
     display: none !important;
   }
 }
+
+/* Global interaction states */
+button:not(:disabled), a[href], select, [role='button'] { cursor: pointer; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button:active:not(:disabled) { transform: translateY(1px); }
+
+/* Industrial product system: compact spacing, restrained borders and polished native controls. */
+:root { --primary: #1d4ed8; --primary-dark: #1e40af; --sidebar-bg: #101f35; --sidebar-hover: #1c3351; --border: #dce4ee; --bg: #f4f7fb; }
+html, body, #root { min-width: 280px; min-height: 100%; }
+body { background-color: var(--bg); }
+button { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 120ms ease; }
+button:focus-visible, a:focus-visible, [role="option"]:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+input:not([type="range"]):not([type="checkbox"]), textarea, select { min-height: 40px; border-radius: 8px; }
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+select { appearance: none; padding-right: 2.2rem !important; background-image: linear-gradient(45deg, transparent 50%, #64748b 50%), linear-gradient(135deg, #64748b 50%, transparent 50%); background-position: calc(100% - 17px) 51%, calc(100% - 12px) 51%; background-size: 5px 5px; background-repeat: no-repeat; }
+.page-shell { padding: clamp(1rem, 1.7vw, 1.5rem); display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
+.page-shell table { border-collapse: separate; border-spacing: 0; min-width: max-content; width: 100%; }
+.page-shell th { font-weight: 650; white-space: nowrap; letter-spacing: .01em; }
+.page-shell tbody tr { transition: background-color 120ms ease; }
+.page-shell tbody tr:hover { background: #f1f6fe; }
+.page-shell td { vertical-align: middle; }
+.page-shell .rounded-2xl { border-radius: 12px; }
+.page-shell .shadow-sm { box-shadow: 0 1px 2px rgba(14,36,66,.035), 0 3px 14px rgba(14,36,66,.03); }
+.page-shell .overflow-x-auto { overscroll-behavior-inline: contain; }
+@media (max-width: 640px) { .page-shell .grid.grid-cols-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 175px), 1fr)); } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

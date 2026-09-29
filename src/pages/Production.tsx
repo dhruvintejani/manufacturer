@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Factory, Plus, Eye, Trash2,
@@ -10,6 +11,7 @@ import { ProductionJob } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { StatCard } from '../components/ui/StatCard';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { RowActions } from '../components/ui/RowActions';
 import { Drawer } from '../components/ui/Drawer';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SearchInput } from '../components/ui/SearchInput';
@@ -17,6 +19,7 @@ import { Pagination } from '../components/ui/Pagination';
 import { EmptyState } from '../components/ui/EmptyState';
 import { WorkflowStepper } from '../components/ui/WorkflowStepper';
 import { Modal } from '../components/ui/Modal';
+import { PremiumSelect } from '../components/ui/PremiumSelect';
 import { formatDate } from '../utils/formatters';
 
 const ITEMS_PER_PAGE = 8;
@@ -35,10 +38,20 @@ const statusColorMap: Record<string, string> = {
   'Delayed': '#EF4444',
 };
 
+const stageForProgress = (progress: number) => progress >= 100 ? 7 : progress >= 95 ? 5 : progress >= 85 ? 4 : progress >= 65 ? 3 : progress >= 20 ? 2 : progress >= 1 ? 1 : 0;
+const withStageProgress = (job: ProductionJob, progress: number) => {
+  const current = stageForProgress(progress);
+  return job.stages.map((stage, index) => ({ ...stage,
+    status: (index < current ? 'completed' : index === current ? 'in-progress' : 'pending') as 'completed' | 'in-progress' | 'pending',
+    date: index < current ? stage.date || new Date().toISOString() : stage.date,
+  }));
+};
+
 export const Production: React.FC = () => {
-  const { productionJobs, orders, updateProductionJob, deleteProductionJob, addProductionJob } = useAppStore();
+  const location = useLocation();
+  const { productionJobs, orders, customers, updateProductionJob, deleteProductionJob, addProductionJob } = useAppStore();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(new URLSearchParams(location.search).get('status') === 'active' ? 'active' : 'all');
   const [page, setPage] = useState(1);
   const [viewingJob, setViewingJob] = useState<ProductionJob | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProductionJob | null>(null);
@@ -55,11 +68,12 @@ export const Production: React.FC = () => {
       const matchSearch = !search ||
         j.jobNumber.toLowerCase().includes(search.toLowerCase()) ||
         j.product.toLowerCase().includes(search.toLowerCase()) ||
-        j.orderId.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = statusFilter === 'all' || j.status === statusFilter;
+        j.orderId.toLowerCase().includes(search.toLowerCase()) ||
+        customers.find(c => c.id === orders.find(o => o.id === j.orderId)?.customerId)?.companyName.toLowerCase().includes(search.toLowerCase());
+      const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? j.status !== 'Completed' : j.status === statusFilter);
       return matchSearch && matchStatus;
     });
-  }, [productionJobs, search, statusFilter]);
+  }, [productionJobs, customers, orders, search, statusFilter]);
 
   const sorted = [...filtered].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
   const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
@@ -78,14 +92,18 @@ export const Production: React.FC = () => {
     if (progress >= 100) status = 'Completed';
     else if (progress >= 85) status = 'Quality Check';
     else if (progress >= 10) status = 'In Production';
-    updateProductionJob(job.id, { progress, status: status as any });
-    setViewingJob(prev => prev ? { ...prev, progress, status: status as any } : null);
+    const stages = withStageProgress(job, progress);
+    updateProductionJob(job.id, { progress, stages, status: status as any });
+    setViewingJob(prev => prev ? { ...prev, progress, stages, status: status as any } : null);
   };
 
   const handleStatusChange = (job: ProductionJob, status: string) => {
-    updateProductionJob(job.id, { status: status as any });
+    const milestone: Record<string, number> = { Planning: 0, 'In Production': 20, 'Quality Check': 85, Ready: 95, Completed: 100 };
+    const progress = status === 'Delayed' ? job.progress : Math.max(job.progress, milestone[status] || 0);
+    const stages = withStageProgress(job, progress);
+    updateProductionJob(job.id, { status: status as any, progress, stages });
     toast.success(`Job ${job.jobNumber} status updated to ${status}`);
-    setViewingJob(prev => prev ? { ...prev, status: status as any } : null);
+    setViewingJob(prev => prev ? { ...prev, status: status as any, progress, stages } : null);
   };
 
   const handleDelete = () => {
@@ -101,6 +119,7 @@ export const Production: React.FC = () => {
       toast.error('Please fill all required fields.');
       return;
     }
+    if (productionJobs.some(job => job.orderId === newJobForm.orderId)) { toast.error('A production job already exists for that order.'); return; }
     const job = addProductionJob({
       jobNumber: '',
       ...newJobForm,
@@ -129,7 +148,7 @@ export const Production: React.FC = () => {
 
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Production"
         subtitle="Track manufacturing jobs and production progress."
@@ -149,17 +168,15 @@ export const Production: React.FC = () => {
         <StatCard title="Active Jobs" value={stats.active} icon={<Factory className="w-5 h-5 text-blue-600" />} iconBg="bg-blue-50" index={0} />
         <StatCard title="In Production" value={stats.inProduction} icon={<Clock className="w-5 h-5 text-violet-600" />} iconBg="bg-violet-50" index={1} />
         <StatCard title="Quality Check" value={stats.qualityCheck} icon={<CheckCircle className="w-5 h-5 text-amber-600" />} iconBg="bg-amber-50" index={2} />
-        <StatCard title="Delayed" value={stats.delayed} change={stats.delayed > 0 ? -20 : 0} icon={<AlertTriangle className="w-5 h-5 text-red-600" />} iconBg="bg-red-50" index={3} />
-        <StatCard title="Completed" value={stats.completed} change={25} icon={<CheckCircle className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={4} />
+        <StatCard title="Delayed" value={stats.delayed} icon={<AlertTriangle className="w-5 h-5 text-red-600" />} iconBg="bg-red-50" index={3} />
+        <StatCard title="Completed" value={stats.completed} icon={<CheckCircle className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={4} />
       </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search by job no., product or order..." className="flex-1 max-w-md" />
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-          <option value="all">All Status</option>
-          {PRODUCTION_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <PremiumSelect label="Production status filter" value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }}
+          options={[{ value: 'all', label: 'All Status' }, { value: 'active', label: 'Active Jobs', color: '#2563eb' }, ...PRODUCTION_STATUSES.map(value => ({ value, label: value, color: statusColorMap[value] }))]} className="w-full sm:w-56" />
       </div>
 
       {/* Jobs Table */}
@@ -177,7 +194,7 @@ export const Production: React.FC = () => {
               <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
-                    {['Job ID', 'Order', 'Product', 'Qty', 'Start Date', 'Expected Completion', 'Team', 'Progress', 'Status', 'Actions'].map(h => (
+                    {['Job ID', 'Order', 'Customer', 'Product', 'Qty', 'Start Date', 'Expected Completion', 'Team', 'Progress', 'Status', 'Actions'].map(h => (
                       <th key={h} className="text-left text-xs font-semibold text-slate-500 px-6 py-3.5">{h}</th>
                     ))}
                   </tr>
@@ -189,6 +206,7 @@ export const Production: React.FC = () => {
                         <button onClick={() => setViewingJob(job)} className="text-xs font-mono font-semibold text-blue-600 hover:text-blue-700">{job.jobNumber}</button>
                       </td>
                       <td className="px-6 py-4"><span className="text-xs font-mono text-slate-500">{job.orderId}</span></td>
+                      <td className="px-6 py-4 text-sm font-medium text-slate-800">{customers.find(c => c.id === orders.find(o => o.id === job.orderId)?.customerId)?.companyName || "—"}</td>
                       <td className="px-6 py-4"><span className="text-sm font-medium text-slate-900">{job.product}</span></td>
                       <td className="px-6 py-4"><span className="text-sm text-slate-700">{job.quantity}</span></td>
                       <td className="px-6 py-4"><span className="text-xs text-slate-500">{formatDate(job.startDate)}</span></td>
@@ -212,10 +230,10 @@ export const Production: React.FC = () => {
                       </td>
                       <td className="px-6 py-4"><StatusBadge status={job.status} /></td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => setViewingJob(job)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => { setDeleteTarget(job); }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
-                        </div>
+                        <RowActions label={`Actions for ${job.jobNumber}`} actions={[
+  { label: 'View details', onClick: () => setViewingJob(job), icon: <Eye className="h-4 w-4" /> },
+  { label: 'Delete job', onClick: () => setDeleteTarget(job), icon: <Trash2 className="h-4 w-4" />, danger: true },
+]} />
                       </td>
                     </motion.tr>
                   ))}
@@ -239,7 +257,7 @@ export const Production: React.FC = () => {
               <WorkflowStepper
                 steps={viewingJob.stages.map(s => ({
                   label: s.name,
-                  status: s.status as any,
+                  status: (s.status === 'in-progress' ? 'current' : s.status) as 'current' | 'pending' | 'completed',
                   date: s.date,
                 }))}
                 orientation="vertical"
@@ -251,6 +269,7 @@ export const Production: React.FC = () => {
               {[
                 { label: 'Job Number', value: viewingJob.jobNumber },
                 { label: 'Order', value: viewingJob.orderId },
+                { label: 'Customer', value: customers.find(c => c.id === orders.find(o => o.id === viewingJob.orderId)?.customerId)?.companyName || "—" },
                 { label: 'Product', value: viewingJob.product },
                 { label: 'Quantity', value: `${viewingJob.quantity} units` },
                 { label: 'Start Date', value: formatDate(viewingJob.startDate) },
@@ -304,28 +323,19 @@ export const Production: React.FC = () => {
             {/* Status Change */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Update Status</label>
-              <select
-                value={viewingJob.status}
-                onChange={e => handleStatusChange(viewingJob, e.target.value)}
-                className={inputClass}
-              >
-                {PRODUCTION_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <PremiumSelect label="Update production status" value={viewingJob.status} onChange={value => handleStatusChange(viewingJob, value)}
+                options={PRODUCTION_STATUSES.map(value => ({ value, label: value, color: statusColorMap[value] }))} />
             </div>
 
             {/* Team */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Assigned Team</label>
-              <select
-                value={viewingJob.assignedTeam}
-                onChange={e => {
-                  updateProductionJob(viewingJob.id, { assignedTeam: e.target.value });
-                  setViewingJob(prev => prev ? { ...prev, assignedTeam: e.target.value } : null);
-                }}
-                className={inputClass}
-              >
-                {TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <PremiumSelect label="Assigned team" value={viewingJob.assignedTeam}
+                onChange={value => {
+                  updateProductionJob(viewingJob.id, { assignedTeam: value });
+                  setViewingJob(prev => prev ? { ...prev, assignedTeam: value } : null);
+                  toast.success('Assigned team updated.');
+                }} options={TEAMS.map(value => ({ value, label: value }))} />
             </div>
 
             {/* Notes */}
@@ -376,19 +386,22 @@ export const Production: React.FC = () => {
           </div>
         }
       >
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Linked Order <span className="text-red-500">*</span></label>
-            <select value={newJobForm.orderId} onChange={e => setNewJobForm(f => ({ ...f, orderId: e.target.value }))} className={inputClass}>
-              <option value="">Select order...</option>
-              {orders.map(o => <option key={o.id} value={o.id}>{o.orderNumber} — {o.product}</option>)}
-            </select>
+            <PremiumSelect label="Linked order" value={newJobForm.orderId}
+              onChange={value => {
+                const selected = orders.find(o => o.id === value);
+                setNewJobForm(f => ({ ...f, orderId: value,
+                  product: selected?.product || f.product, quantity: selected?.quantity || f.quantity,
+                  expectedCompletion: selected?.deliveryDate || f.expectedCompletion }));
+              }}
+              options={[{ value: '', label: 'Select order...' }, ...orders.filter(o => !productionJobs.some(j => j.orderId === o.id)).map(o => ({ value: o.id, label: `${o.orderNumber} — ${o.product}` }))]} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Product</label>
-            <select value={newJobForm.product} onChange={e => setNewJobForm(f => ({ ...f, product: e.target.value }))} className={inputClass}>
-              {PRODUCTS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+            <PremiumSelect label="Product" value={newJobForm.product} onChange={value => setNewJobForm(f => ({ ...f, product: value }))}
+              options={PRODUCTS.map(value => ({ value, label: value }))} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Quantity</label>
@@ -404,9 +417,8 @@ export const Production: React.FC = () => {
           </div>
           <div className="col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Assigned Team</label>
-            <select value={newJobForm.assignedTeam} onChange={e => setNewJobForm(f => ({ ...f, assignedTeam: e.target.value }))} className={inputClass}>
-              {TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <PremiumSelect label="Assigned team" value={newJobForm.assignedTeam} onChange={value => setNewJobForm(f => ({ ...f, assignedTeam: value }))}
+              options={TEAMS.map(value => ({ value, label: value }))} />
           </div>
           <div className="col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>

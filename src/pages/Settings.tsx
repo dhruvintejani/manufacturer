@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Bell, Database, Palette, RefreshCw, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -9,17 +9,23 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
 
 export const Settings: React.FC = () => {
-  const { resetDemoData } = useAppStore();
+  const { resetDemoData, profile: savedProfile, setProfile: saveProfile } = useAppStore();
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
-  const [profile, setProfile] = useState({
-    name: 'Alex Morgan',
-    email: 'alex.morgan@forgeflow.com',
-    role: 'Operations Manager',
-    phone: '+1 555 000 0001',
-  });
+  const [profile, setProfile] = useState(savedProfile);
+  useEffect(() => setProfile(savedProfile), [savedProfile]);
+  const handleSaveProfile = () => {
+    const name = profile.name.trim();
+    const email = profile.email.trim();
+    if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Provide a name and a valid email address.');
+      return;
+    }
+    saveProfile({ name, email, role: profile.role.trim(), phone: profile.phone.trim() });
+    toast.success('Demo profile saved in this browser.');
+  };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Settings"
         subtitle="Manage application preferences and demo configuration."
@@ -28,7 +34,7 @@ export const Settings: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 col-span-2">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 lg:col-span-2">
           <div className="flex items-center gap-3 mb-5">
             <div className="p-2 bg-blue-50 rounded-xl"><User className="w-5 h-5 text-blue-600" /></div>
             <h3 className="text-sm font-semibold text-slate-900">User Profile</h3>
@@ -51,8 +57,9 @@ export const Settings: React.FC = () => {
               { label: 'Phone', key: 'phone' },
             ].map(f => (
               <div key={f.key}>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">{f.label}</label>
+                <label htmlFor={`profile-${f.key}`} className="block text-sm font-medium text-slate-700 mb-1.5">{f.label}</label>
                 <input
+                  id={`profile-${f.key}`}
                   value={(profile as any)[f.key]}
                   onChange={e => setProfile(p => ({ ...p, [f.key]: e.target.value }))}
                   className={inputClass}
@@ -62,7 +69,7 @@ export const Settings: React.FC = () => {
           </div>
           <div className="mt-4">
             <button
-              onClick={() => toast.success('Profile saved! (Demo — changes are in memory only)')}
+              onClick={handleSaveProfile}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm"
             >
               <Save className="w-4 h-4" /> Save Profile
@@ -112,14 +119,10 @@ export const Settings: React.FC = () => {
               <div className="p-2 bg-blue-50 rounded-xl"><Bell className="w-5 h-5 text-blue-600" /></div>
               <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
             </div>
-            {['Email Notifications', 'Desktop Alerts', 'Production Updates', 'Order Alerts'].map(n => (
-              <div key={n} className="flex items-center justify-between py-2">
-                <span className="text-sm text-slate-700">{n}</span>
-                <div className="w-9 h-5 bg-blue-600 rounded-full relative cursor-pointer">
-                  <div className="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow" />
-                </div>
-              </div>
-            ))}
+            <p className="text-sm leading-relaxed text-slate-600">
+              Order, enquiry and production updates appear in the in-app notification menu.
+              Email and desktop push notifications are not connected in this browser-only demo.
+            </p>
           </motion.div>
         </div>
       </div>

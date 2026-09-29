@@ -14,22 +14,6 @@ import { StatCard } from '../components/ui/StatCard';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { formatDate, formatCurrency, formatRelativeTime } from '../utils/formatters';
 
-const monthlyData = [
-  { month: 'Jan', enquiries: 12, quotations: 8, orders: 5, completed: 3 },
-  { month: 'Feb', enquiries: 15, quotations: 10, orders: 7, completed: 5 },
-  { month: 'Mar', enquiries: 18, quotations: 12, orders: 9, completed: 7 },
-  { month: 'Apr', enquiries: 22, quotations: 16, orders: 11, completed: 8 },
-  { month: 'May', enquiries: 19, quotations: 14, orders: 10, completed: 9 },
-  { month: 'Jun', enquiries: 25, quotations: 18, orders: 14, completed: 11 },
-  { month: 'Jul', enquiries: 28, quotations: 20, orders: 15, completed: 12 },
-  { month: 'Aug', enquiries: 24, quotations: 17, orders: 13, completed: 10 },
-  { month: 'Sep', enquiries: 30, quotations: 22, orders: 17, completed: 14 },
-  { month: 'Oct', enquiries: 26, quotations: 19, orders: 15, completed: 13 },
-  { month: 'Nov', enquiries: 32, quotations: 24, orders: 18, completed: 15 },
-  { month: 'Dec', enquiries: 35, quotations: 26, orders: 20, completed: 17 },
-];
-
-
 
 const activityTypeConfig: Record<string, { bg: string; icon: React.ReactNode; color: string }> = {
   enquiry: { bg: 'bg-blue-100', icon: <ClipboardList className="w-3.5 h-3.5" />, color: 'text-blue-600' },
@@ -59,16 +43,28 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { enquiries, quotations, orders, productionJobs, activities, customers } = useAppStore();
+  const { enquiries, quotations, orders, productionJobs, activities, customers, profile } = useAppStore();
+  const chartYear = new Date().getFullYear();
+  const monthlyData = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month, index) => {
+    const isMonth = (iso: string) => {
+      const date = new Date(iso);
+      return date.getFullYear() === chartYear && date.getMonth() === index;
+    };
+    return {
+      month,
+      enquiries: enquiries.filter(e => isMonth(e.enquiryDate)).length,
+      quotations: quotations.filter(q => isMonth(q.date)).length,
+      orders: orders.filter(o => isMonth(o.orderDate)).length,
+    };
+  });
 
   // KPI calculations
   const totalEnquiries = enquiries.length;
   const pendingQuotations = quotations.filter(q => ['Draft', 'Sent', 'Negotiation'].includes(q.status)).length;
-  const activeOrders = orders.filter(o => !['Completed', 'Cancelled'].includes(o.status)).length;
+  const activeOrders = orders.filter(o => o.status !== 'Completed').length;
   const activeJobs = productionJobs.filter(j => j.status !== 'Completed').length;
   const pendingPayments = orders
-    .filter(o => ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus))
-    .reduce((sum, o) => sum + o.totalAmount, 0);
+    .filter(o => ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus)).length;
 
   // Recent data
   const recentEnquiries = [...enquiries].sort((a, b) =>
@@ -87,15 +83,16 @@ export const Dashboard: React.FC = () => {
   }, {} as Record<string, number>);
 
   const productionStatusData = [
-    { label: 'Planning', count: prodStats['Planning'] || 0, color: '#94A3B8', pct: 10 },
-    { label: 'In Production', count: prodStats['In Production'] || 0, color: '#3B82F6', pct: 55 },
-    { label: 'Quality Check', count: prodStats['Quality Check'] || 0, color: '#F59E0B', pct: 75 },
-    { label: 'Ready', count: prodStats['Ready'] || 0, color: '#06B6D4', pct: 90 },
-    { label: 'Completed', count: prodStats['Completed'] || 0, color: '#10B981', pct: 100 },
+    { label: 'Planning', count: prodStats['Planning'] || 0, color: '#94A3B8' },
+    { label: 'In Production', count: prodStats['In Production'] || 0, color: '#3B82F6' },
+    { label: 'Quality Check', count: prodStats['Quality Check'] || 0, color: '#F59E0B' },
+    { label: 'Ready', count: prodStats['Ready'] || 0, color: '#06B6D4' },
+    { label: 'Completed', count: prodStats['Completed'] || 0, color: '#10B981' },
+    { label: 'Delayed', count: prodStats['Delayed'] || 0, color: '#dc2626' },
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -104,7 +101,7 @@ export const Dashboard: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             className="text-2xl font-bold text-slate-900"
           >
-            Good morning, Alex 👋
+            Hello, {profile.name.split(' ')[0]} 👋
           </motion.h1>
           <motion.p
             initial={{ opacity: 0 }}
@@ -122,7 +119,7 @@ export const Dashboard: React.FC = () => {
           className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-xl px-3.5 py-2 shadow-sm"
         >
           <Clock className="w-4 h-4 text-slate-400" />
-          <span className="font-medium">Apr 20 – Apr 26, 2026</span>
+          <span className="font-medium">{new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
         </motion.div>
       </div>
 
@@ -131,7 +128,6 @@ export const Dashboard: React.FC = () => {
         <StatCard
           title="Total Enquiries"
           value={totalEnquiries}
-          change={12.5}
           icon={<ClipboardList className="w-5 h-5 text-blue-600" />}
           iconBg="bg-blue-50"
           onClick={() => navigate('/enquiries')}
@@ -140,37 +136,33 @@ export const Dashboard: React.FC = () => {
         <StatCard
           title="Pending Quotations"
           value={pendingQuotations}
-          change={8.4}
           icon={<FileText className="w-5 h-5 text-amber-600" />}
           iconBg="bg-amber-50"
-          onClick={() => navigate('/quotations')}
+          onClick={() => navigate('/quotations?status=pending')}
           index={1}
         />
         <StatCard
           title="Active Orders"
           value={activeOrders}
-          change={5.2}
           icon={<ShoppingCart className="w-5 h-5 text-emerald-600" />}
           iconBg="bg-emerald-50"
-          onClick={() => navigate('/orders')}
+          onClick={() => navigate('/orders?status=active')}
           index={2}
         />
         <StatCard
           title="Production Jobs"
           value={activeJobs}
-          change={14.1}
           icon={<Factory className="w-5 h-5 text-violet-600" />}
           iconBg="bg-violet-50"
-          onClick={() => navigate('/production')}
+          onClick={() => navigate('/production?status=active')}
           index={3}
         />
         <StatCard
-          title="Pending Payments"
-          value={formatCurrency(pendingPayments)}
-          change={-3.2}
+          title="Orders Awaiting Payment"
+          value={pendingPayments}
           icon={<DollarSign className="w-5 h-5 text-rose-600" />}
           iconBg="bg-rose-50"
-          onClick={() => navigate('/orders')}
+          onClick={() => navigate('/orders?payment=pending')}
           index={4}
         />
       </div>
@@ -186,8 +178,8 @@ export const Dashboard: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Production Overview</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Monthly enquiries, quotations & orders</p>
+              <h2 className="text-base font-semibold text-slate-900">Activity Overview</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Recorded enquiries, quotations & orders in {chartYear}</p>
             </div>
             <button
               onClick={() => navigate('/reports')}
@@ -256,7 +248,7 @@ export const Dashboard: React.FC = () => {
                 <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: `${(item.count / productionJobs.length) * 100}%` }}
+                    animate={{ width: `${productionJobs.length ? (item.count / productionJobs.length) * 100 : 0}%` }}
                     transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
                     className="h-full rounded-full"
                     style={{ background: item.color }}
