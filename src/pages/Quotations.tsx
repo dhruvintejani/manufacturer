@@ -454,10 +454,10 @@ export const Quotations: React.FC = () => {
                             return (
                               <tr key={item.id} className="border-t border-slate-100">
                                 <td className="px-3 py-2">
-                                  <select value={item.product} onChange={e => updateItem(idx, 'product', e.target.value)} className={`${inputClass} w-40`}>
-                                    <option value="">Product...</option>
-                                    {PRODUCTS.map(p => <option key={p} value={p}>{p}</option>)}
-                                  </select>
+                                  <PremiumSelect label={`Product for line ${idx + 1}`} value={item.product}
+                                    onChange={value => updateItem(idx, 'product', value)}
+                                    options={[{ value: '', label: 'Product...' }, ...PRODUCTS.map(value => ({ value, label: value }))]}
+                                    className="w-44" />
                                 </td>
                                 <td className="px-3 py-2">
                                   <input value={item.description} onChange={e => updateItem(idx, 'description', e.target.value)} className={`${inputClass} w-48`} placeholder="Description" />
