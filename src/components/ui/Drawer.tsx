@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { useAccessibleOverlay } from './useAccessibleOverlay';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -33,7 +34,9 @@ export const Drawer: React.FC<DrawerProps> = ({
   };
   const variants = slideVariants[side];
 
-  return (
+  // Portals escape transformed route animations and the dashboard's scroll container.
+  // Fixed dialogs must be relative to the actual device viewport, especially on phones.
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-40 flex min-w-0">
@@ -91,6 +94,6 @@ export const Drawer: React.FC<DrawerProps> = ({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>, document.body
   );
 };
