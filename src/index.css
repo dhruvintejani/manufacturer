@@ -119,3 +119,8 @@ input, select, textarea {
     display: none !important;
   }
 }
+
+/* Global interaction states */
+button:not(:disabled), a[href], select, [role='button'] { cursor: pointer; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button:active:not(:disabled) { transform: translateY(1px); }
