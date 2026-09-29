@@ -36,9 +36,11 @@ const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-l
 
 const getWorkflowSteps = (order: Order) => {
   const steps = ['Confirmed', 'Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'];
-  const effectiveStatus = order.status === 'On Hold' || order.status === 'Cancelled'
-    ? [...(order.statusHistory || [])].reverse().find(event => event.to === order.status)?.from || 'Confirmed'
-    : order.status;
+  const lastException = [...(order.statusHistory || [])].reverse().find(event => event.to === order.status);
+  const previousStage = lastException?.from === 'On Hold'
+    ? [...(order.statusHistory || [])].reverse().find(event => event.to === 'On Hold')?.from
+    : lastException?.from;
+  const effectiveStatus = ['On Hold', 'Cancelled'].includes(order.status) ? previousStage || 'Confirmed' : order.status;
   const idx = steps.indexOf(effectiveStatus);
   return steps.map((s, i) => ({
     label: s,
