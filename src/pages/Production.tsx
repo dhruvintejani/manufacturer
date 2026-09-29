@@ -443,12 +443,12 @@ export const Production: React.FC = () => {
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Expected Completion</label>
             <input type="date" value={newJobForm.expectedCompletion} onChange={e => setNewJobForm(f => ({ ...f, expectedCompletion: e.target.value }))} className={inputClass} />
           </div>
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Assigned Team</label>
             <PremiumSelect label="Assigned team" value={newJobForm.assignedTeam} onChange={value => setNewJobForm(f => ({ ...f, assignedTeam: value }))}
               options={TEAMS.map(value => ({ value, label: value }))} />
           </div>
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
             <textarea rows={2} value={newJobForm.notes} onChange={e => setNewJobForm(f => ({ ...f, notes: e.target.value }))} className={inputClass} placeholder="Production notes..." />
           </div>
