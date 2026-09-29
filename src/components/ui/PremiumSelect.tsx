@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../utils/cn';
 
 export interface SelectOption {
@@ -26,6 +27,8 @@ export const PremiumSelect: React.FC<PremiumSelectProps> = ({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const root = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0, width: 220, maxHeight: 248 });
   const button = useRef<HTMLButtonElement>(null);
   const listId = useId();
   const selectedIndex = options.findIndex(option => option.value === value);
@@ -34,15 +37,38 @@ export const PremiumSelect: React.FC<PremiumSelectProps> = ({
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
+      if (!root.current?.contains(event.target as Node) && !menu.current?.contains(event.target as Node)) setOpen(false);
     };
+    const dismissOnScroll = (event: Event) => {
+      if (event.target !== menu.current) setOpen(false);
+    };
+    const dismissOnResize = () => setOpen(false);
     document.addEventListener('pointerdown', outside);
-    return () => document.removeEventListener('pointerdown', outside);
+    window.addEventListener('scroll', dismissOnScroll, true);
+    window.addEventListener('resize', dismissOnResize);
+    return () => {
+      document.removeEventListener('pointerdown', outside);
+      window.removeEventListener('scroll', dismissOnScroll, true);
+      window.removeEventListener('resize', dismissOnResize);
+    };
   }, [open]);
 
   const show = () => {
     if (disabled) return;
     setActive(Math.max(0, selectedIndex));
+    if (button.current) {
+      const rect = button.current.getBoundingClientRect();
+      const below = window.innerHeight - rect.bottom - 12;
+      const above = rect.top - 12;
+      const maxHeight = Math.max(96, Math.min(248, Math.max(below, above)));
+      const placeAbove = below < Math.min(160, options.length * 40 + 8) && above > below;
+      setPosition({
+        top: placeAbove ? Math.max(8, rect.top - maxHeight - 4) : rect.bottom + 4,
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - Math.max(220, rect.width) - 8)),
+        width: Math.min(Math.max(220, rect.width), window.innerWidth - 16),
+        maxHeight,
+      });
+    }
     setOpen(true);
   };
 
@@ -101,9 +127,10 @@ export const PremiumSelect: React.FC<PremiumSelectProps> = ({
         </span>
         <ChevronDown aria-hidden="true" className={cn('h-4 w-4 flex-none text-slate-500 transition-transform duration-150', open && 'rotate-180')} />
       </button>
-      {open && options.length > 0 && (
-        <div id={listId} role="listbox" aria-label={label}
-          className="absolute left-0 right-0 top-full z-[80] mt-1 max-h-64 min-w-[min(16rem,90vw)] overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-xl"
+      {open && options.length > 0 && createPortal(
+        <div ref={menu} id={listId} role="listbox" aria-label={label}
+          className="fixed z-[100] overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-xl"
+          style={{ top: position.top, left: position.left, width: position.width, maxHeight: position.maxHeight }}
         >
           {options.map((option, index) => (
             <div
@@ -121,7 +148,7 @@ export const PremiumSelect: React.FC<PremiumSelectProps> = ({
               {option.value === value && <Check aria-hidden="true" className="h-4 w-4 text-blue-600" />}
             </div>
           ))}
-        </div>
+        </div>, document.body
       )}
     </div>
   );
