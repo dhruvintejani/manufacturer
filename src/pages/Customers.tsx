@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, Plus, Edit2, Trash2, Eye, MapPin, Mail, Phone, Building2, Globe } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
@@ -55,6 +56,8 @@ const FormField = ({ label, error, children, required }: { label: string; error?
 const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
 
 export const Customers: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { customers, enquiries, quotations, orders, addCustomer, updateCustomer, deleteCustomer } = useAppStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -62,6 +65,14 @@ export const Customers: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
+
+  // ?open=ID is a deep link from customer records, notifications and dashboard activity.
+  useEffect(() => {
+    const openId = new URLSearchParams(location.search).get('open');
+    if (!openId) return;
+    const record = customers.find(c => c.id === openId);
+    if (record) setViewingCustomer(record);
+  }, [location.search, customers]);
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<CustomerFormData>({
