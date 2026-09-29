@@ -44,7 +44,7 @@ const getWorkflowSteps = (status: string) => {
 export const Orders: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { orders, customers, productionJobs, addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus } = useAppStore();
+  const { orders, customers, productionJobs, addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus, profile } = useAppStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') === 'active' ? 'active' : 'all');
   const [paymentFilter, setPaymentFilter] = useState(searchParams.get('payment') === 'pending' ? 'pending' : 'all');
@@ -142,7 +142,7 @@ export const Orders: React.FC = () => {
 
   const handleAdvanceStatus = () => {
     if (!currentOrder || !nextOrderStatus) return;
-    if (!advanceOrderStatus(currentOrder.id, 'Alex Morgan', statusNote)) {
+    if (!advanceOrderStatus(currentOrder.id, profile.name, statusNote)) {
       toast.error('Order status has changed. Reopen the order and try again.'); return;
     }
     setViewingOrder(useAppStore.getState().orders.find(o => o.id === currentOrder.id) || null);
