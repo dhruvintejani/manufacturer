@@ -17,6 +17,7 @@ import { Pagination } from '../components/ui/Pagination';
 import { EmptyState } from '../components/ui/EmptyState';
 import { WorkflowStepper } from '../components/ui/WorkflowStepper';
 import { Modal } from '../components/ui/Modal';
+import { PremiumSelect } from '../components/ui/PremiumSelect';
 import { formatDate } from '../utils/formatters';
 
 const ITEMS_PER_PAGE = 8;
@@ -35,8 +36,17 @@ const statusColorMap: Record<string, string> = {
   'Delayed': '#EF4444',
 };
 
+const stageForProgress = (progress: number) => progress >= 100 ? 7 : progress >= 95 ? 5 : progress >= 85 ? 4 : progress >= 65 ? 3 : progress >= 20 ? 2 : progress >= 1 ? 1 : 0;
+const withStageProgress = (job: ProductionJob, progress: number) => {
+  const current = stageForProgress(progress);
+  return job.stages.map((stage, index) => ({ ...stage,
+    status: (index < current ? 'completed' : index === current ? 'in-progress' : 'pending') as 'completed' | 'in-progress' | 'pending',
+    date: index < current ? stage.date || new Date().toISOString() : stage.date,
+  }));
+};
+
 export const Production: React.FC = () => {
-  const { productionJobs, orders, updateProductionJob, deleteProductionJob, addProductionJob } = useAppStore();
+  const { productionJobs, orders, customers, updateProductionJob, deleteProductionJob, addProductionJob } = useAppStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
@@ -55,11 +65,12 @@ export const Production: React.FC = () => {
       const matchSearch = !search ||
         j.jobNumber.toLowerCase().includes(search.toLowerCase()) ||
         j.product.toLowerCase().includes(search.toLowerCase()) ||
-        j.orderId.toLowerCase().includes(search.toLowerCase());
+        j.orderId.toLowerCase().includes(search.toLowerCase()) ||
+        customers.find(c => c.id === orders.find(o => o.id === j.orderId)?.customerId)?.companyName.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === 'all' || j.status === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [productionJobs, search, statusFilter]);
+  }, [productionJobs, customers, orders, search, statusFilter]);
 
   const sorted = [...filtered].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
   const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
@@ -78,14 +89,18 @@ export const Production: React.FC = () => {
     if (progress >= 100) status = 'Completed';
     else if (progress >= 85) status = 'Quality Check';
     else if (progress >= 10) status = 'In Production';
-    updateProductionJob(job.id, { progress, status: status as any });
-    setViewingJob(prev => prev ? { ...prev, progress, status: status as any } : null);
+    const stages = withStageProgress(job, progress);
+    updateProductionJob(job.id, { progress, stages, status: status as any });
+    setViewingJob(prev => prev ? { ...prev, progress, stages, status: status as any } : null);
   };
 
   const handleStatusChange = (job: ProductionJob, status: string) => {
-    updateProductionJob(job.id, { status: status as any });
+    const milestone: Record<string, number> = { Planning: 0, 'In Production': 20, 'Quality Check': 85, Ready: 95, Completed: 100 };
+    const progress = status === 'Delayed' ? job.progress : Math.max(job.progress, milestone[status] || 0);
+    const stages = withStageProgress(job, progress);
+    updateProductionJob(job.id, { status: status as any, progress, stages });
     toast.success(`Job ${job.jobNumber} status updated to ${status}`);
-    setViewingJob(prev => prev ? { ...prev, status: status as any } : null);
+    setViewingJob(prev => prev ? { ...prev, status: status as any, progress, stages } : null);
   };
 
   const handleDelete = () => {
@@ -129,7 +144,7 @@ export const Production: React.FC = () => {
 
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Production"
         subtitle="Track manufacturing jobs and production progress."
@@ -156,10 +171,8 @@ export const Production: React.FC = () => {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search by job no., product or order..." className="flex-1 max-w-md" />
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-          <option value="all">All Status</option>
-          {PRODUCTION_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <PremiumSelect label="Production status filter" value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }}
+          options={[{ value: 'all', label: 'All Status' }, ...PRODUCTION_STATUSES.map(value => ({ value, label: value, color: statusColorMap[value] }))]} className="w-full sm:w-56" />
       </div>
 
       {/* Jobs Table */}
@@ -177,7 +190,7 @@ export const Production: React.FC = () => {
               <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
-                    {['Job ID', 'Order', 'Product', 'Qty', 'Start Date', 'Expected Completion', 'Team', 'Progress', 'Status', 'Actions'].map(h => (
+                    {['Job ID', 'Order', 'Customer', 'Product', 'Qty', 'Start Date', 'Expected Completion', 'Team', 'Progress', 'Status', 'Actions'].map(h => (
                       <th key={h} className="text-left text-xs font-semibold text-slate-500 px-6 py-3.5">{h}</th>
                     ))}
                   </tr>
@@ -189,6 +202,7 @@ export const Production: React.FC = () => {
                         <button onClick={() => setViewingJob(job)} className="text-xs font-mono font-semibold text-blue-600 hover:text-blue-700">{job.jobNumber}</button>
                       </td>
                       <td className="px-6 py-4"><span className="text-xs font-mono text-slate-500">{job.orderId}</span></td>
+                      <td className="px-6 py-4 text-sm font-medium text-slate-800">{customers.find(c => c.id === orders.find(o => o.id === job.orderId)?.customerId)?.companyName || "—"}</td>
                       <td className="px-6 py-4"><span className="text-sm font-medium text-slate-900">{job.product}</span></td>
                       <td className="px-6 py-4"><span className="text-sm text-slate-700">{job.quantity}</span></td>
                       <td className="px-6 py-4"><span className="text-xs text-slate-500">{formatDate(job.startDate)}</span></td>
@@ -212,7 +226,7 @@ export const Production: React.FC = () => {
                       </td>
                       <td className="px-6 py-4"><StatusBadge status={job.status} /></td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1 opacity-100 transition-opacity">
                           <button onClick={() => setViewingJob(job)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
                           <button onClick={() => { setDeleteTarget(job); }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                         </div>
@@ -239,7 +253,7 @@ export const Production: React.FC = () => {
               <WorkflowStepper
                 steps={viewingJob.stages.map(s => ({
                   label: s.name,
-                  status: s.status as any,
+                  status: (s.status === 'in-progress' ? 'current' : s.status) as 'current' | 'pending' | 'completed',
                   date: s.date,
                 }))}
                 orientation="vertical"
@@ -251,6 +265,7 @@ export const Production: React.FC = () => {
               {[
                 { label: 'Job Number', value: viewingJob.jobNumber },
                 { label: 'Order', value: viewingJob.orderId },
+                { label: 'Customer', value: customers.find(c => c.id === orders.find(o => o.id === viewingJob.orderId)?.customerId)?.companyName || "—" },
                 { label: 'Product', value: viewingJob.product },
                 { label: 'Quantity', value: `${viewingJob.quantity} units` },
                 { label: 'Start Date', value: formatDate(viewingJob.startDate) },
@@ -304,13 +319,8 @@ export const Production: React.FC = () => {
             {/* Status Change */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Update Status</label>
-              <select
-                value={viewingJob.status}
-                onChange={e => handleStatusChange(viewingJob, e.target.value)}
-                className={inputClass}
-              >
-                {PRODUCTION_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <PremiumSelect label="Update production status" value={viewingJob.status} onChange={value => handleStatusChange(viewingJob, value)}
+                options={PRODUCTION_STATUSES.map(value => ({ value, label: value, color: statusColorMap[value] }))} />
             </div>
 
             {/* Team */}
