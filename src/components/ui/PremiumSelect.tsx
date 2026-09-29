@@ -81,6 +81,7 @@ export const PremiumSelect: React.FC<PremiumSelectProps> = ({
   const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (disabled) return;
     if (event.key === 'Escape') {
+      if (open) event.stopPropagation();
       setOpen(false);
       return;
     }
