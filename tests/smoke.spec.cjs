@@ -10,7 +10,7 @@ test('all application sections render without JS crashes at desktop and 100-200%
   const failures = [];
   page.on('pageerror', error => failures.push(error.message));
   await page.setViewportSize({ width: 1440, height: 900 });
-  for (const zoom of [1, 1.25, 1.5, 2]) {
+  for (const zoom of [1, 1.25, 1.5, 1.75, 2]) {
     for (const route of ['dashboard', 'customers', 'enquiries', 'quotations', 'orders', 'production', 'reports', 'settings']) {
       await page.goto('/' + route);
       await page.evaluate(factor => { document.documentElement.style.zoom = String(factor); }, zoom);
@@ -188,4 +188,51 @@ test('table next, previous and numbered pages all start at the top', async ({ pa
   await checkPage('Next page', 2);
   await checkPage('Previous page', 1);
   await checkPage('2', 2);
+});
+
+test('help has dedicated manufacturing workflow guidance, not settings', async ({ page }) => {
+  await page.goto('/help');
+  await expect(page.getByRole('heading', { name: 'Help & Support' })).toBeVisible();
+  await expect(page.getByText('This preview stores operational changes')).toBeVisible();
+  await page.getByRole('button', { name: 'Quotations', exact: true }).click();
+  await expect(page.getByText(/Prepare Email opens your email application/)).toBeVisible();
+});
+
+test('dashboard activity deep-links to its exact record', async ({ page }) => {
+  await page.goto('/dashboard');
+  await page.getByRole('button', { name: 'Open activity: New enquiry received' }).click();
+  await expect(page).toHaveURL(/enquiries\?open=ENQ-2026-0482/);
+  await expect(page.getByRole('dialog', { name: /ENQ-2026-0482/ })).toBeVisible();
+});
+
+test('customer details show actionable related enquiries, quotations and orders', async ({ page }) => {
+  await page.goto('/customers?open=C001');
+  const drawer = page.getByRole('dialog', { name: /Global Traders Pvt. Ltd./ });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole('heading', { name: /Enquiries/ })).toBeVisible();
+  await expect(drawer.getByRole('heading', { name: /Quotations/ })).toBeVisible();
+  await expect(drawer.getByRole('heading', { name: /Orders/ })).toBeVisible();
+  await drawer.getByRole('button', { name: 'Open ENQ-2026-0482' }).click();
+  await expect(page).toHaveURL(/enquiries\?open=ENQ-2026-0482/);
+  await expect(page.getByRole('dialog', { name: /ENQ-2026-0482/ })).toBeVisible();
+});
+
+test('order hold, resume, cancellation and audit history survive refresh', async ({ page }) => {
+  await page.goto('/orders?open=ORD-2026-0055');
+  const drawer = page.getByRole('dialog', { name: /ORD-2026-0055/ });
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole('button', { name: 'Put On Hold' }).click();
+  await page.getByLabel('Status note (optional)').fill('Supplier component pending');
+  await page.getByRole('button', { name: 'Confirm Hold' }).click();
+  await expect(drawer.getByText('Supplier component pending')).toBeVisible();
+  await expect(drawer.getByRole('button', { name: /Update Status/ })).toHaveCount(0);
+  await drawer.getByRole('button', { name: 'Resume Order' }).click();
+  await page.getByRole('button', { name: 'Confirm Resume' }).click();
+  await expect(drawer.getByRole('button', { name: /Update Status/ })).toBeVisible();
+  await drawer.getByRole('button', { name: 'Cancel Order' }).click();
+  await page.getByRole('button', { name: 'Confirm Cancellation' }).click();
+  await expect(drawer.getByText('This order is cancelled and its workflow is closed.')).toBeVisible();
+  await expect(drawer.getByRole('button', { name: 'Resume Order' })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('dialog', { name: /ORD-2026-0055/ }).getByText('This order is cancelled and its workflow is closed.')).toBeVisible();
 });
