@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ShoppingCart, Plus, Eye, Edit2, Trash2,
-  Factory, CheckCircle, ArrowRight, DollarSign, ArrowDownUp, MoreVertical
+  Factory, CheckCircle, ArrowRight, DollarSign, ArrowDownUp
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
@@ -231,7 +231,7 @@ export const Orders: React.FC = () => {
                         <td className="px-6 py-4"><StatusBadge status={order.status} /></td>
                         <td className="px-6 py-4"><StatusBadge status={order.paymentStatus} /></td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-1 opacity-100 transition-opacity">
                             <button onClick={() => setViewingOrder(order)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><Eye className="w-4 h-4" /></button>
                             <button onClick={() => setEditModal({ ...order })} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit"><Edit2 className="w-4 h-4" /></button>
                             <button onClick={() => setDeleteTarget(order)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
@@ -258,7 +258,35 @@ export const Orders: React.FC = () => {
             <div className="bg-slate-50 rounded-xl p-4">
               <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Order Progress</h4>
               <WorkflowStepper steps={getWorkflowSteps(viewingOrder.status)} />
+              {nextOrderStatus && (
+                <button type="button" onClick={() => setStatusModalOpen(true)}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800">
+                  Update Status <ArrowRight className="h-4 w-4" /> {nextOrderStatus}
+                </button>
+              )}
             </div>
+
+            <section aria-label="Order status audit trail" className="rounded-lg border border-slate-200 bg-white p-4">
+              <h4 className="mb-3 text-sm font-semibold text-slate-900">Status History</h4>
+              {viewingOrder.statusHistory?.length ? (
+                <ol className="space-y-4 border-l-2 border-slate-100 pl-4">
+                  {[...viewingOrder.statusHistory].reverse().map((entry, index) => (
+                    <li key={index} className="relative">
+                      <span aria-hidden="true" className="absolute -left-[23px] top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-blue-600" />
+                      <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-900">
+                        <StatusBadge status={entry.from} size="sm" />
+                        <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
+                        <StatusBadge status={entry.to} size="sm" />
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        Updated by {entry.changedBy} · {new Date(entry.changedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </div>
+                      {entry.note && <p className="mt-1 break-words text-sm text-slate-700">{entry.note}</p>}
+                    </li>
+                  ))}
+                </ol>
+              ) : <p className="text-sm text-slate-500">No status changes recorded yet for this order.</p>}
+            </section>
 
             {/* Details */}
             <div className="grid grid-cols-2 gap-4">
@@ -323,7 +351,7 @@ export const Orders: React.FC = () => {
 
             {/* Actions */}
             <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
-              {!getJob(viewingOrder.id) && viewingOrder.status === 'Confirmed' && (
+              {!getJob(viewingOrder.id) && ['Confirmed', 'Production'].includes(viewingOrder.status) && (
                 <button onClick={() => setCreateJobOpen(true)} className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
                   <Factory className="w-4 h-4" /> Create Production Job
                 </button>
@@ -338,6 +366,32 @@ export const Orders: React.FC = () => {
           </div>
         </Drawer>
       )}
+
+      {/* Audited next-step status transition */}
+      <Modal open={statusModalOpen && !!currentOrder && !!nextOrderStatus}
+        onClose={() => { setStatusModalOpen(false); setStatusNote(''); }}
+        title={currentOrder ? `Update ${currentOrder.orderNumber}` : 'Update Order'}
+        subtitle="Move the order to the next workflow stage only."
+        footer={<div className="flex flex-wrap justify-end gap-3">
+          <button type="button" onClick={() => { setStatusModalOpen(false); setStatusNote(''); }}
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50">Cancel</button>
+          <button type="button" onClick={handleAdvanceStatus} disabled={!nextOrderStatus}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">Confirm Update</button>
+        </div>}
+      >
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 p-4">
+            <StatusBadge status={currentOrder?.status || ''} />
+            <ArrowRight className="h-4 w-4 text-blue-600" />
+            <StatusBadge status={nextOrderStatus || ''} />
+          </div>
+          <label htmlFor="order-status-note" className="block text-sm font-medium text-slate-700">Update note (optional)</label>
+          <textarea id="order-status-note" rows={3} maxLength={500} value={statusNote}
+            onChange={e => setStatusNote(e.target.value)} placeholder="What changed at this stage?"
+            className={inputClass} />
+          <p className="text-xs text-slate-500">This change will be recorded with your demo operator name and the current time.</p>
+        </div>
+      </Modal>
 
       {/* Edit Modal */}
       {editModal && (
