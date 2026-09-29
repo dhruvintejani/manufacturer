@@ -56,6 +56,7 @@ interface AppStore {
   addOrder: (order: Omit<Order, 'id'>) => Order;
   updateOrder: (id: string, data: Partial<Order>, changedBy?: string, note?: string) => void;
   advanceOrderStatus: (id: string, changedBy: string, note?: string) => boolean;
+  changeOrderException: (id: string, action: 'hold' | 'resume' | 'cancel', changedBy: string, note?: string) => boolean;
   deleteOrder: (id: string) => boolean;
 
   // Production actions
@@ -337,6 +338,25 @@ export const useAppStore = create<AppStore>()(
         get().updateOrder(id, { status: orderWorkflow[position + 1] }, changedBy, note);
         return true;
       },
+      changeOrderException: (id, action, changedBy, note = '') => {
+        const order = get().orders.find(o => o.id === id);
+        if (!order || ['Completed', 'Cancelled'].includes(order.status)) return false;
+        let next: OrderStatus;
+        if (action === 'hold') {
+          if (order.status === 'On Hold') return false;
+          next = 'On Hold';
+        } else if (action === 'resume') {
+          if (order.status !== 'On Hold') return false;
+          // Resume the stage held by the most recent hold event.
+          const previousStage = [...(order.statusHistory || [])].reverse()
+            .find(event => event.to === 'On Hold')?.from;
+          next = previousStage && orderWorkflow.includes(previousStage) ? previousStage : 'Confirmed';
+        } else {
+          next = 'Cancelled';
+        }
+        get().updateOrder(id, { status: next }, changedBy, note);
+        return true;
+      },
       deleteOrder: (id) => {
         if (get().productionJobs.some(j => j.orderId === id)) return false;
         const order = get().orders.find(o => o.id === id);
@@ -409,7 +429,7 @@ export const useAppStore = create<AppStore>()(
           const target: OrderStatus | null = data.status === 'Quality Check' ? 'Quality Check'
             : ['Ready', 'Completed'].includes(data.status) ? 'Ready' : null;
           const linked = get().orders.find(o => o.id === previous.orderId);
-          if (target && linked) {
+          if (target && linked && orderWorkflow.includes(linked.status)) {
             const from = orderWorkflow.indexOf(linked.status);
             const to = orderWorkflow.indexOf(target);
             for (let index = from + 1; index <= to; index++) {
