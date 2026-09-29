@@ -254,7 +254,7 @@ export const useAppStore = create<AppStore>()(
         set(s => ({
           quotations: s.quotations.filter(q => q.id !== id),
           enquiries: s.enquiries.map(e => e.quotationId === id
-            ? { ...e, quotationId: undefined, status: e.status === 'Quotation Sent' ? 'Contacted' : e.status }
+            ? { ...e, quotationId: undefined, status: e.status === 'Quotation Sent' ? ('Contacted' as EnquiryStatus) : e.status }
             : e),
         }));
         return true;
@@ -345,7 +345,7 @@ export const useAppStore = create<AppStore>()(
           quotations: s.quotations.map(q => q.orderId === id ? { ...q, orderId: undefined } : q),
           enquiries: s.enquiries.map(e =>
             order && s.quotations.some(q => q.id === order.quotationId && q.enquiryId === e.id) && e.status === 'Converted'
-              ? { ...e, status: 'Quotation Sent' }
+              ? { ...e, status: 'Quotation Sent' as EnquiryStatus }
               : e),
         }));
         return true;
