@@ -107,3 +107,24 @@ test('dashboard KPI cards lead to filtered worklists', async ({ page }) => {
   await expect(page).toHaveURL(/quotations\?status=pending/);
   await expect(page.getByRole('button', { name: 'Quotation status filter' })).toContainText('Pending Quotations');
 });
+
+test('saved demo profile updates the header, survives refresh, and labels are accessible', async ({ page }) => {
+  await page.goto('/settings');
+  await page.getByLabel('Full Name').fill('Taylor Quality');
+  await page.getByLabel('Email Address').fill('taylor@example.com');
+  await page.getByRole('button', { name: 'Save Profile' }).click();
+  await expect(page.locator('header').getByText('Taylor Quality')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('header').getByText('Taylor Quality')).toBeVisible();
+});
+
+test('nested order status modal closes independently on Escape', async ({ page }) => {
+  await page.goto('/orders');
+  await page.getByPlaceholder('Search by order no., customer or product...').fill('ORD-2026-0055');
+  await page.getByRole('button', { name: 'ORD-2026-0055', exact: true }).click();
+  await page.getByRole('button', { name: /Update Status/ }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(2);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  await expect(page.getByText('Status History')).toBeVisible();
+});
