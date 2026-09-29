@@ -19,7 +19,7 @@ export const Header: React.FC = () => {
     markNotificationRead,
     markAllNotificationsRead,
     resetDemoData,
-    customers, enquiries, quotations, orders, productionJobs
+    customers, enquiries, quotations, orders, productionJobs, profile
   } = useAppStore();
 
   const [searchOpen, setSearchOpen] = useState(false);
@@ -209,11 +209,11 @@ export const Header: React.FC = () => {
               className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 transition-colors"
             >
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                <span className="text-white text-xs font-bold">AM</span>
+                <span className="text-white text-xs font-bold">{profile.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase()}</span>
               </div>
               <div className="hidden sm:block text-left">
-                <div className="text-sm font-semibold text-slate-900 leading-none">Alex Morgan</div>
-                <div className="text-xs text-slate-500 mt-0.5">Operations Manager</div>
+                <div className="text-sm font-semibold text-slate-900 leading-none" >{profile.name}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{profile.role || 'Demo User'}</div>
               </div>
               <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block" />
             </button>
@@ -228,8 +228,8 @@ export const Header: React.FC = () => {
                   className="absolute right-0 top-12 w-56 bg-white rounded-2xl border border-slate-100 shadow-2xl z-50 overflow-hidden py-2"
                 >
                   <div className="px-4 py-2.5 border-b border-slate-100 mb-1">
-                    <div className="text-sm font-semibold text-slate-900">Alex Morgan</div>
-                    <div className="text-xs text-slate-500">Operations Manager</div>
+                    <div className="text-sm font-semibold text-slate-900" >{profile.name}</div>
+                    <div className="text-xs text-slate-500">{profile.role || 'Demo User'}</div>
                   </div>
                   {[
                     { icon: <User className="w-4 h-4" />, label: 'Profile', action: () => { setProfileOpen(false); navigate('/settings'); } },
