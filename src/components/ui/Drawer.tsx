@@ -25,7 +25,7 @@ export const Drawer: React.FC<DrawerProps> = ({
   React.useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && document.querySelectorAll('[role="dialog"]').length <= 1) onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
     if (open) document.body.style.overflow = 'hidden';
