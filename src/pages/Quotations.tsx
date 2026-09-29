@@ -164,14 +164,17 @@ export const Quotations: React.FC = () => {
       quotationNumber: editingQuotation?.quotationNumber || '',
     };
 
+    let saved: Quotation;
     if (editingQuotation) {
       updateQuotation(editingQuotation.id, data);
+      saved = useAppStore.getState().quotations.find(q => q.id === editingQuotation.id)!;
       toast.success('Quotation updated successfully.');
     } else {
-      addQuotation(data as any);
+      saved = addQuotation(data as any);
       toast.success('Quotation created successfully.');
     }
     setModalOpen(false);
+    return saved;
   };
 
   const handleSend = (q: Quotation) => {
@@ -302,10 +305,9 @@ export const Quotations: React.FC = () => {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search by quotation no., customer or product..." className="flex-1 max-w-md" />
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-          <option value="all">All Status</option>
-          {['Draft','Sent','Negotiation','Approved','Rejected','Expired'].map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <PremiumSelect label="Quotation status filter" value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }}
+          options={[{ value: 'all', label: 'All Status' }, ...['Draft','Sent','Negotiation','Approved','Rejected','Expired'].map(value => ({ value, label: value,
+            color: ['Approved'].includes(value) ? '#059669' : ['Rejected','Expired'].includes(value) ? '#dc2626' : value === 'Draft' ? '#94a3b8' : '#2563eb' }))]} className="w-full sm:w-56" />
       </div>
 
       {/* Table */}
@@ -349,7 +351,7 @@ export const Quotations: React.FC = () => {
                         </td>
                         <td className="px-6 py-4"><StatusBadge status={q.status} /></td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-1 opacity-100 transition-opacity">
                             <button onClick={() => setViewingQuotation(q)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><Eye className="w-4 h-4" /></button>
                             <button onClick={() => openEdit(q)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit"><Edit2 className="w-4 h-4" /></button>
                             <button onClick={() => handlePDF(q)} className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors" title="PDF"><Download className="w-4 h-4" /></button>
@@ -374,7 +376,7 @@ export const Quotations: React.FC = () => {
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 16 }} transition={{ duration: 0.2 }} className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col z-10">
+            <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 16 }} transition={{ duration: 0.2 }} className="relative bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92dvh] flex flex-col z-10" role="dialog" aria-modal="true" aria-label="Quotation editor">
               <div className="flex items-center justify-between p-6 border-b border-slate-100">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">{editingQuotation ? `Edit ${editingQuotation.quotationNumber}` : 'Create Quotation'}</h2>
@@ -384,26 +386,24 @@ export const Quotations: React.FC = () => {
               </div>
               <div className="flex-1 overflow-y-auto p-6 space-y-5">
                 {/* Customer & Meta */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer <span className="text-red-500">*</span></label>
-                    <select value={form.customerId} onChange={e => setForm(f => ({ ...f, customerId: e.target.value }))} className={inputClass}>
-                      <option value="">Select customer...</option>
-                      {customers.map(c => <option key={c.id} value={c.id}>{c.companyName}</option>)}
-                    </select>
+                    <PremiumSelect label="Quotation customer" value={form.customerId}
+                      onChange={value => setForm(f => ({ ...f, customerId: value, enquiryId: f.enquiryId && enquiries.find(e => e.id === f.enquiryId)?.customerId === value ? f.enquiryId : '' }))}
+                      options={[{ value: '', label: 'Select customer...' }, ...customers.map(c => ({ value: c.id, label: c.companyName }))]} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Linked Enquiry</label>
-                    <select value={form.enquiryId} onChange={e => setForm(f => ({ ...f, enquiryId: e.target.value }))} className={inputClass}>
-                      <option value="">None</option>
-                      {enquiries.filter(e => e.customerId === form.customerId || !form.customerId).map(e => <option key={e.id} value={e.id}>{e.id}</option>)}
-                    </select>
+                    <PremiumSelect label="Linked enquiry" value={form.enquiryId}
+                      onChange={value => setForm(f => ({ ...f, enquiryId: value }))}
+                      options={[{ value: '', label: 'None' }, ...enquiries.filter(e => e.customerId === form.customerId).map(e => ({ value: e.id, label: e.id }))]} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Currency</label>
-                    <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} className={inputClass}>
-                      {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <PremiumSelect label="Currency" value={form.currency}
+                      onChange={value => setForm(f => ({ ...f, currency: value }))}
+                      options={CURRENCIES.map(value => ({ value, label: value }))} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Date</label>
@@ -415,9 +415,10 @@ export const Quotations: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Status</label>
-                    <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className={inputClass}>
-                      {['Draft','Sent','Negotiation','Approved','Rejected','Expired'].map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    <PremiumSelect label="Quotation status" value={form.status}
+                      onChange={value => setForm(f => ({ ...f, status: value }))}
+                      options={['Draft','Sent','Negotiation','Approved','Rejected','Expired'].map(value => ({ value, label: value,
+                        color: value === 'Approved' ? '#059669' : ['Rejected','Expired'].includes(value) ? '#dc2626' : '#2563eb' }))} />
                   </div>
                 </div>
 
@@ -515,12 +516,13 @@ export const Quotations: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex-shrink-0 border-t border-slate-100 p-6 flex flex-wrap items-center justify-end gap-3">
-                <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">Cancel</button>
-                <button onClick={() => handleSave('Draft')} className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Save Draft</button>
-                <button onClick={() => { handleSave('Sent'); }} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm">
-                  <Send className="w-4 h-4" /> {editingQuotation ? 'Update & Send' : 'Save & Send'}
-                </button>
+              <div className="flex-shrink-0 border-t border-slate-100 p-4 sm:p-6 flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+                <button onClick={() => setModalOpen(false)} className="px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+                <button onClick={() => previewFormPdf(true)} className="px-3 py-2 text-sm font-semibold text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50">Preview</button>
+                <button onClick={() => previewFormPdf(false)} className="px-3 py-2 text-sm font-semibold text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"><Download className="inline h-4 w-4" /> Generate PDF</button>
+                {(!editingQuotation || editingQuotation.status === 'Draft') && <button onClick={() => handleSave('Draft')} className="px-3 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg">Save Draft</button>}
+                <button onClick={() => { const q = handleSave('Draft'); if (q) handleSend(q); }} className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"><Send className="h-4 w-4" /> Prepare Email</button>
+                <button onClick={() => handleSave(form.status)} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm">{editingQuotation ? 'Save Changes' : 'Save Quotation'}</button>
               </div>
             </motion.div>
           </div>
@@ -623,7 +625,12 @@ export const Quotations: React.FC = () => {
             <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
               {viewingQuotation.status === 'Draft' && (
                 <button onClick={() => handleSend(viewingQuotation)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
-                  <Send className="w-4 h-4" /> Send to Customer
+                  <Send className="w-4 h-4" /> Prepare Email
+                </button>
+              )}
+              {viewingQuotation.status === 'Draft' && (
+                <button onClick={() => handleMarkSent(viewingQuotation)} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold">
+                  <CheckCircle className="w-4 h-4" /> Mark as Sent
                 </button>
               )}
               {(viewingQuotation.status === 'Sent' || viewingQuotation.status === 'Negotiation') && !hasOrder(viewingQuotation) && (
