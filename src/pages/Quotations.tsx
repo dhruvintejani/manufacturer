@@ -117,7 +117,13 @@ export const Quotations: React.FC = () => {
       setForm(newForm);
       setEditingQuotation(null);
       setModalOpen(true);
-      navigate(location.pathname + location.search, { replace: true, state: null });
+      // Consume the router navigation payload without navigating a second time.
+      // A second replace-navigation can remount the quotation editor mid-interaction
+      // when arriving from the enquiry detail drawer. Preserve React Router's key/idx.
+      const historyEntry = window.history.state;
+      if (historyEntry && typeof historyEntry === 'object') {
+        window.history.replaceState({ ...historyEntry, usr: null }, '', window.location.href);
+      }
     }
   }, [location.state]);
 
