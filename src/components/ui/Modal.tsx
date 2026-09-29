@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { useAccessibleOverlay } from './useAccessibleOverlay';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -35,7 +36,9 @@ export const Modal: React.FC<ModalProps> = ({
   const titleId = React.useId();
   useAccessibleOverlay(open, onClose, dialogRef);
 
-  return (
+  // Portals escape transformed route animations and the dashboard's scroll container.
+  // Fixed dialogs must be relative to the actual device viewport, especially on phones.
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
@@ -89,6 +92,6 @@ export const Modal: React.FC<ModalProps> = ({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>, document.body
   );
 };
