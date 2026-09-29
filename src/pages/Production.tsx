@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Factory, Plus, Eye, Trash2,
@@ -47,9 +48,10 @@ const withStageProgress = (job: ProductionJob, progress: number) => {
 };
 
 export const Production: React.FC = () => {
+  const location = useLocation();
   const { productionJobs, orders, customers, updateProductionJob, deleteProductionJob, addProductionJob } = useAppStore();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(new URLSearchParams(location.search).get('status') === 'active' ? 'active' : 'all');
   const [page, setPage] = useState(1);
   const [viewingJob, setViewingJob] = useState<ProductionJob | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProductionJob | null>(null);
@@ -68,7 +70,7 @@ export const Production: React.FC = () => {
         j.product.toLowerCase().includes(search.toLowerCase()) ||
         j.orderId.toLowerCase().includes(search.toLowerCase()) ||
         customers.find(c => c.id === orders.find(o => o.id === j.orderId)?.customerId)?.companyName.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = statusFilter === 'all' || j.status === statusFilter;
+      const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? j.status !== 'Completed' : j.status === statusFilter);
       return matchSearch && matchStatus;
     });
   }, [productionJobs, customers, orders, search, statusFilter]);
@@ -173,7 +175,7 @@ export const Production: React.FC = () => {
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search by job no., product or order..." className="flex-1 max-w-md" />
         <PremiumSelect label="Production status filter" value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }}
-          options={[{ value: 'all', label: 'All Status' }, ...PRODUCTION_STATUSES.map(value => ({ value, label: value, color: statusColorMap[value] }))]} className="w-full sm:w-56" />
+          options={[{ value: 'all', label: 'All Status' }, { value: 'active', label: 'Active Jobs', color: '#2563eb' }, ...PRODUCTION_STATUSES.map(value => ({ value, label: value, color: statusColorMap[value] }))]} className="w-full sm:w-56" />
       </div>
 
       {/* Jobs Table */}
