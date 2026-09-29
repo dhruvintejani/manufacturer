@@ -128,3 +128,13 @@ test('nested order status modal closes independently on Escape', async ({ page }
   await expect(page.getByRole('dialog')).toHaveCount(1);
   await expect(page.getByText('Status History')).toBeVisible();
 });
+
+test('linked customers cannot be deleted, avoiding orphaned manufacturing records', async ({ page }) => {
+  await page.goto('/customers');
+  await page.getByPlaceholder('Search by company, contact, email or country...').fill('Global Traders');
+  await page.getByRole('button', { name: 'Actions for Global Traders Pvt. Ltd.' }).click();
+  await page.getByRole('menuitem', { name: 'Delete customer' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByText('Cannot delete a customer linked to enquiries, quotations or orders.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Global Traders Pvt. Ltd.', exact: true })).toBeVisible();
+});
