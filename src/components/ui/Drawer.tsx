@@ -24,6 +24,7 @@ export const Drawer: React.FC<DrawerProps> = ({
   width = 'max-w-2xl',
 }) => {
   const dialogRef = React.useRef<HTMLDivElement>(null);
+  const titleId = React.useId();
   useAccessibleOverlay(open, onClose, dialogRef);
 
   const slideVariants = {
@@ -57,11 +58,13 @@ export const Drawer: React.FC<DrawerProps> = ({
             )}
             role="dialog"
             aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
+            aria-label={!title ? (subtitle || 'Dialog') : undefined}
           >
             {(title || subtitle) && (
               <div className="flex items-start justify-between p-6 border-b border-slate-100">
                 <div>
-                  {title && <h2 className="text-lg font-semibold text-slate-900">{title}</h2>}
+                  {title && <h2 id={titleId} className="text-lg font-semibold text-slate-900">{title}</h2>}
                   {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
                 </div>
                 <button
