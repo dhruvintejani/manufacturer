@@ -36,15 +36,21 @@ type CustomerFormData = z.infer<typeof customerSchema>;
 
 const ITEMS_PER_PAGE = 8;
 
-const FormField = ({ label, error, children, required }: { label: string; error?: string; children: React.ReactNode; required?: boolean }) => (
-  <div>
-    <label className="block text-sm font-medium text-slate-700 mb-1.5">
-      {label}{required && <span className="text-red-500 ml-1">*</span>}
-    </label>
-    {children}
-    {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-  </div>
-);
+const FormField = ({ label, error, children, required }: { label: string; error?: string; children: React.ReactNode; required?: boolean }) => {
+  const id = React.useId();
+  const control = React.isValidElement(children)
+    ? React.cloneElement(children as React.ReactElement<{ id?: string }>, { id })
+    : children;
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm font-medium text-slate-700 mb-1.5">
+        {label}{required && <span aria-hidden="true" className="text-red-500 ml-1">*</span>}
+      </label>
+      {control}
+      {error && <p role="alert" className="text-xs text-red-600 mt-1">{error}</p>}
+    </div>
+  );
+};
 
 const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
 
