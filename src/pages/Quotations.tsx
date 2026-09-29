@@ -521,7 +521,7 @@ export const Quotations: React.FC = () => {
                 <button onClick={() => previewFormPdf(true)} className="px-3 py-2 text-sm font-semibold text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50">Preview</button>
                 <button onClick={() => previewFormPdf(false)} className="px-3 py-2 text-sm font-semibold text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"><Download className="inline h-4 w-4" /> Generate PDF</button>
                 {(!editingQuotation || editingQuotation.status === 'Draft') && <button onClick={() => handleSave('Draft')} className="px-3 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg">Save Draft</button>}
-                <button onClick={() => { const q = handleSave('Draft'); if (q) handleSend(q); }} className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"><Send className="h-4 w-4" /> Prepare Email</button>
+                {(!editingQuotation || editingQuotation.status === 'Draft') && <button onClick={() => { const q = handleSave('Draft'); if (q) handleSend(q); }} className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"><Send className="h-4 w-4" /> Prepare Email</button>}
                 <button onClick={() => handleSave(form.status)} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm">{editingQuotation ? 'Save Changes' : 'Save Quotation'}</button>
               </div>
             </motion.div>
