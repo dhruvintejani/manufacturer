@@ -82,7 +82,7 @@ export const Header: React.FC = () => {
 
   return (
     <>
-      <header className="h-16 bg-white border-b border-slate-100 flex items-center px-4 sm:px-6 gap-4 sticky top-0 z-20 shadow-sm">
+      <header className="relative z-20 flex h-16 min-w-0 shrink-0 items-center gap-1.5 border-b border-slate-100 bg-white px-2 shadow-sm sm:gap-3 sm:px-4 lg:gap-4 lg:px-6">
         {/* Mobile menu */}
         <button
           onClick={() => setSidebarMobileOpen(true)}
@@ -93,7 +93,7 @@ export const Header: React.FC = () => {
         </button>
 
         {/* Global Search */}
-        <div className="flex-1 max-w-lg" ref={searchRef}>
+        <div className="min-w-0 flex-1 max-w-lg" ref={searchRef}>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <input
@@ -119,7 +119,7 @@ export const Header: React.FC = () => {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.98 }}
                 transition={{ duration: 0.15 }}
-                className="absolute top-14 left-4 right-4 sm:left-auto sm:right-auto sm:w-full bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden"
+                className="fixed inset-x-2 top-[4.25rem] z-50 max-h-[65dvh] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl sm:absolute sm:inset-x-0 sm:top-14 sm:max-h-80 sm:w-full"
               >
                 {searchResults.map((result, i) => (
                   <button
@@ -141,7 +141,7 @@ export const Header: React.FC = () => {
           </AnimatePresence>
         </div>
 
-        <div className="flex items-center gap-1.5 ml-auto">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5">
           <span className="hidden lg:inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-800" title="ForgeFlow demo data is stored in this browser">
             Demo Environment
           </span>
@@ -167,7 +167,7 @@ export const Header: React.FC = () => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.97 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-12 w-80 bg-white rounded-2xl border border-slate-100 shadow-2xl z-50 overflow-hidden"
+                  className="fixed inset-x-2 top-[4.25rem] z-50 max-h-[75dvh] overflow-hidden rounded-xl border border-slate-100 bg-white shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-80"
                 >
                   <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                     <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
@@ -228,7 +228,7 @@ export const Header: React.FC = () => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.97 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-12 w-56 bg-white rounded-2xl border border-slate-100 shadow-2xl z-50 overflow-hidden py-2"
+                  className="absolute right-0 top-12 z-50 w-[min(14rem,calc(100vw-1rem))] overflow-hidden rounded-xl border border-slate-100 bg-white py-2 shadow-2xl"
                 >
                   <div className="px-4 py-2.5 border-b border-slate-100 mb-1">
                     <div className="text-sm font-semibold text-slate-900" >{profile.name}</div>
