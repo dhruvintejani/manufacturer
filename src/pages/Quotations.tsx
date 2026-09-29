@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -22,6 +22,7 @@ import { WorkflowStepper } from '../components/ui/WorkflowStepper';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { calculateQuotationTotals } from '../utils/calculations';
 import { PremiumSelect } from '../components/ui/PremiumSelect';
+import { useAccessibleOverlay } from '../components/ui/useAccessibleOverlay';
 import { exportQuotationPdf } from '../utils/quotationPdf';
 
 const ITEMS_PER_PAGE = 8;
@@ -83,6 +84,9 @@ export const Quotations: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState(new URLSearchParams(location.search).get('status') === 'pending' ? 'pending' : 'all');
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
+  const quotationDialogRef = useRef<HTMLDivElement>(null);
+  const dismissQuotationModal = () => setModalOpen(false);
+  useAccessibleOverlay(modalOpen, dismissQuotationModal, quotationDialogRef);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
   const [viewingQuotation, setViewingQuotation] = useState<Quotation | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Quotation | null>(null);
@@ -377,7 +381,7 @@ export const Quotations: React.FC = () => {
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 16 }} transition={{ duration: 0.2 }} className="relative bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92dvh] flex flex-col z-10" role="dialog" aria-modal="true" aria-label="Quotation editor">
+            <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 16 }} transition={{ duration: 0.2 }} ref={quotationDialogRef} tabIndex={-1} className="relative bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92dvh] flex flex-col z-10" role="dialog" aria-modal="true" aria-label="Quotation editor">
               <div className="flex items-center justify-between p-6 border-b border-slate-100">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">{editingQuotation ? `Edit ${editingQuotation.quotationNumber}` : 'Create Quotation'}</h2>
