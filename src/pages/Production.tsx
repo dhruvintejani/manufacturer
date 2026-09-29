@@ -119,6 +119,7 @@ export const Production: React.FC = () => {
       toast.error('Please fill all required fields.');
       return;
     }
+    if (productionJobs.some(job => job.orderId === newJobForm.orderId)) { toast.error('A production job already exists for that order.'); return; }
     const job = addProductionJob({
       jobNumber: '',
       ...newJobForm,
@@ -329,16 +330,12 @@ export const Production: React.FC = () => {
             {/* Team */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Assigned Team</label>
-              <select
-                value={viewingJob.assignedTeam}
-                onChange={e => {
-                  updateProductionJob(viewingJob.id, { assignedTeam: e.target.value });
-                  setViewingJob(prev => prev ? { ...prev, assignedTeam: e.target.value } : null);
-                }}
-                className={inputClass}
-              >
-                {TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <PremiumSelect label="Assigned team" value={viewingJob.assignedTeam}
+                onChange={value => {
+                  updateProductionJob(viewingJob.id, { assignedTeam: value });
+                  setViewingJob(prev => prev ? { ...prev, assignedTeam: value } : null);
+                  toast.success('Assigned team updated.');
+                }} options={TEAMS.map(value => ({ value, label: value }))} />
             </div>
 
             {/* Notes */}
@@ -389,19 +386,22 @@ export const Production: React.FC = () => {
           </div>
         }
       >
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Linked Order <span className="text-red-500">*</span></label>
-            <select value={newJobForm.orderId} onChange={e => setNewJobForm(f => ({ ...f, orderId: e.target.value }))} className={inputClass}>
-              <option value="">Select order...</option>
-              {orders.map(o => <option key={o.id} value={o.id}>{o.orderNumber} — {o.product}</option>)}
-            </select>
+            <PremiumSelect label="Linked order" value={newJobForm.orderId}
+              onChange={value => {
+                const selected = orders.find(o => o.id === value);
+                setNewJobForm(f => ({ ...f, orderId: value,
+                  product: selected?.product || f.product, quantity: selected?.quantity || f.quantity,
+                  expectedCompletion: selected?.deliveryDate || f.expectedCompletion }));
+              }}
+              options={[{ value: '', label: 'Select order...' }, ...orders.filter(o => !productionJobs.some(j => j.orderId === o.id)).map(o => ({ value: o.id, label: `${o.orderNumber} — ${o.product}` }))]} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Product</label>
-            <select value={newJobForm.product} onChange={e => setNewJobForm(f => ({ ...f, product: e.target.value }))} className={inputClass}>
-              {PRODUCTS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+            <PremiumSelect label="Product" value={newJobForm.product} onChange={value => setNewJobForm(f => ({ ...f, product: value }))}
+              options={PRODUCTS.map(value => ({ value, label: value }))} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Quantity</label>
@@ -417,9 +417,8 @@ export const Production: React.FC = () => {
           </div>
           <div className="col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Assigned Team</label>
-            <select value={newJobForm.assignedTeam} onChange={e => setNewJobForm(f => ({ ...f, assignedTeam: e.target.value }))} className={inputClass}>
-              {TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <PremiumSelect label="Assigned team" value={newJobForm.assignedTeam} onChange={value => setNewJobForm(f => ({ ...f, assignedTeam: value }))}
+              options={TEAMS.map(value => ({ value, label: value }))} />
           </div>
           <div className="col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
