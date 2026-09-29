@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ShoppingCart, Plus, Eye, Edit2, Trash2,
@@ -43,6 +43,7 @@ const getWorkflowSteps = (status: string) => {
 
 export const Orders: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { orders, customers, productionJobs, addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus, profile } = useAppStore();
   const [search, setSearch] = useState('');
@@ -53,6 +54,14 @@ export const Orders: React.FC = () => {
   const [statusNote, setStatusNote] = useState('');
   const [page, setPage] = useState(1);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+
+  // ?open=ID is a deep link from customer records, notifications and dashboard activity.
+  useEffect(() => {
+    const openId = new URLSearchParams(location.search).get('open');
+    if (!openId) return;
+    const record = orders.find(o => o.id === openId);
+    if (record) setViewingOrder(record);
+  }, [location.search, orders]);
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
   const [editModal, setEditModal] = useState<Order | null>(null);
   const [createJobOpen, setCreateJobOpen] = useState(false);
