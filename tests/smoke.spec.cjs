@@ -319,3 +319,15 @@ test('tablet and laptop sizes keep every route usable without page-level horizon
   }
   expect(failures).toEqual([]);
 });
+
+test('quotation editor from enquiry stays open and exports an unsaved PDF preview', async ({ page }) => {
+  await page.goto('/enquiries?open=ENQ-2026-0478');
+  await page.getByRole('dialog', { name: 'ENQ-2026-0478' }).getByRole('button', { name: 'Create Quotation' }).click();
+  const editor = page.getByRole('dialog', { name: 'Quotation editor' });
+  await expect(editor.getByRole('button', { name: 'Linked enquiry' })).toContainText('ENQ-2026-0478');
+  await editor.locator('input[type="number"]').nth(1).fill('1800');
+  const download = page.waitForEvent('download', { timeout: 15_000 });
+  await editor.getByRole('button', { name: 'Generate PDF' }).click({ timeout: 12_000 });
+  expect((await download).suggestedFilename()).toMatch(/quotation.*\.pdf/i);
+  await expect(editor).toBeVisible();
+});
