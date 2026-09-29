@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ClipboardList, Plus, Eye, Edit2, Trash2,
@@ -70,6 +70,7 @@ const workflowSteps = (status: string) => {
 };
 
 export const Enquiries: React.FC = () => {
+  const location = useLocation();
   const navigate = useNavigate();
   const { enquiries, customers, addEnquiry, updateEnquiry, deleteEnquiry, quotations } = useAppStore();
   const [search, setSearch] = useState('');
@@ -78,6 +79,14 @@ export const Enquiries: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEnquiry, setEditingEnquiry] = useState<Enquiry | null>(null);
   const [viewingEnquiry, setViewingEnquiry] = useState<Enquiry | null>(null);
+
+  // ?open=ID is a deep link from customer records, notifications and dashboard activity.
+  useEffect(() => {
+    const openId = new URLSearchParams(location.search).get('open');
+    if (!openId) return;
+    const record = enquiries.find(e => e.id === openId);
+    if (record) setViewingEnquiry(record);
+  }, [location.search, enquiries]);
   const [deleteTarget, setDeleteTarget] = useState<Enquiry | null>(null);
 
 
