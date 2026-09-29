@@ -33,6 +33,16 @@ export const Pagination: React.FC<PaginationProps> = ({
     }
   }
 
+  // Page changes do not unmount the current route, so the layout's route
+  // scroll reset does not run. Scroll the same <main> container used by AppLayout.
+  const changePage = (nextPage: number, trigger: HTMLButtonElement) => {
+    if (nextPage < 1 || nextPage > totalPages || nextPage === currentPage) return;
+    const main = trigger.closest('main');
+    onPageChange(nextPage);
+    if (main) main.scrollTop = 0;
+    else window.scrollTo(0, 0);
+  };
+
   if (totalPages <= 1) return null;
 
   return (
@@ -43,7 +53,7 @@ export const Pagination: React.FC<PaginationProps> = ({
       </p>
       <div className="flex items-center gap-1">
         <button
-          onClick={() => onPageChange(currentPage - 1)}
+          onClick={(event) => changePage(currentPage - 1, event.currentTarget)}
           disabled={currentPage === 1}
           className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label="Previous page"
@@ -54,7 +64,8 @@ export const Pagination: React.FC<PaginationProps> = ({
           typeof page === 'number' ? (
             <button
               key={idx}
-              onClick={() => onPageChange(page)}
+              onClick={(event) => changePage(page, event.currentTarget)}
+              aria-current={page === currentPage ? 'page' : undefined}
               className={cn(
                 'w-8 h-8 text-sm font-medium rounded-lg transition-colors',
                 page === currentPage
@@ -71,7 +82,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           )
         ))}
         <button
-          onClick={() => onPageChange(currentPage + 1)}
+          onClick={(event) => changePage(currentPage + 1, event.currentTarget)}
           disabled={currentPage === totalPages}
           className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label="Next page"
