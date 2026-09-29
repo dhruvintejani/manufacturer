@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import { useAppStore } from '../store/useAppStore';
 import { PageHeader } from '../components/ui/PageHeader';
+import { ChartAlternative, AccessibleBars, AccessibleDonut, AccessibleHorizontalBars } from '../components/ui/AccessibleCharts';
 import { formatCurrency } from '../utils/formatters';
 
 const TABS = ['Sales', 'Production', 'Customers', 'Enquiries'];
@@ -135,6 +136,11 @@ export const Reports: React.FC = () => {
     };
   });
 
+  const enqProductData = Object.entries(enquiries.reduce((acc, enquiry) => {
+    acc[enquiry.product] = (acc[enquiry.product] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>)).map(([label, value]) => ({ label, value }));
+
   const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B6D4'];
 
   return (
@@ -179,6 +185,7 @@ export const Reports: React.FC = () => {
           <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-3 xl:gap-6">
             <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6 xl:col-span-2">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly Order Value ({reportingYear})</h3>
+              <ChartAlternative title="Monthly Order Value" fallback={<AccessibleBars title="Monthly Order Value" data={salesData.map(row => ({ ...row, label: row.month }))} series={[{ key: 'revenue', label: 'Order value', color: '#2563eb' }]} valueLabel={value => formatCurrency(value)} />}>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={salesData} margin={{ left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
@@ -188,10 +195,12 @@ export const Reports: React.FC = () => {
                   <Bar dataKey="revenue" name="Order value" fill="#3B82F6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+              </ChartAlternative>
             </div>
 
             <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Quotation Status Breakdown</h3>
+              <ChartAlternative title="Quotation Status Breakdown" fallback={<AccessibleDonut title="Quotation Status Breakdown" data={quoteVsOrderData} />}>
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie data={quoteVsOrderData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={3} dataKey="value">
@@ -203,12 +212,14 @@ export const Reports: React.FC = () => {
                   <Legend wrapperStyle={{ fontSize: '11px' }} />
                 </PieChart>
               </ResponsiveContainer>
+              </ChartAlternative>
             </div>
           </div>
 
           <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
             <h3 className="text-sm font-semibold text-slate-900 mb-4">Orders vs Quotations Trend</h3>
-            <ResponsiveContainer width="100%" height={200}>
+            <ChartAlternative title="Orders vs Quotations Trend" fallback={<AccessibleBars title="Orders vs Quotations Trend" data={salesData.map(row => ({ ...row, label: row.month }))} series={[{ key: 'quotations', label: 'Quotations', color: '#8b5cf6' }, { key: 'orders', label: 'Orders', color: '#059669' }]} />}>
+              <ResponsiveContainer width="100%" height={200}>
               <LineChart data={salesData} margin={{ left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
@@ -219,6 +230,7 @@ export const Reports: React.FC = () => {
                 <Line type="monotone" dataKey="orders" name="Orders" stroke="#10B981" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
+              </ChartAlternative>
           </div>
         </motion.div>
       )}
@@ -236,6 +248,7 @@ export const Reports: React.FC = () => {
           <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-3 xl:gap-6">
             <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Jobs by Status</h3>
+              <ChartAlternative title="Jobs by Status" fallback={<AccessibleDonut title="Jobs by Status" data={prodStatusData} />}>
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie data={prodStatusData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={3} dataKey="value">
@@ -247,10 +260,12 @@ export const Reports: React.FC = () => {
                   <Legend wrapperStyle={{ fontSize: '11px' }} />
                 </PieChart>
               </ResponsiveContainer>
+              </ChartAlternative>
             </div>
 
             <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6 xl:col-span-2">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly Production Activity ({reportingYear})</h3>
+              <ChartAlternative title="Monthly Production Activity" fallback={<AccessibleBars title="Monthly Production Activity" data={prodMonthly.map(row => ({ ...row, label: row.month }))} series={[{ key: 'started', label: 'Started', color: '#2563eb' }, { key: 'completed', label: 'Completed', color: '#059669' }]} />}>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={prodMonthly} margin={{ left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
@@ -262,6 +277,7 @@ export const Reports: React.FC = () => {
                   <Bar dataKey="completed" name="Completed" fill="#10B981" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+              </ChartAlternative>
             </div>
           </div>
 
@@ -314,6 +330,7 @@ export const Reports: React.FC = () => {
           <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2 xl:gap-6">
             <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Top Customers by Revenue</h3>
+              <ChartAlternative title="Top Customers by Revenue" fallback={<AccessibleHorizontalBars title="Top Customers by Revenue" data={topCustomers.map(row => ({ label: row.fullName, value: row.revenue }))} valueLabel={value => formatCurrency(value)} />}>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={topCustomers} layout="vertical" margin={{ left: 20, right: 20 }}>
                   <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
@@ -322,10 +339,12 @@ export const Reports: React.FC = () => {
                   <Bar dataKey="revenue" name="Revenue" fill="#3B82F6" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+              </ChartAlternative>
             </div>
 
             <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Customers by Country</h3>
+              <ChartAlternative title="Customers by Country" fallback={<AccessibleDonut title="Customers by Country" data={countryChartData.map((row, index) => ({ ...row, fill: COLORS[index % COLORS.length] }))} />}>
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie data={countryChartData} cx="50%" cy="50%" outerRadius={80} dataKey="value" nameKey="name">
@@ -336,6 +355,7 @@ export const Reports: React.FC = () => {
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
+              </ChartAlternative>
               <div className="mt-3 grid grid-cols-1 gap-1.5 min-[380px]:grid-cols-2" aria-label="Customers per country">
                 {countryChartData.map((item, index) => (
                   <div key={item.name} className="flex min-w-0 items-start gap-2 text-xs text-slate-700">
@@ -399,6 +419,7 @@ export const Reports: React.FC = () => {
           <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2 xl:gap-6">
             <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Enquiry Status Distribution</h3>
+              <ChartAlternative title="Enquiry Status Distribution" fallback={<AccessibleDonut title="Enquiry Status Distribution" data={enqStatusData} />}>
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie data={enqStatusData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
@@ -410,10 +431,12 @@ export const Reports: React.FC = () => {
                   <Legend wrapperStyle={{ fontSize: '11px' }} />
                 </PieChart>
               </ResponsiveContainer>
+              </ChartAlternative>
             </div>
 
             <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly Enquiry Trend</h3>
+              <ChartAlternative title="Monthly Enquiry Trend" fallback={<AccessibleBars title="Monthly Enquiry Trend" data={enqMonthly.map(row => ({ ...row, label: row.month }))} series={[{ key: 'new', label: 'New enquiries', color: '#2563eb' }, { key: 'converted', label: 'Converted', color: '#059669' }]} />}>
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={enqMonthly} margin={{ left: -20 }}>
                   <defs>
@@ -435,12 +458,14 @@ export const Reports: React.FC = () => {
                   <Area type="monotone" dataKey="converted" name="Converted" stroke="#10B981" strokeWidth={2} fill="url(#gConverted)" />
                 </AreaChart>
               </ResponsiveContainer>
+              </ChartAlternative>
             </div>
           </div>
 
           <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
             <h3 className="text-sm font-semibold text-slate-900 mb-4">Enquiries by Product</h3>
-            <ResponsiveContainer width="100%" height={200}>
+            <ChartAlternative title="Enquiries by Product" fallback={<AccessibleHorizontalBars title="Enquiries by Product" data={enqProductData} color="#8b5cf6" />}>
+              <ResponsiveContainer width="100%" height={200}>
               <BarChart
                 data={Object.entries(
                   enquiries.reduce((acc, e) => { acc[e.product] = (acc[e.product] || 0) + 1; return acc; }, {} as Record<string, number>)
@@ -454,6 +479,7 @@ export const Reports: React.FC = () => {
                 <Bar dataKey="value" name="Enquiries" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+              </ChartAlternative>
           </div>
         </motion.div>
       )}

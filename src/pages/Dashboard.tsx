@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { useAppStore } from '../store/useAppStore';
 import { StatCard } from '../components/ui/StatCard';
+import { ChartAlternative, AccessibleBars } from '../components/ui/AccessibleCharts';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { formatDate, formatCurrency, formatRelativeTime } from '../utils/formatters';
 
@@ -192,6 +193,9 @@ export const Dashboard: React.FC = () => {
               View Reports <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
+          <ChartAlternative title="Dashboard Activity Overview"
+            fallback={<AccessibleBars title="Activity Overview" data={monthlyData.map(row => ({ ...row, label: row.month }))}
+              series={[{ key: 'enquiries', label: 'Enquiries', color: '#2563eb' }, { key: 'quotations', label: 'Quotations', color: '#8b5cf6' }, { key: 'orders', label: 'Orders', color: '#059669' }]} />}>
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={monthlyData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
               <defs>
@@ -221,6 +225,7 @@ export const Dashboard: React.FC = () => {
               <Area type="monotone" dataKey="orders" name="Orders" stroke="#10B981" strokeWidth={2} fill="url(#gOrders)" dot={false} />
             </AreaChart>
           </ResponsiveContainer>
+          </ChartAlternative>
         </motion.div>
 
         {/* Production Status */}

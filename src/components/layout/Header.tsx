@@ -47,28 +47,32 @@ export const Header: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Global search results
-  const searchResults = searchQuery.trim().length > 1 ? [
-    ...customers.filter(c =>
-      c.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.contactPerson.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 3).map(c => ({ type: 'Customer', label: c.companyName, sub: c.contactPerson, path: '/customers?open=' + encodeURIComponent(c.id) })),
-    ...enquiries.filter(e =>
-      e.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.product.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 3).map(e => ({ type: 'Enquiry', label: e.id, sub: e.product, path: '/enquiries?open=' + encodeURIComponent(e.id) })),
-    ...quotations.filter(q =>
-      q.quotationNumber.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 2).map(q => ({ type: 'Quotation', label: q.quotationNumber, sub: q.status, path: '/quotations?open=' + encodeURIComponent(q.id) })),
-    ...orders.filter(o =>
-      o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      o.product.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 2).map(o => ({ type: 'Order', label: o.orderNumber, sub: o.product, path: '/orders?open=' + encodeURIComponent(o.id) })),
-    ...productionJobs.filter(p =>
-      p.jobNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.product.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 2).map(p => ({ type: 'Production', label: p.jobNumber, sub: p.product, path: '/production?open=' + encodeURIComponent(p.id) })),
+  // Search the current in-browser records across the whole manufacturing flow.
+  // Include customer names and contact details alongside document numbers, so
+  // searches such as a company name show its linked quotations and orders too.
+  const term = searchQuery.trim().toLocaleLowerCase();
+  const matches = (...fields: Array<string | undefined>) =>
+    fields.some(field => field?.toLocaleLowerCase().includes(term));
+  const companyOf = (id: string) => customers.find(customer => customer.id === id)?.companyName;
+  const searchResults = term.length >= 2 ? [
+    ...customers.filter(c => matches(c.companyName, c.contactPerson, c.email, c.phone, c.country, c.id))
+      .slice(0, 3).map(c => ({ type: 'Customer', label: c.companyName, sub: c.contactPerson, path: '/customers?open=' + encodeURIComponent(c.id) })),
+    ...enquiries.filter(e => matches(e.id, e.product, e.requirement, companyOf(e.customerId)))
+      .slice(0, 3).map(e => ({ type: 'Enquiry', label: e.id, sub: e.product, path: '/enquiries?open=' + encodeURIComponent(e.id) })),
+    ...quotations.filter(q => matches(q.quotationNumber, companyOf(q.customerId), q.status, ...q.items.map(item => item.product)))
+      .slice(0, 3).map(q => ({ type: 'Quotation', label: q.quotationNumber, sub: companyOf(q.customerId) || q.status, path: '/quotations?open=' + encodeURIComponent(q.id) })),
+    ...orders.filter(o => matches(o.orderNumber, o.product, companyOf(o.customerId)))
+      .slice(0, 3).map(o => ({ type: 'Order', label: o.orderNumber, sub: companyOf(o.customerId) || o.product, path: '/orders?open=' + encodeURIComponent(o.id) })),
+    ...productionJobs.filter(p => matches(p.jobNumber, p.product,
+      companyOf(orders.find(order => order.id === p.orderId)?.customerId || '')))
+      .slice(0, 3).map(p => ({ type: 'Production', label: p.jobNumber, sub: p.product, path: '/production?open=' + encodeURIComponent(p.id) })),
   ] : [];
+
+  const openSearchResult = (path: string) => {
+    setSearchQuery('');
+    setSearchOpen(false);
+    navigate(path);
+  };
 
   const typeColors: Record<string, string> = {
     Customer: 'bg-purple-100 text-purple-700',
@@ -94,10 +98,23 @@ export const Header: React.FC = () => {
 
         {/* Global Search */}
         <div className="min-w-0 flex-1 max-w-lg" ref={searchRef}>
-          <div className="relative">
+          <div className="relative" role="search">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <input
-              type="text"
+              type="search"
+              aria-label="Search manufacturing records"
+              aria-expanded={searchOpen && searchResults.length > 0}
+              aria-controls="global-search-results"
+              autoComplete="off"
+              inputMode="search"
+              enterKeyHint="go"
+              onKeyDown={event => {
+                if (event.key === 'Escape') { setSearchOpen(false); }
+                if (event.key === 'Enter' && searchResults[0]) {
+                  event.preventDefault();
+                  openSearchResult(searchResults[0].path);
+                }
+              }}
               placeholder="Search customers, enquiries, orders..."
               value={searchQuery}
               onChange={e => { setSearchQuery(e.target.value); setSearchOpen(true); }}
@@ -113,25 +130,31 @@ export const Header: React.FC = () => {
           </div>
 
           <AnimatePresence>
-            {searchOpen && searchResults.length > 0 && (
+            {searchOpen && term.length >= 2 && (
               <motion.div
                 initial={{ opacity: 0, y: -8, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.98 }}
                 transition={{ duration: 0.15 }}
+                id="global-search-results"
+                role="region"
+                aria-label="Search results"
                 className="fixed inset-x-2 top-[4.25rem] z-50 max-h-[65dvh] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl sm:absolute sm:inset-x-0 sm:top-14 sm:max-h-80 sm:w-full"
               >
+                {searchResults.length === 0 && <p role="status" className="px-4 py-4 text-sm text-slate-600">
+                  No matching records for &ldquo;{searchQuery.trim()}&rdquo;.
+                </p>}
                 {searchResults.map((result, i) => (
                   <button
                     key={i}
-                    onClick={() => { navigate(result.path); setSearchOpen(false); setSearchQuery(''); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+                    onClick={() => openSearchResult(result.path)}
+                    className="flex w-full min-w-0 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-visible:bg-blue-50"
                   >
                     <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', typeColors[result.type])}>
                       {result.type}
                     </span>
                     <div>
-                      <div className="text-sm font-medium text-slate-900">{result.label}</div>
+                      <div className="break-words text-sm font-medium text-slate-900">{result.label}</div>
                       <div className="text-xs text-slate-500">{result.sub}</div>
                     </div>
                   </button>
