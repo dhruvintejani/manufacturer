@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Users, Plus, Edit2, Trash2, Eye, MapPin, Mail, Phone, Building2, Globe } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
@@ -58,7 +58,7 @@ export const Customers: React.FC = () => {
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<CustomerFormData>({
     resolver: zodResolver(customerSchema) as any,
   });
 
@@ -110,7 +110,9 @@ export const Customers: React.FC = () => {
   const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   const totalActive = customers.filter(c => c.status === 'active').length;
-  const thisMonth = customers.filter(c => c.createdAt.startsWith('2026-03') || c.createdAt.startsWith('2026-04')).length;
+  const today = new Date();
+  const quarterStart = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1);
+  const newThisQuarter = customers.filter(c => { const created = new Date(c.createdAt); return created >= quarterStart && created <= today; }).length;
   const repeat = customers.filter(c => orders.filter(o => o.customerId === c.id).length > 1).length;
 
   const getCustomerStats = (customerId: string) => ({
@@ -141,7 +143,7 @@ export const Customers: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Total Customers" value={customers.length} icon={<Users className="w-5 h-5 text-blue-600" />} iconBg="bg-blue-50" index={0} />
         <StatCard title="Active Customers" value={totalActive} icon={<Building2 className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={1} />
-        <StatCard title="New This Quarter" value={thisMonth} change={20} icon={<Plus className="w-5 h-5 text-violet-600" />} iconBg="bg-violet-50" index={2} />
+        <StatCard title="New This Quarter" value={newThisQuarter} icon={<Plus className="w-5 h-5 text-violet-600" />} iconBg="bg-violet-50" index={2} />
         <StatCard title="Repeat Customers" value={repeat} icon={<Globe className="w-5 h-5 text-amber-600" />} iconBg="bg-amber-50" index={3} />
       </div>
 
@@ -303,10 +305,10 @@ export const Customers: React.FC = () => {
             <input {...register('country')} className={inputClass} placeholder="e.g. India" />
           </FormField>
           <FormField label="Status">
-            <select {...register('status')} className={inputClass}>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+            <Controller name="status" control={control} render={({ field }) =>
+  <PremiumSelect label="Customer status" value={field.value || 'active'} onChange={field.onChange}
+   options={[{ value: 'active', label: 'Active', color: '#059669' },
+             { value: 'inactive', label: 'Inactive', color: '#94a3b8' }]} />} />
           </FormField>
           <div className="sm:col-span-2">
             <FormField label="Address">
