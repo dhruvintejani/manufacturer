@@ -399,7 +399,7 @@ export const Quotations: React.FC = () => {
                   <h2 className="text-lg font-semibold text-slate-900">{editingQuotation ? `Edit ${editingQuotation.quotationNumber}` : 'Create Quotation'}</h2>
                   <p className="text-sm text-slate-500 mt-0.5">Complete all sections for a professional quotation</p>
                 </div>
-                <button onClick={() => setModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
+                <button onClick={() => setModalOpen(false)} aria-label="Close quotation editor" title="Close" className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
               </div>
               <div className="flex-1 overflow-y-auto p-6 space-y-5">
                 {/* Customer & Meta */}
