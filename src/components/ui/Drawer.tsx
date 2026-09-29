@@ -36,7 +36,7 @@ export const Drawer: React.FC<DrawerProps> = ({
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-40 flex">
+        <div className="fixed inset-0 z-40 flex min-w-0">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -53,7 +53,7 @@ export const Drawer: React.FC<DrawerProps> = ({
             ref={dialogRef}
             tabIndex={-1}
             className={cn(
-              'relative ml-auto h-full bg-white shadow-2xl flex flex-col w-full',
+              'relative ml-auto h-[100dvh] min-w-0 max-w-[100vw] bg-white shadow-2xl flex flex-col w-full',
               width
             )}
             role="dialog"
@@ -62,14 +62,14 @@ export const Drawer: React.FC<DrawerProps> = ({
             aria-label={!title ? (subtitle || 'Dialog') : undefined}
           >
             {(title || subtitle) && (
-              <div className="flex items-start justify-between p-6 border-b border-slate-100">
-                <div>
-                  {title && <h2 id={titleId} className="text-lg font-semibold text-slate-900">{title}</h2>}
-                  {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
+              <div className="flex min-w-0 items-start justify-between gap-3 px-4 py-3 sm:p-6 border-b border-slate-100">
+                <div className="min-w-0">
+                  {title && <h2 id={titleId} className="break-words text-base font-semibold text-slate-900 sm:text-lg">{title}</h2>}
+                  {subtitle && <p className="break-words text-sm text-slate-500 mt-0.5">{subtitle}</p>}
                 </div>
                 <button
                   onClick={onClose}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="shrink-0 rounded-lg p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
                   aria-label="Close drawer"
                 >
                   <X className="w-5 h-5" />
@@ -85,7 +85,7 @@ export const Drawer: React.FC<DrawerProps> = ({
                 <X className="w-5 h-5" />
               </button>
             )}
-            <div className="flex-1 overflow-y-auto">
+            <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
               {children}
             </div>
           </motion.div>
