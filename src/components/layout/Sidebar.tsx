@@ -62,7 +62,7 @@ const Logo = ({ collapsed }: { collapsed: boolean }) => (
 );
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
-  const { sidebarCollapsed, setSidebarCollapsed, sidebarMobileOpen, setSidebarMobileOpen } = useAppStore();
+  const { sidebarCollapsed, setSidebarCollapsed, sidebarMobileOpen, setSidebarMobileOpen, profile } = useAppStore();
   const location = useLocation();
 
   const collapsed = mobile ? false : sidebarCollapsed;
@@ -134,7 +134,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
           collapsed && 'justify-center'
         )}>
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-xs font-bold">AM</span>
+            <span className="text-white text-xs font-bold">{profile.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase()}</span>
           </div>
           <AnimatePresence>
             {!collapsed && (
@@ -145,8 +145,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
               >
-                <div className="text-white text-sm font-medium whitespace-nowrap">Alex Morgan</div>
-                <div className="text-slate-400 text-xs whitespace-nowrap">Operations Manager</div>
+                <div className="text-white text-sm font-medium whitespace-nowrap">{profile.name}</div>
+                <div className="text-slate-400 text-xs whitespace-nowrap">{profile.role || 'Demo User'}</div>
               </motion.div>
             )}
           </AnimatePresence>
