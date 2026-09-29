@@ -155,6 +155,6 @@ select { appearance: none; padding-right: 2.2rem !important; background-image: l
 .page-shell .recharts-responsive-container { min-width: 0 !important; max-width: 100%; }
 .page-shell input, .page-shell textarea { max-width: 100%; }
 @media (max-width: 639px) {
-  .page-shell { padding: 0.875rem; gap: 1rem; }
+  .page-shell { padding: 0.875rem; padding-bottom: max(2rem, env(safe-area-inset-bottom, 0px)); gap: 1rem; }
   .page-shell .recharts-wrapper, .page-shell .recharts-surface { max-width: 100%; }
 }
