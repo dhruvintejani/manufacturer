@@ -19,7 +19,7 @@ export const Settings: React.FC = () => {
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Settings"
         subtitle="Manage application preferences and demo configuration."
