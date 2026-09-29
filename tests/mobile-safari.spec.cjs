@@ -62,7 +62,9 @@ test('iPhone Safari charts remain populated across every report tab and dashboar
 test('iPhone Safari reports show an explicit empty state with no records, not blank space', async ({ page }) => {
   await page.goto('/dashboard');
   await page.evaluate(() => {
-    const raw = JSON.parse(localStorage.getItem('forgeflow-storage'));
+    // Zustand does not write an untouched seed state to localStorage until
+    // a user action occurs. Persist only the two empty slices to test hydration.
+    const raw = JSON.parse(localStorage.getItem('forgeflow-storage') || 'null') || { state: {}, version: 0 };
     raw.state.orders = [];
     raw.state.quotations = [];
     localStorage.setItem('forgeflow-storage', JSON.stringify(raw));
