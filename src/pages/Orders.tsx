@@ -70,7 +70,7 @@ export const Orders: React.FC = () => {
         o.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
         o.product.toLowerCase().includes(search.toLowerCase()) ||
         customer?.companyName.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? !['Dispatched', 'Completed'].includes(o.status) : o.status === statusFilter);
+      const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? o.status !== 'Completed' : o.status === statusFilter);
       const matchPayment = paymentFilter === 'all' || (paymentFilter === 'pending' ? ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus) : o.paymentStatus === paymentFilter);
       return matchSearch && matchStatus && matchPayment;
     });
@@ -84,7 +84,7 @@ export const Orders: React.FC = () => {
 
   const stats = {
     total: orders.length,
-    active: orders.filter(o => !['Completed', 'Dispatched'].includes(o.status)).length,
+    active: orders.filter(o => o.status !== 'Completed').length,
     inProduction: orders.filter(o => o.status === 'Production').length,
     completed: orders.filter(o => o.status === 'Completed').length,
     pendingPayment: orders.filter(o => ['Pending', 'Overdue'].includes(o.paymentStatus)).length,
