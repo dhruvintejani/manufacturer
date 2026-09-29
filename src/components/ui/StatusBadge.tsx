@@ -33,6 +33,8 @@ const statusConfig: Record<string, { bg: string; text: string; dot: string }> = 
   'Ready': { bg: 'bg-teal-50', text: 'text-teal-700', dot: 'bg-teal-500' },
   'Dispatched': { bg: 'bg-cyan-50', text: 'text-cyan-700', dot: 'bg-cyan-500' },
   'Completed': { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  'On Hold': { bg: 'bg-orange-50', text: 'text-orange-800', dot: 'bg-orange-500' },
+  'Cancelled': { bg: 'bg-rose-50', text: 'text-rose-800', dot: 'bg-rose-500' },
 
   // Payment
   'Pending': { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
