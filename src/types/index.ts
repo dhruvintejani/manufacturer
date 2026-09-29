@@ -64,7 +64,7 @@ export interface Quotation {
   orderId?: string;
 }
 
-export type OrderStatus = 'Confirmed' | 'Production' | 'Quality Check' | 'Ready' | 'Dispatched' | 'Completed';
+export type OrderStatus = 'Confirmed' | 'Production' | 'Quality Check' | 'Ready' | 'Dispatched' | 'Completed' | 'On Hold' | 'Cancelled';
 export type PaymentStatus = 'Pending' | 'Partial' | 'Paid' | 'Overdue';
 
 export interface OrderStatusEvent {
