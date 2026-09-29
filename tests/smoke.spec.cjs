@@ -50,12 +50,12 @@ test('orders advance one stage at a time and retain an audited history after ref
   await page.getByRole('button', { name: /Update Status/ }).click();
   await page.getByLabel('Update note (optional)').fill('Fabrication scheduled after materials arrived.');
   await page.getByRole('button', { name: 'Confirm Update' }).click();
-  await expect(page.getByText('Fabrication scheduled after materials arrived.')).toBeVisible();
+  await expect(page.getByLabel('Order status audit trail').getByText('Fabrication scheduled after materials arrived.')).toBeVisible();
   await expect(page.getByText(/Updated by Alex Morgan/)).toBeVisible();
   await page.reload();
   await page.getByPlaceholder('Search by order no., customer or product...').fill('ORD-2026-0055');
   await page.getByRole('button', { name: 'ORD-2026-0055', exact: true }).click();
-  await expect(page.getByText('Fabrication scheduled after materials arrived.')).toBeVisible();
+  await expect(page.getByLabel('Order status audit trail').getByText('Fabrication scheduled after materials arrived.')).toBeVisible();
 });
 
 test('enquiry detail shows contact actions and supports closing an enquiry', async ({ page }) => {
