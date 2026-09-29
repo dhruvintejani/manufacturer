@@ -157,7 +157,7 @@ export const Dashboard: React.FC = () => {
           value={activeJobs}
           icon={<Factory className="w-5 h-5 text-violet-600" />}
           iconBg="bg-violet-50"
-          onClick={() => navigate('/production')}
+          onClick={() => navigate('/production?status=active')}
           index={3}
         />
         <StatCard
