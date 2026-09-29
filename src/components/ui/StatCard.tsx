@@ -57,8 +57,8 @@ export const StatCard: React.FC<StatCardProps> = ({
         )}
       </div>
       <div>
-        <div className="text-3xl font-bold text-slate-900 tabular-nums">{value}</div>
-        <div className="text-sm text-slate-500 mt-1 font-medium">{title}</div>
+        <div className="max-w-full break-words text-xl font-bold leading-tight tabular-nums text-slate-900 sm:text-2xl xl:text-3xl">{value}</div>
+        <div className="break-words text-sm text-slate-500 mt-1 font-medium">{title}</div>
         {change !== undefined && (
           <div className="text-xs text-slate-400 mt-0.5">{changeLabel}</div>
         )}
