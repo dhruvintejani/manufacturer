@@ -12,6 +12,7 @@ import { Quotation, QuotationLineItem } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { StatCard } from '../components/ui/StatCard';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { RowActions } from '../components/ui/RowActions';
 import { Drawer } from '../components/ui/Drawer';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SearchInput } from '../components/ui/SearchInput';
@@ -351,12 +352,12 @@ export const Quotations: React.FC = () => {
                         </td>
                         <td className="px-6 py-4"><StatusBadge status={q.status} /></td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-1 opacity-100 transition-opacity">
-                            <button onClick={() => setViewingQuotation(q)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><Eye className="w-4 h-4" /></button>
-                            <button onClick={() => openEdit(q)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit"><Edit2 className="w-4 h-4" /></button>
-                            <button onClick={() => handlePDF(q)} className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors" title="PDF"><Download className="w-4 h-4" /></button>
-                            <button onClick={() => setDeleteTarget(q)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                          </div>
+                          <RowActions label={`Actions for ${q.quotationNumber}`} actions={[
+  { label: 'View details', onClick: () => setViewingQuotation(q), icon: <Eye className="h-4 w-4" /> },
+  { label: 'Edit quotation', onClick: () => openEdit(q), icon: <Edit2 className="h-4 w-4" /> },
+  { label: 'Generate PDF', onClick: () => handlePDF(q), icon: <Download className="h-4 w-4" /> },
+  { label: 'Delete quotation', onClick: () => setDeleteTarget(q), icon: <Trash2 className="h-4 w-4" />, danger: true },
+]} />
                         </td>
                       </motion.tr>
                     );
