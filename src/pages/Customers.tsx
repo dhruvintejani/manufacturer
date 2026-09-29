@@ -10,6 +10,8 @@ import { Customer } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { StatCard } from '../components/ui/StatCard';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { PremiumSelect } from '../components/ui/PremiumSelect';
+import { RowActions } from '../components/ui/RowActions';
 import { Modal } from '../components/ui/Modal';
 import { Drawer } from '../components/ui/Drawer';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -119,7 +121,7 @@ export const Customers: React.FC = () => {
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Customers"
         subtitle="Manage your customers and their business information."
@@ -151,15 +153,9 @@ export const Customers: React.FC = () => {
           placeholder="Search by company, contact, email or country..."
           className="flex-1 max-w-md"
         />
-        <select
-          value={statusFilter}
-          onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-          className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-        >
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
+        <PremiumSelect label="Customer status filter" value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }}
+           options={[{ value: 'all', label: 'All Status' }, { value: 'active', label: 'Active', color: '#059669' }, { value: 'inactive', label: 'Inactive', color: '#94a3b8' }]}
+           className="w-full sm:w-48" />
       </div>
 
       {/* Table */}
@@ -241,29 +237,11 @@ export const Customers: React.FC = () => {
                           <StatusBadge status={customer.status} />
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => setViewingCustomer(customer)}
-                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="View details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => openEdit(customer)}
-                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                              title="Edit"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteTarget(customer)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                          <RowActions label={`Actions for ${customer.companyName}`} actions={[
+  { label: 'View details', onClick: () => setViewingCustomer(customer), icon: <Eye className="h-4 w-4" /> },
+  { label: 'Edit customer', onClick: () => openEdit(customer), icon: <Edit2 className="h-4 w-4" /> },
+  { label: 'Delete customer', onClick: () => setDeleteTarget(customer), icon: <Trash2 className="h-4 w-4" />, danger: true },
+]} />
                         </td>
                       </motion.tr>
                     );
