@@ -59,7 +59,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { enquiries, quotations, orders, productionJobs, activities, customers } = useAppStore();
+  const { enquiries, quotations, orders, productionJobs, activities, customers, profile } = useAppStore();
 
   // KPI calculations
   const totalEnquiries = enquiries.length;
@@ -104,7 +104,7 @@ export const Dashboard: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             className="text-2xl font-bold text-slate-900"
           >
-            Good morning, Alex 👋
+            Hello, {profile.name.split(' ')[0]} 👋
           </motion.h1>
           <motion.p
             initial={{ opacity: 0 }}
