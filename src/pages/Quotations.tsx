@@ -89,6 +89,14 @@ export const Quotations: React.FC = () => {
   useAccessibleOverlay(modalOpen, dismissQuotationModal, quotationDialogRef);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
   const [viewingQuotation, setViewingQuotation] = useState<Quotation | null>(null);
+
+  // ?open=ID is a deep link from customer records, notifications and dashboard activity.
+  useEffect(() => {
+    const openId = new URLSearchParams(location.search).get('open');
+    if (!openId) return;
+    const record = quotations.find(q => q.id === openId);
+    if (record) setViewingQuotation(record);
+  }, [location.search, quotations]);
   const [deleteTarget, setDeleteTarget] = useState<Quotation | null>(null);
   const [convertOrderOpen, setConvertOrderOpen] = useState(false);
   const [form, setForm] = useState<QuotationFormState>(defaultForm());
@@ -109,7 +117,7 @@ export const Quotations: React.FC = () => {
       setForm(newForm);
       setEditingQuotation(null);
       setModalOpen(true);
-      window.history.replaceState({}, document.title);
+      navigate(location.pathname + location.search, { replace: true, state: null });
     }
   }, [location.state]);
 
