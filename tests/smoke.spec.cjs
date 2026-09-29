@@ -494,13 +494,53 @@ test('phone search, notifications and detail drawers stay within the visible vie
     await page.goto(url);
     const drawer = page.getByRole('dialog', { name });
     await expect(drawer).toBeVisible();
-    const rect = await drawer.boundingBox();
-    expect(rect.x, url + ' drawer begins inside viewport').toBeGreaterThanOrEqual(-1);
-    expect(rect.x + rect.width, url + ' drawer ends inside viewport').toBeLessThanOrEqual(321);
+    // A visible Framer Motion drawer may still be in its spring slide-in;
+    // assert the settled viewport position, not an intermediate animation frame.
+    await expect.poll(async () => {
+      const rect = await drawer.boundingBox();
+      return rect ? rect.x : -999;
+    }, { timeout: 5000 }).toBeGreaterThanOrEqual(-1);
+    await expect.poll(async () => {
+      const rect = await drawer.boundingBox();
+      return rect ? rect.x + rect.width : 999;
+    }, { timeout: 5000 }).toBeLessThanOrEqual(321);
     const scroll = await drawer.evaluate(el => {
       const body = el.querySelector('.overflow-y-auto');
       return body ? body.scrollWidth - body.clientWidth : 0;
     });
     expect(scroll, url + ' drawer must not clip important horizontal content').toBeLessThan(4);
+  }
+});
+
+test('real emulated touch opens mobile form selection sheets without leaving the viewport', async ({ browser }) => {
+  const context = await browser.newContext({
+    viewport: { width: 375, height: 667 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto('/orders');
+    await page.getByRole('button', { name: 'New Order', exact: true }).first().tap();
+    const modal = page.getByRole('dialog', { name: 'New Order' });
+    await expect(modal).toBeVisible();
+    await modal.getByRole('button', { name: 'Customer', exact: true }).tap();
+    const sheet = page.getByRole('listbox', { name: 'Customer' });
+    await expect(sheet).toBeVisible();
+    const bounds = await sheet.boundingBox();
+    expect(bounds.x).toBeGreaterThanOrEqual(-1);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(376);
+    await page.getByRole('option', { name: 'Global Traders Pvt. Ltd.' }).tap();
+    await expect(modal.getByRole('button', { name: 'Customer', exact: true })).toContainText('Global Traders');
+
+    await modal.getByRole('button', { name: 'Payment status', exact: true }).tap();
+    await expect(page.getByRole('listbox', { name: 'Payment status' })).toBeVisible();
+    await page.getByRole('option', { name: 'Partial', exact: true }).tap();
+    await expect(modal.getByRole('button', { name: 'Payment status', exact: true })).toContainText('Partial');
+    await modal.getByRole('button', { name: 'Create Order' }).tap();
+    await expect(modal).toBeHidden();
+  } finally {
+    await context.close();
   }
 });
