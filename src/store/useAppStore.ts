@@ -172,7 +172,7 @@ export const useAppStore = create<AppStore>()(
         // Update enquiry if linked
         if (data.enquiryId) {
           get().updateEnquiry(data.enquiryId, {
-            status: 'Quotation Sent' as EnquiryStatus,
+            ...(data.status === 'Sent' ? { status: 'Quotation Sent' as EnquiryStatus } : {}),
             quotationId: quotation.id,
           });
         }
@@ -214,6 +214,7 @@ export const useAppStore = create<AppStore>()(
         if (data.status === 'Sent') {
           const q = get().quotations.find(q => q.id === id);
           if (q) {
+            if (q.enquiryId) get().updateEnquiry(q.enquiryId, { status: 'Quotation Sent' });
             const customer = get().customers.find(c => c.id === q.customerId);
             get().addActivity({
               type: 'quotation',
