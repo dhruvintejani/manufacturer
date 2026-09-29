@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Bell, Database, Palette, RefreshCw, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -12,6 +12,7 @@ export const Settings: React.FC = () => {
   const { resetDemoData, profile: savedProfile, setProfile: saveProfile } = useAppStore();
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [profile, setProfile] = useState(savedProfile);
+  useEffect(() => setProfile(savedProfile), [savedProfile]);
   const handleSaveProfile = () => {
     const name = profile.name.trim();
     const email = profile.email.trim();
@@ -56,8 +57,9 @@ export const Settings: React.FC = () => {
               { label: 'Phone', key: 'phone' },
             ].map(f => (
               <div key={f.key}>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">{f.label}</label>
+                <label htmlFor={`profile-${f.key}`} className="block text-sm font-medium text-slate-700 mb-1.5">{f.label}</label>
                 <input
+                  id={`profile-${f.key}`}
                   value={(profile as any)[f.key]}
                   onChange={e => setProfile(p => ({ ...p, [f.key]: e.target.value }))}
                   className={inputClass}
