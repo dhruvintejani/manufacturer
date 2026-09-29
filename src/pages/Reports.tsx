@@ -131,7 +131,7 @@ export const Reports: React.FC = () => {
   const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B6D4'];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Reports & Analytics"
         subtitle="Insights generated from your manufacturing operations."
