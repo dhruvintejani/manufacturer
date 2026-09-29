@@ -145,3 +145,16 @@ select { appearance: none; padding-right: 2.2rem !important; background-image: l
 .page-shell .overflow-x-auto { overscroll-behavior-inline: contain; }
 @media (max-width: 640px) { .page-shell .grid.grid-cols-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 175px), 1fr)); } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* Responsive containment: wide datasets scroll inside their own table viewport,
+   never expand the main app or hide neighbouring navigation controls. */
+#root { width: 100%; max-width: 100%; overflow: hidden; }
+.page-shell { width: 100%; max-width: 100%; min-width: 0; }
+.page-shell > *, .page-shell .grid > * { min-width: 0; }
+.page-shell .overflow-x-auto { width: 100%; max-width: 100%; -webkit-overflow-scrolling: touch; }
+.page-shell .recharts-responsive-container { min-width: 0 !important; max-width: 100%; }
+.page-shell input, .page-shell textarea { max-width: 100%; }
+@media (max-width: 639px) {
+  .page-shell { padding: 0.875rem; gap: 1rem; }
+  .page-shell .recharts-wrapper, .page-shell .recharts-surface { max-width: 100%; }
+}

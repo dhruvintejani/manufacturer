@@ -30,11 +30,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const KpiBox = ({ label, value, sub, positive }: { label: string; value: string | number; sub?: string; positive?: boolean }) => (
-  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+  <div className="min-w-0 rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-5">
     <div className="text-sm text-slate-500 font-medium mb-1">{label}</div>
-    <div className="text-3xl font-bold text-slate-900">{value}</div>
+    <div className="break-words text-xl font-bold leading-tight tabular-nums text-slate-900 sm:text-2xl xl:text-3xl">{value}</div>
     {sub && (
-      <div className={`flex items-center gap-1 mt-1.5 text-xs font-semibold ${positive === true ? 'text-emerald-600' : positive === false ? 'text-red-500' : 'text-slate-500'}`}>
+      <div className={`flex min-w-0 flex-wrap items-center gap-1 mt-1.5 text-xs font-semibold ${positive === true ? 'text-emerald-600' : positive === false ? 'text-red-500' : 'text-slate-500'}`}>
         {positive === true && <ArrowUpRight className="w-3.5 h-3.5" />}
         {positive === false && <ArrowDownRight className="w-3.5 h-3.5" />}
         {sub}
@@ -146,12 +146,16 @@ export const Reports: React.FC = () => {
       />
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 w-fit">
+      <div role="tablist" aria-label="Report categories"
+        className="grid w-full min-w-0 grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm sm:inline-flex sm:w-auto sm:max-w-full sm:flex-wrap">
         {TABS.map(tab => (
           <button
             key={tab}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+            className={`min-w-0 cursor-pointer rounded-lg px-2 py-2.5 text-center text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 sm:px-4 sm:text-sm ${
               activeTab === tab
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -164,16 +168,16 @@ export const Reports: React.FC = () => {
 
       {/* Sales Tab */}
       {activeTab === 'Sales' && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="min-w-0 space-y-4 sm:space-y-6">
+          <div className="grid min-w-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-4 lg:gap-4">
             <KpiBox label="Total Order Value" value={formatCurrency(totalRevenue)} sub="All recorded orders" />
             <KpiBox label="Total Orders" value={approvedOrders} />
             <KpiBox label="Avg. Order Value" value={formatCurrency(avgOrderValue)} sub="Per recorded order" />
             <KpiBox label="Quote Conversion" value={`${conversionRate}%`} sub="Quotations linked to orders" />
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <div className="xl:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-3 xl:gap-6">
+            <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6 xl:col-span-2">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly Order Value ({reportingYear})</h3>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={salesData} margin={{ left: -20 }}>
@@ -186,7 +190,7 @@ export const Reports: React.FC = () => {
               </ResponsiveContainer>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Quotation Status Breakdown</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
@@ -202,7 +206,7 @@ export const Reports: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
             <h3 className="text-sm font-semibold text-slate-900 mb-4">Orders vs Quotations Trend</h3>
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={salesData} margin={{ left: -20 }}>
@@ -221,16 +225,16 @@ export const Reports: React.FC = () => {
 
       {/* Production Tab */}
       {activeTab === 'Production' && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="min-w-0 space-y-4 sm:space-y-6">
+          <div className="grid min-w-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-4 lg:gap-4">
             <KpiBox label="Total Jobs" value={productionJobs.length} />
             <KpiBox label="Completed" value={productionJobs.filter(j => j.status === 'Completed').length} sub="Marked completed" />
             <KpiBox label="Delayed" value={productionJobs.filter(j => j.status === 'Delayed').length} sub="Currently flagged delayed" />
             <KpiBox label="Avg. Progress" value={`${avgProgress}%`} sub="Across all jobs" />
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-3 xl:gap-6">
+            <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Jobs by Status</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
@@ -245,7 +249,7 @@ export const Reports: React.FC = () => {
               </ResponsiveContainer>
             </div>
 
-            <div className="xl:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6 xl:col-span-2">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly Production Activity ({reportingYear})</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={prodMonthly} margin={{ left: -20 }}>
@@ -262,17 +266,17 @@ export const Reports: React.FC = () => {
           </div>
 
           {/* Progress Overview */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
             <h3 className="text-sm font-semibold text-slate-900 mb-4">Individual Job Progress</h3>
             <div className="space-y-4">
               {productionJobs.map(job => (
-                <div key={job.id}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div>
+                <div key={job.id} className="min-w-0">
+                  <div className="mb-1.5 flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1 break-words">
                       <span className="text-sm font-medium text-slate-900">{job.jobNumber}</span>
                       <span className="text-xs text-slate-500 ml-2">{job.product}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                         job.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
                         job.status === 'Delayed' ? 'bg-red-100 text-red-700' :
@@ -299,16 +303,16 @@ export const Reports: React.FC = () => {
 
       {/* Customers Tab */}
       {activeTab === 'Customers' && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <KpiBox label="Total Customers" value={customers.length} sub="+2 this quarter" positive={true} />
-            <KpiBox label="New Customers" value={newCustomers} sub="Joined in 2026" positive={true} />
-            <KpiBox label="Repeat Customers" value={repeatCustomers} sub="Multiple orders" positive={true} />
-            <KpiBox label="Active Rate" value={`${Math.round((customers.filter(c=>c.status==='active').length/customers.length)*100)}%`} sub="Currently active" />
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="min-w-0 space-y-4 sm:space-y-6">
+          <div className="grid min-w-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+            <KpiBox label="Total Customers" value={customers.length} sub="Recorded customers" />
+            <KpiBox label="New Customers" value={newCustomers} sub={`Joined in ${reportingYear}`} />
+            <KpiBox label="Repeat Customers" value={repeatCustomers} sub="Multiple orders" />
+            <KpiBox label="Active Rate" value={`${Math.round((customers.length ? customers.filter(c=>c.status==='active').length/customers.length : 0)*100)}%`} sub="Currently active" />
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2 xl:gap-6">
+            <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Top Customers by Revenue</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={topCustomers} layout="vertical" margin={{ left: 20, right: 20 }}>
@@ -320,11 +324,11 @@ export const Reports: React.FC = () => {
               </ResponsiveContainer>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Customers by Country</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
-                  <Pie data={countryChartData} cx="50%" cy="50%" outerRadius={80} dataKey="value" nameKey="name" label={({ name, value }) => `${name}: ${value}`} labelLine={false}>
+                  <Pie data={countryChartData} cx="50%" cy="50%" outerRadius={80} dataKey="value" nameKey="name">
                     {countryChartData.map((_, index) => (
                       <Cell key={index} fill={COLORS[index % COLORS.length]} />
                     ))}
@@ -332,14 +336,25 @@ export const Reports: React.FC = () => {
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
+              <div className="mt-3 grid grid-cols-1 gap-1.5 min-[380px]:grid-cols-2" aria-label="Customers per country">
+                {countryChartData.map((item, index) => (
+                  <div key={item.name} className="flex min-w-0 items-start gap-2 text-xs text-slate-700">
+                    <span aria-hidden="true" className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                    <span className="min-w-0 flex-1 break-words">{item.name}</span>
+                    <span className="shrink-0 font-semibold">{item.value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
             <div className="px-6 py-4 border-b border-slate-100">
               <h3 className="text-sm font-semibold text-slate-900">Customer Leaderboard</h3>
             </div>
-            <table className="w-full">
+            <div className="w-full max-w-full overflow-x-auto overscroll-x-contain" role="region" aria-label="Scrollable customer leaderboard" tabIndex={0}>
+              <table className="min-w-[650px] w-full">
               <thead className="bg-slate-50">
                 <tr>
                   {['Rank', 'Company', 'Country', 'Orders', 'Revenue'].map(h => (
@@ -365,23 +380,24 @@ export const Reports: React.FC = () => {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
         </motion.div>
       )}
 
       {/* Enquiries Tab */}
       {activeTab === 'Enquiries' && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <KpiBox label="Total Enquiries" value={enquiries.length} sub="+12.5% from last month" positive={true} />
-            <KpiBox label="Converted" value={enquiries.filter(e => e.status === 'Converted').length} sub="Successfully converted" positive={true} />
-            <KpiBox label="Closed/Lost" value={enquiries.filter(e => e.status === 'Closed/Lost').length} sub="Did not convert" positive={false} />
-            <KpiBox label="Conversion Rate" value={`${enqConversionRate}%`} sub="Enquiry to order" positive={parseFloat(enqConversionRate) > 30} />
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="min-w-0 space-y-4 sm:space-y-6">
+          <div className="grid min-w-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+            <KpiBox label="Total Enquiries" value={enquiries.length} sub="All recorded enquiries" />
+            <KpiBox label="Converted" value={enquiries.filter(e => e.status === 'Converted').length} sub="Successfully converted" />
+            <KpiBox label="Closed/Lost" value={enquiries.filter(e => e.status === 'Closed/Lost').length} sub="Did not convert" />
+            <KpiBox label="Conversion Rate" value={`${enqConversionRate}%`} sub="Recorded conversion" />
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2 xl:gap-6">
+            <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Enquiry Status Distribution</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
@@ -396,7 +412,7 @@ export const Reports: React.FC = () => {
               </ResponsiveContainer>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly Enquiry Trend</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={enqMonthly} margin={{ left: -20 }}>
@@ -422,7 +438,7 @@ export const Reports: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
             <h3 className="text-sm font-semibold text-slate-900 mb-4">Enquiries by Product</h3>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart

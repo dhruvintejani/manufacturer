@@ -56,7 +56,11 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
   }
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto pb-2">
+    <>
+      <div className="sm:hidden">
+        <WorkflowStepper steps={steps} orientation="vertical" />
+      </div>
+      <div className="hidden min-w-0 max-w-full items-center gap-2 overflow-x-auto overscroll-x-contain pb-2 sm:flex">
       {steps.map((step, i) => (
         <React.Fragment key={i}>
           <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
@@ -84,6 +88,7 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
           )}
         </React.Fragment>
       ))}
-    </div>
+      </div>
+    </>
   );
 };

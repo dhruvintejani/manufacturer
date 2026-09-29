@@ -24,14 +24,14 @@ export const AppLayout: React.FC = () => {
   }, [location.key]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F7F9FC]">
+    <div className="flex h-[100dvh] w-full min-w-0 overflow-hidden bg-[#F7F9FC]">
       <ToastProvider />
       <Sidebar />
       <Sidebar mobile />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header />
-        <main ref={mainRef} className="flex-1 overflow-y-auto">
+        <main ref={mainRef} className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -40,7 +40,7 @@ export const AppLayout: React.FC = () => {
               exit="exit"
               variants={pageVariants}
               transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-              className="min-h-full"
+              className="min-h-full min-w-0"
             >
               <Outlet />
             </motion.div>

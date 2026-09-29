@@ -39,14 +39,14 @@ export const Settings: React.FC = () => {
             <div className="p-2 bg-blue-50 rounded-xl"><User className="w-5 h-5 text-blue-600" /></div>
             <h3 className="text-sm font-semibold text-slate-900">User Profile</h3>
           </div>
-          <div className="flex items-center gap-4 mb-6">
+          <div className="mb-6 flex min-w-0 flex-wrap items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
               <span className="text-white text-xl font-bold">AM</span>
             </div>
             <div>
-              <div className="text-lg font-bold text-slate-900">{profile.name}</div>
+              <div className="break-words text-lg font-bold text-slate-900">{profile.name}</div>
               <div className="text-sm text-slate-500">{profile.role}</div>
-              <div className="text-xs text-slate-400 mt-0.5">{profile.email}</div>
+              <div className="mt-0.5 break-all text-xs text-slate-400">{profile.email}</div>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
