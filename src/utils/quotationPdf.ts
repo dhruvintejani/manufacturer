@@ -135,6 +135,6 @@ export function exportQuotationPdf(quotation: Quotation, customer?: Customer, pr
     if (tab) tab.opener = null;
     else pdf.save('quotation-preview.pdf');
   } else {
-    pdf.save((quotation.quotationNumber || 'quotation-draft').replace(/[^a-z0-9-_]/gi, '_') + '.pdf');
+    pdf.save((quotation.quotationNumber === 'DRAFT-PREVIEW' ? 'quotation-draft-preview' : quotation.quotationNumber || 'quotation-draft').replace(/[^a-z0-9-_]/gi, '_') + '.pdf');
   }
 }
