@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ShoppingCart, Plus, Eye, Edit2, Trash2,
-  Factory, CheckCircle, ArrowRight, DollarSign
+  Factory, CheckCircle, ArrowRight, DollarSign, ArrowDownUp, MoreVertical
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
@@ -19,10 +19,15 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { WorkflowStepper } from '../components/ui/WorkflowStepper';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { Modal } from '../components/ui/Modal';
+import { PremiumSelect } from '../components/ui/PremiumSelect';
 
 const ITEMS_PER_PAGE = 8;
 const ORDER_STATUSES = ['Confirmed', 'Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'];
 const PAYMENT_STATUSES = ['Pending', 'Partial', 'Paid', 'Overdue'];
+const STATUS_COLORS: Record<string, string> = {
+  Confirmed: '#2563eb', Production: '#7c3aed', 'Quality Check': '#d97706',
+  Ready: '#0d9488', Dispatched: '#0891b2', Completed: '#059669',
+};
 const PRODUCTS = ['Pressure Vessel', 'Heat Exchanger', 'Storage Tank', 'Industrial Dryer', 'Reactor', 'Column', 'Boiler System'];
 const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
 
@@ -37,10 +42,14 @@ const getWorkflowSteps = (status: string) => {
 
 export const Orders: React.FC = () => {
   const navigate = useNavigate();
-  const { orders, customers, productionJobs, addOrder, updateOrder, deleteOrder, addProductionJob } = useAppStore();
+  const [searchParams] = useSearchParams();
+  const { orders, customers, productionJobs, addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus } = useAppStore();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [paymentFilter, setPaymentFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') === 'active' ? 'active' : 'all');
+  const [paymentFilter, setPaymentFilter] = useState(searchParams.get('payment') === 'pending' ? 'pending' : 'all');
+  const [newestFirst, setNewestFirst] = useState(true);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [statusNote, setStatusNote] = useState('');
   const [page, setPage] = useState(1);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
@@ -61,13 +70,13 @@ export const Orders: React.FC = () => {
         o.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
         o.product.toLowerCase().includes(search.toLowerCase()) ||
         customer?.companyName.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = statusFilter === 'all' || o.status === statusFilter;
-      const matchPayment = paymentFilter === 'all' || o.paymentStatus === paymentFilter;
+      const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? !['Dispatched', 'Completed'].includes(o.status) : o.status === statusFilter);
+      const matchPayment = paymentFilter === 'all' || (paymentFilter === 'pending' ? ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus) : o.paymentStatus === paymentFilter);
       return matchSearch && matchStatus && matchPayment;
     });
   }, [orders, customers, search, statusFilter, paymentFilter]);
 
-  const sorted = [...filtered].sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+  const sorted = [...filtered].sort((a, b) => (newestFirst ? 1 : -1) * (new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()));
   const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
   const paginated = sorted.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
   const getCustomer = (id: string) => customers.find(c => c.id === id);
@@ -119,10 +128,25 @@ export const Orders: React.FC = () => {
 
   const handleSaveEdit = () => {
     if (!editModal) return;
-    updateOrder(editModal.id, editModal);
+    const { status: _status, statusHistory: _history, ...changes } = editModal;
+    updateOrder(editModal.id, changes);
     toast.success('Order updated.');
     setEditModal(null);
     if (viewingOrder?.id === editModal.id) setViewingOrder(prev => prev ? { ...prev, ...editModal } : null);
+  };
+
+  const currentOrder = viewingOrder ? orders.find(o => o.id === viewingOrder.id) || viewingOrder : null;
+  const currentIndex = currentOrder ? ORDER_STATUSES.indexOf(currentOrder.status) : -1;
+  const nextOrderStatus = currentIndex >= 0 ? ORDER_STATUSES[currentIndex + 1] : undefined;
+
+  const handleAdvanceStatus = () => {
+    if (!currentOrder || !nextOrderStatus) return;
+    if (!advanceOrderStatus(currentOrder.id, 'Alex Morgan', statusNote)) {
+      toast.error('Order status has changed. Reopen the order and try again.'); return;
+    }
+    setViewingOrder(useAppStore.getState().orders.find(o => o.id === currentOrder.id) || null);
+    setStatusModalOpen(false); setStatusNote('');
+    toast.success(`Order moved to ${nextOrderStatus}.`);
   };
 
   const handleAddOrder = () => {
@@ -139,7 +163,7 @@ export const Orders: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Orders"
         subtitle="Track customer orders from confirmation to completion."
@@ -166,14 +190,11 @@ export const Orders: React.FC = () => {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search by order no., customer or product..." className="flex-1 max-w-md" />
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-          <option value="all">All Status</option>
-          {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={paymentFilter} onChange={e => { setPaymentFilter(e.target.value); setPage(1); }} className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-          <option value="all">All Payment</option>
-          {PAYMENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <PremiumSelect label="Order status filter" value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }}
+          options={[{ value: 'all', label: 'All Status' }, { value: 'active', label: 'Active Orders' }, ...ORDER_STATUSES.map(value => ({ value, label: value, color: STATUS_COLORS[value] }))]} className="w-full sm:w-48" />
+        <PremiumSelect label="Payment status filter" value={paymentFilter} onChange={value => { setPaymentFilter(value); setPage(1); }}
+          options={[{ value: 'all', label: 'All Payments' }, { value: 'pending', label: 'Pending / Partial / Overdue', color: '#d97706' },
+            ...PAYMENT_STATUSES.map(value => ({ value, label: value, color: value === 'Paid' ? '#059669' : '#d97706' }))]} className="w-full sm:w-60" />
       </div>
 
       {/* Table */}
