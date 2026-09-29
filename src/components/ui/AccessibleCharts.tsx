@@ -80,6 +80,7 @@ export const AccessibleBars: React.FC<{
           ))}
         </div>
       </div>
+      {wide && <p className="mt-1 text-[11px] text-slate-500">Swipe inside the chart to see all months.</p>}
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
         {series.map(item => <div key={item.key} className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm" style={{ background: item.color }} />{item.label}
