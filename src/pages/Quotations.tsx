@@ -303,8 +303,8 @@ export const Quotations: React.FC = () => {
         <StatCard title="Total Quotations" value={stats.total} icon={<FileText className="w-5 h-5 text-blue-600" />} iconBg="bg-blue-50" index={0} />
         <StatCard title="Draft" value={stats.draft} icon={<Package className="w-5 h-5 text-slate-600" />} iconBg="bg-slate-100" index={1} />
         <StatCard title="Sent" value={stats.sent} icon={<Send className="w-5 h-5 text-blue-600" />} iconBg="bg-blue-50" index={2} />
-        <StatCard title="Approved" value={stats.approved} change={stats.approved > 0 ? 20 : 0} icon={<CheckCircle className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={3} />
-        <StatCard title="Rejected" value={stats.rejected} change={stats.rejected > 0 ? -10 : 0} icon={<X className="w-5 h-5 text-red-600" />} iconBg="bg-red-50" index={4} />
+        <StatCard title="Approved" value={stats.approved} icon={<CheckCircle className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={3} />
+        <StatCard title="Rejected" value={stats.rejected} icon={<X className="w-5 h-5 text-red-600" />} iconBg="bg-red-50" index={4} />
       </div>
 
       {/* Filters */}
