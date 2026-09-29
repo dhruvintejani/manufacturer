@@ -453,7 +453,8 @@ export const Enquiries: React.FC = () => {
                           <StatusBadge status={linkedQuotation.status} />
                         </div>
                         <button
-                          onClick={() => { setViewingEnquiry(null); navigate('/quotations'); }}
+                          onClick={() => { setViewingEnquiry(null); navigate('/quotations?open=' + encodeURIComponent(linkedQuotation.id)); }}
+                          aria-label={`Open quotation ${linkedQuotation.quotationNumber}`} title="View linked quotation"
                           className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-100 transition-colors"
                         >
                           <ArrowRight className="w-5 h-5" />
