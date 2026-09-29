@@ -88,7 +88,7 @@ export const Orders: React.FC = () => {
     active: orders.filter(o => o.status !== 'Completed').length,
     inProduction: orders.filter(o => o.status === 'Production').length,
     completed: orders.filter(o => o.status === 'Completed').length,
-    pendingPayment: orders.filter(o => ['Pending', 'Overdue'].includes(o.paymentStatus)).length,
+    pendingPayment: orders.filter(o => ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus)).length,
   };
 
   const handleCreateJob = (order: Order) => {
@@ -121,7 +121,11 @@ export const Orders: React.FC = () => {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    deleteOrder(deleteTarget.id);
+    if (!deleteOrder(deleteTarget.id)) {
+      toast.error('Cannot delete an order while production jobs are linked.');
+      setDeleteTarget(null);
+      return;
+    }
     toast.success('Order deleted.');
     setDeleteTarget(null);
     setViewingOrder(null);
