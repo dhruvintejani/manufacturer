@@ -157,7 +157,11 @@ export const Materials: React.FC = () => {
               options={units.map(unit => ({ value: unit, label: unit }))} /></div>
           {!editing && <label className="text-sm font-medium text-slate-700">Opening Stock<input type="number" min={0} value={form.currentStock} onChange={e => setForm(v => ({ ...v, currentStock: Number(e.target.value) }))} className={inputClass} /></label>}
           <label className="text-sm font-medium text-slate-700">Minimum Stock<input type="number" min={0} value={form.minimumStock} onChange={e => setForm(v => ({ ...v, minimumStock: Number(e.target.value) }))} className={inputClass} /></label>
-          <label className="text-sm font-medium text-slate-700">Reorder Level<input type="number" min={form.minimumStock} value={form.reorderLevel} onChange={e => setForm(v => ({ ...v, reorderLevel: Number(e.target.value) }))} className={inputClass} /><span className="mt-1 block text-xs font-normal text-slate-500">Must be at least the minimum stock level.</span></label>
+          <div>
+            <label htmlFor="material-reorder-level" className="block text-sm font-medium text-slate-700">Reorder Level</label>
+            <input id="material-reorder-level" type="number" min={form.minimumStock} value={form.reorderLevel} onChange={e => setForm(v => ({ ...v, reorderLevel: Number(e.target.value) }))} className={inputClass} />
+            <span className="mt-1 block text-xs font-normal text-slate-500">Must be at least the minimum stock level.</span>
+          </div>
           <label className="text-sm font-medium text-slate-700 sm:col-span-2">Supplier<input value={form.supplier} onChange={e => setForm(v => ({ ...v, supplier: e.target.value }))} className={inputClass} /></label>
           {editing && <div className="sm:col-span-2"><PremiumSelect label="Material status" value={form.status}
             onChange={value => setForm(v => ({ ...v, status: value as 'active' | 'inactive' }))}
