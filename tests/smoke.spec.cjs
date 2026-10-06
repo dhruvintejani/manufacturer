@@ -11,7 +11,7 @@ test('all application sections render without JS crashes at desktop and 100-200%
   page.on('pageerror', error => failures.push(error.message));
   await page.setViewportSize({ width: 1440, height: 900 });
   for (const zoom of [1, 1.25, 1.5, 1.75, 2]) {
-    for (const route of ['dashboard', 'customers', 'enquiries', 'quotations', 'orders', 'production', 'reports', 'settings']) {
+    for (const route of ['dashboard', 'customers', 'enquiries', 'quotations', 'orders', 'bom', 'production', 'materials', 'inventory', 'purchases', 'reports', 'settings']) {
       await page.goto('/' + route);
       await page.evaluate(factor => { document.documentElement.style.zoom = String(factor); }, zoom);
       await expect(page.locator('header')).toBeVisible();
@@ -318,7 +318,7 @@ test('tablet and laptop sizes keep every route usable without page-level horizon
   page.on('pageerror', error => failures.push(error.message));
   for (const width of [768, 1024]) {
     await page.setViewportSize({ width, height: 820 });
-    for (const route of ['dashboard', 'customers', 'enquiries', 'quotations', 'orders', 'production', 'reports', 'settings', 'help']) {
+    for (const route of ['dashboard', 'customers', 'enquiries', 'quotations', 'orders', 'bom', 'production', 'materials', 'inventory', 'purchases', 'reports', 'settings', 'help']) {
       await page.goto('/' + route);
       await expect(page.locator('main')).not.toBeEmpty();
       const delta = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -383,7 +383,7 @@ test('report category titles, controls and charts remain visible on a 320px phon
   await page.goto('/reports');
   await expect(page.getByRole('heading', { name: 'Reports & Analytics' })).toBeVisible();
   const tabs = page.getByRole('tablist', { name: 'Report categories' });
-  const names = ['Sales', 'Production', 'Customers', 'Enquiries'];
+  const names = ['Sales', 'Production', 'Customers', 'Enquiries', 'Inventory'];
   for (const name of names) {
     const tab = tabs.getByRole('tab', { name, exact: true });
     const box = await tab.boundingBox();
@@ -397,6 +397,7 @@ test('report category titles, controls and charts remain visible on a 320px phon
       Production: 'Jobs by Status',
       Customers: 'Customers by Country',
       Enquiries: 'Enquiry Status Distribution',
+      Inventory: 'Inventory Position',
     }[name];
     await expect(page.getByRole('heading', { name: new RegExp(section) })).toBeVisible();
     const delta = await page.locator('main').evaluate(el => el.scrollWidth - el.clientWidth);
@@ -443,6 +444,10 @@ test('New Order mobile dropdowns open above the form, stay inside viewport and a
 
 test('mobile quotation and production forms keep action buttons and dropdowns usable', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 640 });
+  // Resolve the seeded SS316 shortage first. Production only lists material-ready orders.
+  await page.goto('/purchases');
+  const restockRow = page.getByRole('row').filter({ hasText: 'PUR-2026-001' });
+  await restockRow.getByRole('button', { name: 'Receive Material' }).click();
   await page.goto('/production');
   await page.getByRole('button', { name: 'New Job', exact: true }).click();
   const job = page.getByRole('dialog', { name: 'Create Production Job' });
@@ -482,7 +487,7 @@ test('phone search, notifications and detail drawers stay within the visible vie
   expect(notifBounds.x).toBeGreaterThanOrEqual(-1);
   expect(notifBounds.x + notifBounds.width).toBeLessThanOrEqual(321);
   await notifications.click();
-  await page.getByPlaceholder('Search customers, enquiries, orders...').fill('Global');
+  await page.getByPlaceholder('Search customers, orders, materials...').fill('Global');
   await expect(page.getByRole('button', { name: /Global Traders/ }).first()).toBeVisible();
   const popup = page.getByRole('button', { name: /Global Traders/ }).first().locator('..');
   const searchBounds = await popup.boundingBox();
