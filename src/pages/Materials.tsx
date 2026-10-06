@@ -45,7 +45,8 @@ export const Materials: React.FC = () => {
 
   const close = () => { setAdding(false); setEditing(null); setForm(emptyForm); };
   const save = () => {
-    if (!form.code.trim() || !form.name.trim() || !form.category.trim() || !form.supplier.trim()) {
+    const normalizedCode = form.code.trim().toUpperCase();
+    if (!normalizedCode || !form.name.trim() || !form.category.trim() || !form.supplier.trim()) {
       toast.error('Complete the material code, name, category and supplier.');
       return;
     }
@@ -53,15 +54,33 @@ export const Materials: React.FC = () => {
       toast.error('Stock values cannot be negative.');
       return;
     }
+    if (form.reorderLevel < form.minimumStock) {
+      toast.error('Reorder level must be equal to or greater than the minimum stock level.');
+      return;
+    }
+    const duplicate = materials.some(material =>
+      material.id !== editing?.id && material.code.trim().toUpperCase() === normalizedCode);
+    if (duplicate) {
+      toast.error(`Material code ${normalizedCode} already exists.`);
+      return;
+    }
     if (editing) {
-      updateMaterial(editing.id, {
-        code: form.code.trim(), name: form.name.trim(), category: form.category.trim(), unit: form.unit,
+      const updated = updateMaterial(editing.id, {
+        code: normalizedCode, name: form.name.trim(), category: form.category.trim(), unit: form.unit,
         minimumStock: form.minimumStock, reorderLevel: form.reorderLevel,
         supplier: form.supplier.trim(), status: form.status,
       });
+      if (!updated) {
+        toast.error('Material could not be updated. Check the code and stock thresholds.');
+        return;
+      }
       toast.success('Material master updated. Use Inventory for stock adjustments.');
     } else {
-      addMaterial({ ...form, code: form.code.trim(), name: form.name.trim(), category: form.category.trim(), supplier: form.supplier.trim() });
+      const created = addMaterial({ ...form, code: normalizedCode, name: form.name.trim(), category: form.category.trim(), supplier: form.supplier.trim() });
+      if (!created) {
+        toast.error('Material could not be created. Check the code and stock thresholds.');
+        return;
+      }
       toast.success('Material added to inventory.');
     }
     close();
@@ -130,7 +149,7 @@ export const Materials: React.FC = () => {
           <button type="button" onClick={save} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">{editing ? 'Save Material' : 'Add Material'}</button>
         </div>}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-slate-700">Material Code<input value={form.code} onChange={e => setForm(v => ({ ...v, code: e.target.value }))} className={inputClass} /></label>
+          <label className="text-sm font-medium text-slate-700">Material Code<input value={form.code} onChange={e => setForm(v => ({ ...v, code: e.target.value.toUpperCase() }))} autoCapitalize="characters" spellCheck={false} className={inputClass} /></label>
           <label className="text-sm font-medium text-slate-700">Material Name<input value={form.name} onChange={e => setForm(v => ({ ...v, name: e.target.value }))} className={inputClass} /></label>
           <label className="text-sm font-medium text-slate-700">Category<input value={form.category} onChange={e => setForm(v => ({ ...v, category: e.target.value }))} className={inputClass} /></label>
           <div><label className="mb-1.5 block text-sm font-medium text-slate-700">Unit</label>
@@ -138,7 +157,7 @@ export const Materials: React.FC = () => {
               options={units.map(unit => ({ value: unit, label: unit }))} /></div>
           {!editing && <label className="text-sm font-medium text-slate-700">Opening Stock<input type="number" min={0} value={form.currentStock} onChange={e => setForm(v => ({ ...v, currentStock: Number(e.target.value) }))} className={inputClass} /></label>}
           <label className="text-sm font-medium text-slate-700">Minimum Stock<input type="number" min={0} value={form.minimumStock} onChange={e => setForm(v => ({ ...v, minimumStock: Number(e.target.value) }))} className={inputClass} /></label>
-          <label className="text-sm font-medium text-slate-700">Reorder Level<input type="number" min={0} value={form.reorderLevel} onChange={e => setForm(v => ({ ...v, reorderLevel: Number(e.target.value) }))} className={inputClass} /></label>
+          <label className="text-sm font-medium text-slate-700">Reorder Level<input type="number" min={form.minimumStock} value={form.reorderLevel} onChange={e => setForm(v => ({ ...v, reorderLevel: Number(e.target.value) }))} className={inputClass} /><span className="mt-1 block text-xs font-normal text-slate-500">Must be at least the minimum stock level.</span></label>
           <label className="text-sm font-medium text-slate-700 sm:col-span-2">Supplier<input value={form.supplier} onChange={e => setForm(v => ({ ...v, supplier: e.target.value }))} className={inputClass} /></label>
           {editing && <div className="sm:col-span-2"><PremiumSelect label="Material status" value={form.status}
             onChange={value => setForm(v => ({ ...v, status: value as 'active' | 'inactive' }))}
