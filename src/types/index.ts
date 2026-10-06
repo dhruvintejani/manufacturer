@@ -115,7 +115,91 @@ export interface ProductionJob {
   stages: ProductionStage[];
 }
 
-export type ActivityType = 'enquiry' | 'quotation' | 'order' | 'production' | 'customer';
+
+export type MaterialUnit = 'kg' | 'meter' | 'piece' | 'litre';
+export type MaterialStatus = 'active' | 'inactive';
+
+export interface Material {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  unit: MaterialUnit;
+  currentStock: number;
+  minimumStock: number;
+  reorderLevel: number;
+  supplier: string;
+  status: MaterialStatus;
+  createdAt: string;
+}
+
+export interface BomItem {
+  materialId: string;
+  quantity: number;
+}
+
+export interface Product {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  bomVersion: string;
+  bom: BomItem[];
+  active: boolean;
+}
+
+export type MaterialRequirementStatus = 'Ready' | 'Shortage' | 'Consumed' | 'Released';
+
+export interface MaterialRequirementLine {
+  materialId: string;
+  requiredQty: number;
+  reservedQty: number;
+  consumedQty: number;
+}
+
+export interface MaterialRequirement {
+  id: string;
+  orderId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  status: MaterialRequirementStatus;
+  lines: MaterialRequirementLine[];
+  createdAt: string;
+  updatedAt: string;
+  consumedAt?: string;
+}
+
+export type InventoryTransactionType = 'opening' | 'purchase_received' | 'production_consumption' | 'adjustment';
+
+export interface InventoryTransaction {
+  id: string;
+  materialId: string;
+  type: InventoryTransactionType;
+  quantity: number;
+  balanceAfter: number;
+  timestamp: string;
+  reference?: string;
+  note?: string;
+}
+
+export type PurchaseRequestStatus = 'Requested' | 'Ordered' | 'Received' | 'Cancelled';
+
+export interface PurchaseRequest {
+  id: string;
+  requestNumber: string;
+  materialId: string;
+  orderId?: string;
+  supplier: string;
+  quantity: number;
+  status: PurchaseRequestStatus;
+  requestedAt: string;
+  orderedAt?: string;
+  receivedAt?: string;
+  note?: string;
+}
+
+export type ActivityType = 'enquiry' | 'quotation' | 'order' | 'production' | 'customer' | 'inventory' | 'purchase' | 'product';
 
 export interface Activity {
   id: string;
@@ -143,6 +227,11 @@ export interface AppState {
   quotations: Quotation[];
   orders: Order[];
   productionJobs: ProductionJob[];
+  materials: Material[];
+  products: Product[];
+  materialRequirements: MaterialRequirement[];
+  inventoryTransactions: InventoryTransaction[];
+  purchaseRequests: PurchaseRequest[];
   activities: Activity[];
   notifications: Notification[];
 }
