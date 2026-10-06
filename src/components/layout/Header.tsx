@@ -19,7 +19,7 @@ export const Header: React.FC = () => {
     markNotificationRead,
     markAllNotificationsRead,
     resetDemoData,
-    customers, enquiries, quotations, orders, productionJobs, profile
+    customers, enquiries, quotations, orders, productionJobs, materials, products, purchaseRequests, profile
   } = useAppStore();
 
   const [searchOpen, setSearchOpen] = useState(false);
@@ -66,6 +66,12 @@ export const Header: React.FC = () => {
     ...productionJobs.filter(p => matches(p.jobNumber, p.product,
       companyOf(orders.find(order => order.id === p.orderId)?.customerId || '')))
       .slice(0, 3).map(p => ({ type: 'Production', label: p.jobNumber, sub: p.product, path: '/production?open=' + encodeURIComponent(p.id) })),
+    ...materials.filter(m => matches(m.name, m.code, m.category, m.supplier))
+      .slice(0, 3).map(m => ({ type: 'Material', label: m.name, sub: `${m.code} · ${m.currentStock} ${m.unit}`, path: '/inventory' })),
+    ...products.filter(p => matches(p.name, p.code, p.description))
+      .slice(0, 3).map(p => ({ type: 'BOM', label: p.name, sub: `${p.code} · BOM v${p.bomVersion}`, path: '/bom' })),
+    ...purchaseRequests.filter(p => matches(p.requestNumber, p.supplier, materials.find(m => m.id === p.materialId)?.name))
+      .slice(0, 3).map(p => ({ type: 'Purchase', label: p.requestNumber, sub: materials.find(m => m.id === p.materialId)?.name || p.materialId, path: '/purchases' })),
   ] : [];
 
   const openSearchResult = (path: string) => {
@@ -80,6 +86,9 @@ export const Header: React.FC = () => {
     Quotation: 'bg-amber-100 text-amber-700',
     Order: 'bg-emerald-100 text-emerald-700',
     Production: 'bg-violet-100 text-violet-700',
+    Material: 'bg-cyan-100 text-cyan-700',
+    BOM: 'bg-indigo-100 text-indigo-700',
+    Purchase: 'bg-rose-100 text-rose-700',
   };
 
 
@@ -115,7 +124,7 @@ export const Header: React.FC = () => {
                   openSearchResult(searchResults[0].path);
                 }
               }}
-              placeholder="Search customers, enquiries, orders..."
+              placeholder="Search customers, orders, materials..."
               value={searchQuery}
               onChange={e => { setSearchQuery(e.target.value); setSearchOpen(true); }}
               onFocus={() => setSearchOpen(true)}
@@ -208,7 +217,7 @@ export const Header: React.FC = () => {
                     {notifications.slice(0, 8).map(n => (
                       <button
                         key={n.id}
-                        onClick={() => { markNotificationRead(n.id); setNotifOpen(false); if (n.relatedType) navigate('/' + ({ enquiry: 'enquiries', quotation: 'quotations', order: 'orders', production: 'production', customer: 'customers' }[n.relatedType] || 'dashboard') + (n.relatedId ? '?open=' + encodeURIComponent(n.relatedId) : '')); }}
+                        onClick={() => { markNotificationRead(n.id); setNotifOpen(false); if (n.relatedType) navigate('/' + ({ enquiry: 'enquiries', quotation: 'quotations', order: 'orders', production: 'production', customer: 'customers', inventory: 'inventory', purchase: 'purchases', product: 'bom' }[n.relatedType] || 'dashboard') + (n.relatedId ? '?open=' + encodeURIComponent(n.relatedId) : '')); }}
                         className={cn('w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50', !n.read && 'bg-blue-50/50')}
                       >
                         <div className={cn('w-2 h-2 rounded-full mt-1.5 flex-shrink-0', !n.read ? 'bg-blue-500' : 'bg-transparent')} />
