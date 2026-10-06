@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Archive, AlertTriangle, CheckCircle2, RefreshCw, History } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
@@ -12,11 +13,19 @@ import { availableForMaterial, materialStockStatus, reservedForMaterial } from '
 const inputClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20';
 
 export const Inventory: React.FC = () => {
+  const location = useLocation();
   const { materials, materialRequirements, inventoryTransactions, adjustMaterialStock } = useAppStore();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Material | null>(null);
   const [delta, setDelta] = useState(0);
   const [note, setNote] = useState('');
+
+  useEffect(() => {
+    const openId = new URLSearchParams(location.search).get('open');
+    if (!openId) return;
+    const material = materials.find(item => item.id === openId);
+    if (material) setSelected(material);
+  }, [location.search, materials]);
 
   const filtered = useMemo(() => materials.filter(material => {
     const term = search.trim().toLowerCase();
