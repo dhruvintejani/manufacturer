@@ -50,6 +50,19 @@ const statusConfig: Record<string, { bg: string; text: string; dot: string }> = 
   // Customer
   'active': { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
   'inactive': { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400' },
+
+  // Inventory / purchasing
+  'Healthy': { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  'Reorder Soon': { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
+  'Low Stock': { bg: 'bg-rose-50', text: 'text-rose-700', dot: 'bg-rose-500' },
+  'Out of Stock': { bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-600' },
+  'Shortage': { bg: 'bg-rose-50', text: 'text-rose-700', dot: 'bg-rose-500' },
+  'Consumed': { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
+  'Released': { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400' },
+  'Requested': { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
+  'Ordered': { bg: 'bg-violet-50', text: 'text-violet-700', dot: 'bg-violet-500' },
+  'Received': { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  'Not Calculated': { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400' },
 };
 
 interface StatusBadgeProps {
