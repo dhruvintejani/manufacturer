@@ -458,6 +458,10 @@ export const useAppStore = create<AppStore>()(
             reference: 'Stock Adjustment',
             note: note.trim() || undefined,
           }, ...state.inventoryTransactions],
+          notifications: state.notifications.map(notification =>
+            notification.relatedId === id && notification.title === 'Low Stock Alert' && balance >= material.minimumStock
+              ? { ...notification, read: true }
+              : notification),
         }));
         get().rebalanceMaterialReservations();
         const updated = get().materials.find(item => item.id === id);
@@ -698,6 +702,10 @@ export const useAppStore = create<AppStore>()(
             quantity: request.quantity, balanceAfter: balance, timestamp: receivedAt,
             reference: request.requestNumber, note: request.note || 'Purchase received',
           }, ...state.inventoryTransactions],
+          notifications: state.notifications.map(notification =>
+            notification.relatedId === material.id && notification.title === 'Low Stock Alert' && balance >= material.minimumStock
+              ? { ...notification, read: true }
+              : notification),
         }));
         get().rebalanceMaterialReservations();
         get().addActivity({
