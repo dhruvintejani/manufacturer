@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ClipboardList, FileText, ShoppingCart, Factory,
-  DollarSign, Clock, ArrowRight, Package
+  DollarSign, Clock, ArrowRight, Package, Boxes, AlertTriangle, ShoppingBag
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -22,6 +22,9 @@ const activityTypeConfig: Record<string, { bg: string; icon: React.ReactNode; co
   order: { bg: 'bg-emerald-100', icon: <ShoppingCart className="w-3.5 h-3.5" />, color: 'text-emerald-600' },
   production: { bg: 'bg-violet-100', icon: <Factory className="w-3.5 h-3.5" />, color: 'text-violet-600' },
   customer: { bg: 'bg-purple-100', icon: <Package className="w-3.5 h-3.5" />, color: 'text-purple-600' },
+  inventory: { bg: 'bg-cyan-100', icon: <Boxes className="w-3.5 h-3.5" />, color: 'text-cyan-700' },
+  purchase: { bg: 'bg-rose-100', icon: <ShoppingBag className="w-3.5 h-3.5" />, color: 'text-rose-700' },
+  product: { bg: 'bg-indigo-100', icon: <Package className="w-3.5 h-3.5" />, color: 'text-indigo-700' },
 };
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -44,7 +47,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { enquiries, quotations, orders, productionJobs, activities, customers, profile } = useAppStore();
+  const { enquiries, quotations, orders, productionJobs, activities, customers, materials, materialRequirements, purchaseRequests, profile } = useAppStore();
   const chartYear = new Date().getFullYear();
   const monthlyData = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month, index) => {
     const isMonth = (iso: string) => {
@@ -66,6 +69,9 @@ export const Dashboard: React.FC = () => {
   const activeJobs = productionJobs.filter(j => j.status !== 'Completed').length;
   const pendingPayments = orders
     .filter(o => ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus)).length;
+  const lowStockCount = materials.filter(material => material.currentStock < material.minimumStock).length;
+  const shortageOrders = materialRequirements.filter(requirement => requirement.status === 'Shortage').length;
+  const openRestock = purchaseRequests.filter(request => !['Received', 'Cancelled'].includes(request.status)).length;
 
   // Recent data
   const recentEnquiries = [...enquiries].sort((a, b) =>
@@ -78,7 +84,7 @@ export const Dashboard: React.FC = () => {
 
   const activityPath: Record<string, string> = {
     enquiry: '/enquiries', quotation: '/quotations', order: '/orders',
-    production: '/production', customer: '/customers',
+    production: '/production', customer: '/customers', inventory: '/inventory', purchase: '/purchases', product: '/bom',
   };
   const getCustomer = (id: string) => customers.find(c => c.id === id);
 
@@ -129,7 +135,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
         <StatCard
           title="Total Enquiries"
           value={totalEnquiries}
@@ -170,7 +176,43 @@ export const Dashboard: React.FC = () => {
           onClick={() => navigate('/orders?payment=pending')}
           index={4}
         />
+        <StatCard
+          title="Low Stock Materials"
+          value={lowStockCount}
+          icon={<AlertTriangle className="w-5 h-5 text-rose-600" />}
+          iconBg="bg-rose-50"
+          onClick={() => navigate('/inventory')}
+          index={5}
+        />
+        <StatCard
+          title="Open Restock"
+          value={openRestock}
+          icon={<ShoppingBag className="w-5 h-5 text-cyan-700" />}
+          iconBg="bg-cyan-50"
+          onClick={() => navigate('/purchases')}
+          index={6}
+        />
       </div>
+
+      {(lowStockCount > 0 || shortageOrders > 0) && (
+        <section className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+          <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-rose-900">Material attention required</h2>
+                <p className="mt-1 text-sm leading-6 text-rose-800">
+                  {lowStockCount} material{lowStockCount === 1 ? '' : 's'} below minimum · {shortageOrders} order{shortageOrders === 1 ? '' : 's'} blocked by material shortage.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => navigate('/inventory')} className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100">Open Inventory</button>
+              <button type="button" onClick={() => navigate('/purchases')} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700">Restock</button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
