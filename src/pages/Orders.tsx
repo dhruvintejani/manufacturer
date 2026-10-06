@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ShoppingCart, Plus, Eye, Edit2, Trash2, PauseCircle, PlayCircle, Ban,
-  Factory, CheckCircle, ArrowRight, DollarSign, ArrowDownUp
+  Factory, CheckCircle, ArrowRight, DollarSign, ArrowDownUp, Boxes, AlertTriangle, ShoppingBag
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
@@ -31,7 +31,7 @@ const STATUS_COLORS: Record<string, string> = {
   Ready: '#0d9488', Dispatched: '#0891b2', Completed: '#059669',
   'On Hold': '#c2410c', Cancelled: '#be123c',
 };
-const PRODUCTS = ['Pressure Vessel', 'Heat Exchanger', 'Storage Tank', 'Industrial Dryer', 'Reactor', 'Column', 'Boiler System'];
+const FALLBACK_PRODUCTS = ['Pressure Vessel', 'Heat Exchanger', 'Storage Tank', 'Industrial Dryer', 'Reactor', 'Column', 'Boiler System'];
 const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
 
 const getWorkflowSteps = (order: Order) => {
@@ -52,7 +52,11 @@ export const Orders: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { orders, customers, productionJobs, addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus, changeOrderException, profile } = useAppStore();
+  const {
+    orders, customers, productionJobs, products, materials, materialRequirements, purchaseRequests,
+    addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus, changeOrderException,
+    createPurchaseRequest, profile,
+  } = useAppStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') === 'active' ? 'active' : 'all');
   const [paymentFilter, setPaymentFilter] = useState(searchParams.get('payment') === 'pending' ? 'pending' : 'all');
@@ -76,7 +80,7 @@ export const Orders: React.FC = () => {
   const [createJobOpen, setCreateJobOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [newOrderForm, setNewOrderForm] = useState({
-    customerId: '', quotationId: '', product: PRODUCTS[0],
+    customerId: '', quotationId: '', product: products[0]?.name || FALLBACK_PRODUCTS[0],
     quantity: 1, orderDate: new Date().toISOString().split('T')[0],
     deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
     totalAmount: 0, paymentStatus: 'Pending', status: 'Confirmed', notes: '',
@@ -131,7 +135,12 @@ export const Orders: React.FC = () => {
         { name: 'Completed', status: 'pending' },
       ],
     });
-    toast.success(`Production job ${newJob.jobNumber} created!`);
+    if (!newJob) {
+      toast.error('Production is blocked until the order BOM is fully reserved. Resolve material shortages first.');
+      setCreateJobOpen(false);
+      return;
+    }
+    toast.success(`Production job ${newJob.jobNumber} created. Reserved materials were consumed from inventory.`);
     setCreateJobOpen(false);
     setViewingOrder(null);
     navigate('/production');
@@ -159,6 +168,30 @@ export const Orders: React.FC = () => {
   };
 
   const currentOrder = viewingOrder ? orders.find(o => o.id === viewingOrder.id) || viewingOrder : null;
+  const currentMaterialRequirement = currentOrder ? materialRequirements.find(requirement => requirement.orderId === currentOrder.id) : undefined;
+
+  const handleRestockShortage = (materialId: string, shortageQty: number) => {
+    if (!currentOrder) return;
+    const material = materials.find(item => item.id === materialId);
+    if (!material) return;
+    const existing = purchaseRequests.find(request =>
+      request.orderId === currentOrder.id && request.materialId === materialId &&
+      !['Received', 'Cancelled'].includes(request.status));
+    if (existing) {
+      toast(`${existing.requestNumber} is already open for this shortage.`, { icon: 'ℹ️' });
+      return;
+    }
+    const quantity = Math.max(shortageQty, material.reorderLevel - material.currentStock, 1);
+    const request = createPurchaseRequest({
+      materialId,
+      orderId: currentOrder.id,
+      supplier: material.supplier,
+      quantity: Math.ceil(quantity * 100) / 100,
+      note: `Material shortage for ${currentOrder.orderNumber}`,
+    });
+    toast.success(`${request.requestNumber} created for ${material.name}.`);
+  };
+
   const currentIndex = currentOrder ? ORDER_STATUSES.indexOf(currentOrder.status) : -1;
   const nextOrderStatus = currentIndex >= 0 ? ORDER_STATUSES[currentIndex + 1] : undefined;
 
@@ -192,7 +225,7 @@ export const Orders: React.FC = () => {
     toast.success(`Order ${order.orderNumber} created.`);
     setAddModalOpen(false);
     setNewOrderForm({
-      customerId: '', quotationId: '', product: PRODUCTS[0],
+      customerId: '', quotationId: '', product: products[0]?.name || FALLBACK_PRODUCTS[0],
       quantity: 1, orderDate: new Date().toISOString().split('T')[0],
       deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
       totalAmount: 0, paymentStatus: 'Pending', status: 'Confirmed', notes: '',
@@ -315,6 +348,35 @@ export const Orders: React.FC = () => {
               )}
             </div>
 
+            <section aria-label="Material readiness" className={`rounded-xl border p-4 ${currentMaterialRequirement?.status === 'Shortage' ? 'border-rose-200 bg-rose-50' : currentMaterialRequirement?.status === 'Ready' ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2"><Boxes className="h-4 w-4 text-blue-600" /><h4 className="text-sm font-bold text-slate-900">Material Readiness</h4></div>
+                <StatusBadge status={currentMaterialRequirement?.status || 'Not Calculated'} />
+              </div>
+              {!currentMaterialRequirement ? (
+                <p className="mt-3 text-sm text-slate-600">No BOM requirement is available for this order yet.</p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {currentMaterialRequirement.lines.map(line => {
+                    const material = materials.find(item => item.id === line.materialId);
+                    const shortage = Math.max(0, line.requiredQty - line.reservedQty);
+                    return <div key={line.materialId} className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg bg-white/80 px-3 py-2">
+                      <div className="min-w-0"><div className="text-sm font-semibold text-slate-900">{material?.name || line.materialId}</div><div className="text-xs text-slate-500">Required {line.requiredQty} {material?.unit} · Reserved {line.reservedQty} {material?.unit}</div></div>
+                      {shortage > 0 ? (
+                        <button type="button" onClick={() => handleRestockShortage(line.materialId, shortage)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700">
+                          <ShoppingBag className="h-3.5 w-3.5" /> Restock {shortage} {material?.unit}
+                        </button>
+                      ) : <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><CheckCircle className="h-4 w-4" /> Sufficient</span>}
+                    </div>;
+                  })}
+                  {currentMaterialRequirement.status === 'Shortage' && <p className="flex items-start gap-2 text-xs leading-5 text-rose-800"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> Production is locked until every BOM line is fully reserved. Receiving restock material recalculates this automatically.</p>}
+                  {currentMaterialRequirement.status === 'Ready' && <p className="text-xs leading-5 text-emerald-800">All materials are reserved. Starting production will consume the reserved quantities exactly once.</p>}
+                  {currentMaterialRequirement.status === 'Consumed' && <p className="text-xs leading-5 text-blue-800">Materials were consumed when production started; inventory transactions were recorded.</p>}
+                </div>
+              )}
+            </section>
+
             <section aria-label="Order status audit trail" className="rounded-lg border border-slate-200 bg-white p-4">
               <h4 className="mb-3 text-sm font-semibold text-slate-900">Status History</h4>
               {viewingOrder.statusHistory?.length ? (
@@ -401,7 +463,9 @@ export const Orders: React.FC = () => {
             {/* Actions */}
             <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
               {!getJob(viewingOrder.id) && ['Confirmed', 'Production'].includes(viewingOrder.status) && (
-                <button onClick={() => setCreateJobOpen(true)} className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
+                <button disabled={currentMaterialRequirement?.status !== 'Ready'} onClick={() => setCreateJobOpen(true)}
+                  title={currentMaterialRequirement?.status === 'Ready' ? 'Create production job and consume reserved materials' : 'Resolve material shortages before production'}
+                  className="flex flex-1 items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-slate-300">
                   <Factory className="w-4 h-4" /> Create Production Job
                 </button>
               )}
@@ -540,7 +604,7 @@ export const Orders: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Product</label>
             <PremiumSelect label="Product" value={newOrderForm.product} onChange={value => setNewOrderForm(f => ({ ...f, product: value }))}
-              options={PRODUCTS.map(value => ({ value, label: value }))} />
+              options={(products.length ? products.map(product => product.name) : FALLBACK_PRODUCTS).map(value => ({ value, label: value }))} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Quantity</label>
