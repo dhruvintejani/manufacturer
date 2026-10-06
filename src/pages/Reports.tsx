@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Download, FileDown, AlertTriangle } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, AreaChart, Area, LineChart, Line
@@ -9,8 +9,11 @@ import { useAppStore } from '../store/useAppStore';
 import { PageHeader } from '../components/ui/PageHeader';
 import { ChartAlternative, AccessibleBars, AccessibleDonut, AccessibleHorizontalBars } from '../components/ui/AccessibleCharts';
 import { formatCurrency } from '../utils/formatters';
+import { downloadOperationsReport, ReportSection } from '../utils/reportPdf';
+import { availableForMaterial, materialStockStatus, reservedForMaterial } from '../utils/inventory';
+import { StatusBadge } from '../components/ui/StatusBadge';
 
-const TABS = ['Sales', 'Production', 'Customers', 'Enquiries'];
+const TABS: ReportSection[] = ['Sales', 'Production', 'Customers', 'Enquiries', 'Inventory'];
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -45,8 +48,11 @@ const KpiBox = ({ label, value, sub, positive }: { label: string; value: string 
 );
 
 export const Reports: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('Sales');
-  const { enquiries, quotations, orders, productionJobs, customers } = useAppStore();
+  const [activeTab, setActiveTab] = useState<ReportSection>('Sales');
+  const {
+    enquiries, quotations, orders, productionJobs, customers,
+    materials, materialRequirements, inventoryTransactions, purchaseRequests,
+  } = useAppStore();
   const reportingYear = new Date().getFullYear();
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const inReportingYear = (date: string) => new Date(date).getFullYear() === reportingYear;
@@ -143,12 +149,30 @@ export const Reports: React.FC = () => {
 
   const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B6D4'];
 
+  const pdfData = {
+    customers, enquiries, quotations, orders, productionJobs,
+    materials, materialRequirements, inventoryTransactions, purchaseRequests,
+  };
+  const lowStockMaterials = materials.filter(material => material.currentStock < material.minimumStock);
+  const shortageRequirements = materialRequirements.filter(requirement => requirement.status === 'Shortage');
+  const openPurchaseRequests = purchaseRequests.filter(request => !['Received', 'Cancelled'].includes(request.status));
+
   return (
     <div className="page-shell">
       <PageHeader
         title="Reports & Analytics"
         subtitle={`Records shown are demo data. Monthly charts use ${reportingYear}; order values assume a common reporting currency (no FX conversion).`}
         breadcrumbs={[{ label: 'Dashboard' }, { label: 'Reports' }]}
+        actions={<>
+          <button type="button" onClick={() => downloadOperationsReport(pdfData, activeTab)}
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">
+            <Download className="h-4 w-4" /> Current Report PDF
+          </button>
+          <button type="button" onClick={() => downloadOperationsReport(pdfData, 'Complete')}
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            <FileDown className="h-4 w-4" /> Complete PDF
+          </button>
+        </>}
       />
 
       {/* Tabs */}
@@ -483,6 +507,82 @@ export const Reports: React.FC = () => {
           </div>
         </motion.div>
       )}
+
+      {/* Inventory Tab */}
+      {activeTab === 'Inventory' && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="min-w-0 space-y-4 sm:space-y-6">
+          <div className="grid min-w-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+            <KpiBox label="Materials" value={materials.length} sub="Material master records" />
+            <KpiBox label="Low Stock" value={lowStockMaterials.length} sub="Below minimum level" positive={lowStockMaterials.length === 0} />
+            <KpiBox label="Shortage Orders" value={shortageRequirements.length} sub="Production blocked by stock" positive={shortageRequirements.length === 0} />
+            <KpiBox label="Open Restock" value={openPurchaseRequests.length} sub="Requested or ordered" />
+          </div>
+
+          {lowStockMaterials.length > 0 && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-rose-900">Low stock requiring attention</h3>
+                  <p className="mt-1 text-sm leading-6 text-rose-800">
+                    {lowStockMaterials.map(material => `${material.name} (${material.currentStock}/${material.minimumStock} ${material.unit})`).join(' · ')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <section className="min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-4 py-3 sm:px-6"><h3 className="text-sm font-semibold text-slate-900">Inventory Position</h3></div>
+            <div className="max-w-full overflow-x-auto">
+              <table className="min-w-[820px] w-full">
+                <thead className="bg-slate-50"><tr>{['Material','Physical','Reserved','Available','Minimum','Unit','Status'].map(label => <th key={label} className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{label}</th>)}</tr></thead>
+                <tbody className="divide-y divide-slate-100">
+                  {materials.map(material => {
+                    const reserved = reservedForMaterial(material.id, materialRequirements);
+                    return <tr key={material.id}>
+                      <td className="px-4 py-3"><div className="text-sm font-semibold text-slate-900">{material.name}</div><div className="text-xs text-slate-500">{material.code}</div></td>
+                      <td className="px-4 py-3 text-sm font-bold tabular-nums text-slate-900">{material.currentStock}</td>
+                      <td className="px-4 py-3 text-sm font-semibold tabular-nums text-violet-700">{reserved}</td>
+                      <td className="px-4 py-3 text-sm font-semibold tabular-nums text-blue-700">{availableForMaterial(material, materialRequirements)}</td>
+                      <td className="px-4 py-3 text-sm tabular-nums text-slate-600">{material.minimumStock}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{material.unit}</td>
+                      <td className="px-4 py-3"><StatusBadge status={materialStockStatus(material)} /></td>
+                    </tr>;
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2">
+            <section className="min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-4 py-3"><h3 className="text-sm font-semibold text-slate-900">Order Material Readiness</h3></div>
+              <div className="divide-y divide-slate-100">
+                {materialRequirements.map(requirement => (
+                  <div key={requirement.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3">
+                    <div><div className="text-sm font-semibold text-slate-900">{requirement.orderId}</div><div className="text-xs text-slate-500">{requirement.quantity} × {requirement.productName}</div></div>
+                    <StatusBadge status={requirement.status} />
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section className="min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-4 py-3"><h3 className="text-sm font-semibold text-slate-900">Purchase / Restock Summary</h3></div>
+              <div className="divide-y divide-slate-100">
+                {purchaseRequests.map(request => {
+                  const material = materials.find(item => item.id === request.materialId);
+                  return <div key={request.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3">
+                    <div className="min-w-0"><div className="text-sm font-semibold text-slate-900">{request.requestNumber}</div><div className="text-xs text-slate-500">{material?.name || request.materialId} · {request.quantity} {material?.unit}</div></div>
+                    <StatusBadge status={request.status} />
+                  </div>;
+                })}
+              </div>
+            </section>
+          </div>
+        </motion.div>
+      )}
+
     </div>
   );
 };
