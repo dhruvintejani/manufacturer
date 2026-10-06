@@ -3,11 +3,13 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import {
   Customer, Enquiry, Quotation,
   Order, ProductionJob, Activity, Notification,
-  EnquiryStatus, OrderStatus,
+  EnquiryStatus, OrderStatus, Material, Product, MaterialRequirement,
+  InventoryTransaction, PurchaseRequest, PurchaseRequestStatus, BomItem,
 } from '../types';
 import {
   seedCustomers, seedEnquiries, seedQuotations,
-  seedOrders, seedProductionJobs, seedActivities, seedNotifications
+  seedOrders, seedProductionJobs, seedActivities, seedNotifications,
+  seedMaterials, seedProducts, seedMaterialRequirements, seedInventoryTransactions, seedPurchaseRequests
 } from '../data/seedData';
 
 export interface DemoProfile {
@@ -30,6 +32,11 @@ interface AppStore {
   quotations: Quotation[];
   orders: Order[];
   productionJobs: ProductionJob[];
+  materials: Material[];
+  products: Product[];
+  materialRequirements: MaterialRequirement[];
+  inventoryTransactions: InventoryTransaction[];
+  purchaseRequests: PurchaseRequest[];
   activities: Activity[];
   notifications: Notification[];
   profile: DemoProfile;
@@ -59,8 +66,21 @@ interface AppStore {
   changeOrderException: (id: string, action: 'hold' | 'resume' | 'cancel', changedBy: string, note?: string) => boolean;
   deleteOrder: (id: string) => boolean;
 
+  // Materials, BOM, inventory and purchasing
+  addMaterial: (material: Omit<Material, 'id' | 'createdAt'>) => Material;
+  updateMaterial: (id: string, data: Partial<Material>) => void;
+  adjustMaterialStock: (id: string, delta: number, note?: string) => boolean;
+  updateProductBom: (productId: string, items: BomItem[]) => void;
+  calculateMaterialRequirement: (orderId: string) => MaterialRequirement | null;
+  rebalanceMaterialReservations: () => void;
+  consumeOrderMaterials: (orderId: string) => boolean;
+  releaseOrderMaterials: (orderId: string) => void;
+  createPurchaseRequest: (data: Omit<PurchaseRequest, 'id' | 'requestNumber' | 'requestedAt' | 'status'>) => PurchaseRequest;
+  setPurchaseRequestStatus: (id: string, status: PurchaseRequestStatus) => boolean;
+  receivePurchaseRequest: (id: string) => boolean;
+
   // Production actions
-  addProductionJob: (job: Omit<ProductionJob, 'id'>) => ProductionJob;
+  addProductionJob: (job: Omit<ProductionJob, 'id'>) => ProductionJob | null;
   updateProductionJob: (id: string, data: Partial<ProductionJob>) => void;
   deleteProductionJob: (id: string) => void;
 
@@ -94,6 +114,11 @@ export const useAppStore = create<AppStore>()(
       quotations: seedQuotations,
       orders: seedOrders,
       productionJobs: seedProductionJobs,
+      materials: seedMaterials,
+      products: seedProducts,
+      materialRequirements: seedMaterialRequirements,
+      inventoryTransactions: seedInventoryTransactions,
+      purchaseRequests: seedPurchaseRequests,
       activities: seedActivities,
       notifications: seedNotifications,
       profile: defaultDemoProfile,
