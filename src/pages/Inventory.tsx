@@ -152,7 +152,7 @@ export const Inventory: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                   {transactions.map(transaction => <tr key={transaction.id}>
                     <td className="px-3 py-2 text-xs text-slate-600">{new Date(transaction.timestamp).toLocaleString()}</td>
-                    <td className="px-3 py-2 text-xs font-medium text-slate-700">{transaction.type.replaceAll('_', ' ')}</td>
+                    <td className="px-3 py-2 text-xs font-medium text-slate-700">{transaction.type.replace(/_/g, ' ')}</td>
                     <td className={`px-3 py-2 text-sm font-semibold tabular-nums ${transaction.quantity >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{transaction.quantity > 0 ? '+' : ''}{transaction.quantity}</td>
                     <td className="px-3 py-2 text-sm font-semibold tabular-nums text-slate-900">{transaction.balanceAfter}</td>
                     <td className="px-3 py-2 text-xs text-slate-600">{transaction.reference || '—'}</td>
