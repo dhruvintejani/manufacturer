@@ -396,6 +396,314 @@ export const useAppStore = create<AppStore>()(
         return true;
       },
 
+      // Materials / BOM / Inventory / Purchasing
+      addMaterial: (data) => {
+        const maxNum = get().materials.reduce((max, material) => {
+          const match = material.id.match(/MAT-(\d+)/);
+          return match ? Math.max(max, Number(match[1])) : max;
+        }, 0);
+        const material: Material = {
+          ...data,
+          id: `MAT-${String(maxNum + 1).padStart(3, '0')}`,
+          createdAt: now(),
+        };
+        set(state => ({
+          materials: [...state.materials, material],
+          inventoryTransactions: [...state.inventoryTransactions, {
+            id: generateId('TXN'),
+            materialId: material.id,
+            type: 'opening',
+            quantity: material.currentStock,
+            balanceAfter: material.currentStock,
+            timestamp: now(),
+            reference: 'Opening Balance',
+            note: 'Material created',
+          }],
+        }));
+        get().addActivity({
+          type: 'inventory',
+          title: 'Material created',
+          description: `${material.name} added to material master with ${material.currentStock} ${material.unit} opening stock`,
+          relatedId: material.id,
+        });
+        return material;
+      },
+      updateMaterial: (id, data) => {
+        const { currentStock: _ignoredStock, ...safeData } = data;
+        set(state => ({ materials: state.materials.map(material => material.id === id ? { ...material, ...safeData } : material) }));
+      },
+      adjustMaterialStock: (id, delta, note = '') => {
+        if (!Number.isFinite(delta) || delta === 0) return false;
+        const material = get().materials.find(item => item.id === id);
+        if (!material || material.currentStock + delta < 0) return false;
+        const balance = material.currentStock + delta;
+        set(state => ({
+          materials: state.materials.map(item => item.id === id ? { ...item, currentStock: balance } : item),
+          inventoryTransactions: [{
+            id: generateId('TXN'),
+            materialId: id,
+            type: 'adjustment',
+            quantity: delta,
+            balanceAfter: balance,
+            timestamp: now(),
+            reference: 'Stock Adjustment',
+            note: note.trim() || undefined,
+          }, ...state.inventoryTransactions],
+        }));
+        get().rebalanceMaterialReservations();
+        const updated = get().materials.find(item => item.id === id);
+        if (updated && updated.currentStock < updated.minimumStock) {
+          const duplicate = get().notifications.some(notification =>
+            !notification.read && notification.relatedId === id && notification.title === 'Low Stock Alert');
+          if (!duplicate) set(state => ({ notifications: [{
+            id: generateId('N'), title: 'Low Stock Alert',
+            message: `${updated.name} is below minimum stock. Current: ${updated.currentStock} ${updated.unit}; minimum: ${updated.minimumStock} ${updated.unit}.`,
+            type: 'danger', read: false, timestamp: now(), relatedId: id, relatedType: 'inventory',
+          }, ...state.notifications] }));
+        }
+        return true;
+      },
+      updateProductBom: (productId, items) => {
+        const sanitized = items
+          .filter(item => item.materialId && Number.isFinite(item.quantity) && item.quantity > 0)
+          .map(item => ({ materialId: item.materialId, quantity: Number(item.quantity) }));
+        set(state => ({
+          products: state.products.map(product => product.id === productId
+            ? { ...product, bom: sanitized, bomVersion: (Number.parseFloat(product.bomVersion || '1') + 0.1).toFixed(1) }
+            : product),
+        }));
+        const product = get().products.find(item => item.id === productId);
+        if (product) {
+          get().orders
+            .filter(order => order.product === product.name && !order.productionJobId && !['Completed', 'Cancelled'].includes(order.status))
+            .forEach(order => get().calculateMaterialRequirement(order.id));
+          get().addActivity({
+            type: 'product', title: 'Product BOM updated',
+            description: `${product.name} BOM updated to ${sanitized.length} material lines`,
+            relatedId: product.id,
+          });
+        }
+      },
+      calculateMaterialRequirement: (orderId) => {
+        const state = get();
+        const order = state.orders.find(item => item.id === orderId);
+        if (!order) return null;
+        const product = state.products.find(item => item.name === order.product);
+        if (!product || product.bom.length === 0) return null;
+        const existing = state.materialRequirements.find(requirement => requirement.orderId === orderId);
+        if (existing?.status === 'Consumed') return existing;
+
+        const reservedByOthers = (materialId: string) => state.materialRequirements
+          .filter(requirement => requirement.orderId !== orderId && ['Ready', 'Shortage'].includes(requirement.status))
+          .flatMap(requirement => requirement.lines)
+          .filter(line => line.materialId === materialId)
+          .reduce((sum, line) => sum + line.reservedQty, 0);
+
+        const lines = product.bom.map(item => {
+          const material = state.materials.find(candidate => candidate.id === item.materialId);
+          const requiredQty = item.quantity * order.quantity;
+          const available = Math.max(0, (material?.currentStock || 0) - reservedByOthers(item.materialId));
+          return {
+            materialId: item.materialId,
+            requiredQty,
+            reservedQty: Math.min(requiredQty, available),
+            consumedQty: 0,
+          };
+        });
+        const status = lines.every(line => line.reservedQty >= line.requiredQty) ? 'Ready' : 'Shortage';
+        const requirement: MaterialRequirement = {
+          id: existing?.id || `MR-${order.orderNumber.replace('ORD-', '')}`,
+          orderId,
+          productId: product.id,
+          productName: product.name,
+          quantity: order.quantity,
+          status,
+          lines,
+          createdAt: existing?.createdAt || now(),
+          updatedAt: now(),
+        };
+        set(current => ({
+          materialRequirements: existing
+            ? current.materialRequirements.map(item => item.orderId === orderId ? requirement : item)
+            : [...current.materialRequirements, requirement],
+        }));
+
+        if (status === 'Shortage') {
+          const shortages = lines.filter(line => line.reservedQty < line.requiredQty);
+          const summary = shortages.map(line => {
+            const material = get().materials.find(item => item.id === line.materialId);
+            return `${material?.name || line.materialId}: ${line.requiredQty - line.reservedQty} ${material?.unit || ''}`;
+          }).join(', ');
+          const duplicate = get().notifications.some(notification =>
+            !notification.read && notification.relatedId === orderId && notification.title === 'Material Shortage');
+          if (!duplicate) set(current => ({ notifications: [{
+            id: generateId('N'), title: 'Material Shortage',
+            message: `${order.orderNumber} cannot start production. Shortage: ${summary}`,
+            type: 'danger', read: false, timestamp: now(), relatedId: orderId, relatedType: 'order',
+          }, ...current.notifications] }));
+        }
+        return requirement;
+      },
+      rebalanceMaterialReservations: () => {
+        const state = get();
+        const remaining = new Map(state.materials.map(material => [material.id, material.currentStock]));
+        const updated = new Map<string, MaterialRequirement>();
+        [...state.materialRequirements]
+          .filter(requirement => ['Ready', 'Shortage'].includes(requirement.status))
+          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+          .forEach(requirement => {
+            const lines = requirement.lines.map(line => {
+              const available = Math.max(0, remaining.get(line.materialId) || 0);
+              const reservedQty = Math.min(line.requiredQty, available);
+              remaining.set(line.materialId, available - reservedQty);
+              return { ...line, reservedQty, consumedQty: 0 };
+            });
+            updated.set(requirement.id, {
+              ...requirement,
+              lines,
+              status: lines.every(line => line.reservedQty >= line.requiredQty) ? 'Ready' : 'Shortage',
+              updatedAt: now(),
+            });
+          });
+        set(current => ({
+          materialRequirements: current.materialRequirements.map(requirement => updated.get(requirement.id) || requirement),
+        }));
+      },
+      consumeOrderMaterials: (orderId) => {
+        let requirement = get().materialRequirements.find(item => item.orderId === orderId);
+        if (!requirement) requirement = get().calculateMaterialRequirement(orderId) || undefined;
+        if (!requirement || requirement.status !== 'Ready') return false;
+        const state = get();
+        const insufficient = requirement.lines.some(line => {
+          const material = state.materials.find(item => item.id === line.materialId);
+          return !material || material.currentStock < line.requiredQty;
+        });
+        if (insufficient) {
+          get().rebalanceMaterialReservations();
+          return false;
+        }
+
+        const consumedAt = now();
+        const balances = new Map<string, number>();
+        const materials = state.materials.map(material => {
+          const line = requirement!.lines.find(item => item.materialId === material.id);
+          if (!line) return material;
+          const currentStock = material.currentStock - line.requiredQty;
+          balances.set(material.id, currentStock);
+          return { ...material, currentStock };
+        });
+        const transactions: InventoryTransaction[] = requirement.lines.map(line => ({
+          id: generateId('TXN'),
+          materialId: line.materialId,
+          type: 'production_consumption',
+          quantity: -line.requiredQty,
+          balanceAfter: balances.get(line.materialId) || 0,
+          timestamp: consumedAt,
+          reference: orderId,
+          note: `${requirement!.productName} production consumption`,
+        }));
+        set(current => ({
+          materials,
+          inventoryTransactions: [...transactions, ...current.inventoryTransactions],
+          materialRequirements: current.materialRequirements.map(item => item.id === requirement!.id ? {
+            ...item,
+            status: 'Consumed',
+            updatedAt: consumedAt,
+            consumedAt,
+            lines: item.lines.map(line => ({ ...line, consumedQty: line.requiredQty, reservedQty: 0 })),
+          } : item),
+        }));
+        get().rebalanceMaterialReservations();
+        get().materials.filter(material => material.currentStock < material.minimumStock).forEach(material => {
+          const duplicate = get().notifications.some(notification =>
+            !notification.read && notification.relatedId === material.id && notification.title === 'Low Stock Alert');
+          if (!duplicate) set(current => ({ notifications: [{
+            id: generateId('N'), title: 'Low Stock Alert',
+            message: `${material.name} stock is ${material.currentStock} ${material.unit}, below minimum ${material.minimumStock} ${material.unit}. Restock recommended.`,
+            type: 'danger', read: false, timestamp: now(), relatedId: material.id, relatedType: 'inventory',
+          }, ...current.notifications] }));
+        });
+        get().addActivity({
+          type: 'inventory', title: 'Materials consumed',
+          description: `Reserved materials consumed for ${orderId}; stock levels updated`,
+          relatedId: orderId,
+        });
+        return true;
+      },
+      releaseOrderMaterials: (orderId) => {
+        set(state => ({
+          materialRequirements: state.materialRequirements.map(requirement =>
+            requirement.orderId === orderId && ['Ready', 'Shortage'].includes(requirement.status)
+              ? { ...requirement, status: 'Released', updatedAt: now(), lines: requirement.lines.map(line => ({ ...line, reservedQty: 0 })) }
+              : requirement),
+        }));
+        get().rebalanceMaterialReservations();
+      },
+      createPurchaseRequest: (data) => {
+        const maxNum = get().purchaseRequests.reduce((max, request) => {
+          const match = request.requestNumber.match(/PUR-\d{4}-(\d+)/);
+          return match ? Math.max(max, Number(match[1])) : max;
+        }, 0);
+        const next = String(maxNum + 1).padStart(3, '0');
+        const request: PurchaseRequest = {
+          ...data,
+          id: `PUR-${Date.now()}-${next}`,
+          requestNumber: `PUR-2026-${next}`,
+          requestedAt: now(),
+          status: 'Requested',
+        };
+        set(state => ({ purchaseRequests: [request, ...state.purchaseRequests] }));
+        const material = get().materials.find(item => item.id === data.materialId);
+        get().addActivity({
+          type: 'purchase', title: 'Restock requested',
+          description: `${request.requestNumber}: ${data.quantity} ${material?.unit || ''} ${material?.name || data.materialId}`,
+          relatedId: request.id,
+        });
+        return request;
+      },
+      setPurchaseRequestStatus: (id, status) => {
+        const request = get().purchaseRequests.find(item => item.id === id);
+        if (!request || request.status === 'Received' || request.status === 'Cancelled') return false;
+        if (status === 'Received') return get().receivePurchaseRequest(id);
+        if (!['Requested', 'Ordered', 'Cancelled'].includes(status)) return false;
+        set(state => ({
+          purchaseRequests: state.purchaseRequests.map(item => item.id === id ? {
+            ...item, status,
+            ...(status === 'Ordered' ? { orderedAt: now() } : {}),
+          } : item),
+        }));
+        return true;
+      },
+      receivePurchaseRequest: (id) => {
+        const request = get().purchaseRequests.find(item => item.id === id);
+        if (!request || request.status === 'Received' || request.status === 'Cancelled') return false;
+        const material = get().materials.find(item => item.id === request.materialId);
+        if (!material) return false;
+        const balance = material.currentStock + request.quantity;
+        const receivedAt = now();
+        set(state => ({
+          materials: state.materials.map(item => item.id === material.id ? { ...item, currentStock: balance } : item),
+          purchaseRequests: state.purchaseRequests.map(item => item.id === id ? { ...item, status: 'Received', receivedAt } : item),
+          inventoryTransactions: [{
+            id: generateId('TXN'), materialId: material.id, type: 'purchase_received',
+            quantity: request.quantity, balanceAfter: balance, timestamp: receivedAt,
+            reference: request.requestNumber, note: request.note || 'Purchase received',
+          }, ...state.inventoryTransactions],
+        }));
+        get().rebalanceMaterialReservations();
+        get().addActivity({
+          type: 'purchase', title: 'Material received',
+          description: `${request.requestNumber} received: ${request.quantity} ${material.unit} ${material.name}; stock is now ${balance} ${material.unit}`,
+          relatedId: request.id,
+        });
+        set(state => ({ notifications: [{
+          id: generateId('N'), title: 'Material Received',
+          message: `${material.name} +${request.quantity} ${material.unit}. Inventory and order reservations recalculated.`,
+          type: 'success', read: false, timestamp: now(), relatedId: request.id, relatedType: 'purchase',
+        }, ...state.notifications] }));
+        return true;
+      },
+
       // Production CRUD
       addProductionJob: (data) => {
         const jobs = get().productionJobs;
