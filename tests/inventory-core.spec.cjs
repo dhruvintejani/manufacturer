@@ -69,7 +69,7 @@ test('material shortage -> restock -> ready -> production consumes stock once', 
   await page.goto('/inventory?open=MAT-002');
   const inventory = page.getByRole('dialog', { name: /SS316 Sheet/ });
   await expect(inventory).toBeVisible();
-  await expect(inventory.getByText('production consumption')).toBeVisible();
+  await expect(inventory.getByText('production consumption').first()).toBeVisible();
 });
 
 test('editing a BOM recalculates requirements for an open confirmed order', async ({ page }) => {
@@ -81,7 +81,7 @@ test('editing a BOM recalculates requirements for an open confirmed order', asyn
   await page.getByRole('option', { name: 'Global Traders Pvt. Ltd.' }).click();
   await orderModal.getByRole('button', { name: 'Product', exact: true }).click();
   await page.getByRole('option', { name: 'Reactor', exact: true }).click();
-  await orderModal.getByLabel('Quantity').fill('2');
+  await orderModal.locator('input[type="number"]').first().fill('2');
   await orderModal.getByRole('button', { name: 'Create Order' }).click();
 
   let state = await persistedState(page);
