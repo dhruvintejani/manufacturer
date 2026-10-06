@@ -800,7 +800,7 @@ export const seedPurchaseRequests: PurchaseRequest[] = [
   },
 ];
 
-export const seedInventoryTransactions: InventoryTransaction[] = seedMaterials.map((material, index) => ({
+export const seedInventoryTransactions: InventoryTransaction[] = seedMaterials.map<InventoryTransaction>((material, index) => ({
   id: 'TXN-OPEN-' + String(index + 1).padStart(3, '0'),
   materialId: material.id,
   type: 'opening',
