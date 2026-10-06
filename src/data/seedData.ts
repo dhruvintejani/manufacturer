@@ -1,4 +1,7 @@
-import { Customer, Enquiry, Quotation, Order, ProductionJob, Activity, Notification } from '../types';
+import {
+  Customer, Enquiry, Quotation, Order, ProductionJob, Activity, Notification,
+  Material, Product, MaterialRequirement, InventoryTransaction, PurchaseRequest,
+} from '../types';
 
 export const seedCustomers: Customer[] = [
   {
@@ -707,4 +710,106 @@ export const seedNotifications: Notification[] = [
     relatedId: 'PJ-0040',
     relatedType: 'production',
   },
+  {
+    id: 'N006',
+    title: 'Low Stock Alert',
+    message: 'SS316 Sheet stock is 120 kg, below the 400 kg minimum. ORD-2026-0055 has a material shortage.',
+    type: 'danger',
+    read: false,
+    timestamp: '2026-04-26T10:45:00Z',
+    relatedId: 'MAT-002',
+    relatedType: 'inventory',
+  },
 ];
+
+
+export const seedMaterials: Material[] = [
+  { id: 'MAT-001', code: 'SS304', name: 'SS304 Sheet', category: 'Stainless Steel', unit: 'kg', currentStock: 850, minimumStock: 500, reorderLevel: 600, supplier: 'SteelSource Metals', status: 'active', createdAt: '2026-01-01T08:00:00Z' },
+  { id: 'MAT-002', code: 'SS316', name: 'SS316 Sheet', category: 'Stainless Steel', unit: 'kg', currentStock: 120, minimumStock: 400, reorderLevel: 500, supplier: 'SteelSource Metals', status: 'active', createdAt: '2026-01-01T08:00:00Z' },
+  { id: 'MAT-003', code: 'WELD-ROD', name: 'Welding Rod', category: 'Consumable', unit: 'kg', currentStock: 40, minimumStock: 50, reorderLevel: 80, supplier: 'ArcWeld Supplies', status: 'active', createdAt: '2026-01-01T08:00:00Z' },
+  { id: 'MAT-004', code: 'FLANGE', name: 'Flange', category: 'Fitting', unit: 'piece', currentStock: 120, minimumStock: 50, reorderLevel: 75, supplier: 'Prime Fittings', status: 'active', createdAt: '2026-01-01T08:00:00Z' },
+  { id: 'MAT-005', code: 'CS-PLATE', name: 'Carbon Steel Plate', category: 'Carbon Steel', unit: 'kg', currentStock: 1250, minimumStock: 600, reorderLevel: 800, supplier: 'Western Steel', status: 'active', createdAt: '2026-01-01T08:00:00Z' },
+  { id: 'MAT-006', code: 'CU-TUBE', name: 'Copper Tube', category: 'Tube', unit: 'meter', currentStock: 420, minimumStock: 180, reorderLevel: 250, supplier: 'Thermo Tube Co.', status: 'active', createdAt: '2026-01-01T08:00:00Z' },
+  { id: 'MAT-007', code: 'INSUL', name: 'Insulation Roll', category: 'Insulation', unit: 'meter', currentStock: 260, minimumStock: 100, reorderLevel: 140, supplier: 'ThermaShield', status: 'active', createdAt: '2026-01-01T08:00:00Z' },
+  { id: 'MAT-008', code: 'GASKET', name: 'Industrial Gasket', category: 'Seal', unit: 'piece', currentStock: 180, minimumStock: 60, reorderLevel: 90, supplier: 'SealPro Industries', status: 'active', createdAt: '2026-01-01T08:00:00Z' },
+  { id: 'MAT-009', code: 'HAST-C276', name: 'Hastelloy C276 Plate', category: 'Alloy', unit: 'kg', currentStock: 310, minimumStock: 120, reorderLevel: 180, supplier: 'Special Alloy House', status: 'active', createdAt: '2026-01-01T08:00:00Z' },
+  { id: 'MAT-010', code: 'FASTENER', name: 'Industrial Fastener Set', category: 'Hardware', unit: 'piece', currentStock: 640, minimumStock: 200, reorderLevel: 300, supplier: 'Prime Fittings', status: 'active', createdAt: '2026-01-01T08:00:00Z' },
+];
+
+export const seedProducts: Product[] = [
+  { id: 'PRD-001', code: 'REACTOR', name: 'Reactor', description: 'Industrial process reactor', bomVersion: '1.0', active: true, bom: [
+    { materialId: 'MAT-001', quantity: 100 }, { materialId: 'MAT-002', quantity: 20 },
+    { materialId: 'MAT-004', quantity: 8 }, { materialId: 'MAT-003', quantity: 5 }, { materialId: 'MAT-010', quantity: 20 },
+  ]},
+  { id: 'PRD-002', code: 'PRESSURE-VESSEL', name: 'Pressure Vessel', description: 'ASME process pressure vessel', bomVersion: '1.0', active: true, bom: [
+    { materialId: 'MAT-001', quantity: 180 }, { materialId: 'MAT-004', quantity: 10 },
+    { materialId: 'MAT-003', quantity: 7 }, { materialId: 'MAT-008', quantity: 4 },
+  ]},
+  { id: 'PRD-003', code: 'HEAT-EXCHANGER', name: 'Heat Exchanger', description: 'Shell and tube heat exchanger', bomVersion: '1.0', active: true, bom: [
+    { materialId: 'MAT-002', quantity: 85 }, { materialId: 'MAT-001', quantity: 25 },
+    { materialId: 'MAT-004', quantity: 6 }, { materialId: 'MAT-003', quantity: 4 }, { materialId: 'MAT-006', quantity: 32 },
+  ]},
+  { id: 'PRD-004', code: 'STORAGE-TANK', name: 'Storage Tank', description: 'Industrial storage tank', bomVersion: '1.0', active: true, bom: [
+    { materialId: 'MAT-005', quantity: 240 }, { materialId: 'MAT-004', quantity: 4 },
+    { materialId: 'MAT-003', quantity: 6 }, { materialId: 'MAT-008', quantity: 2 },
+  ]},
+  { id: 'PRD-005', code: 'INDUSTRIAL-DRYER', name: 'Industrial Dryer', description: 'Industrial process dryer', bomVersion: '1.0', active: true, bom: [
+    { materialId: 'MAT-001', quantity: 150 }, { materialId: 'MAT-005', quantity: 90 },
+    { materialId: 'MAT-007', quantity: 45 }, { materialId: 'MAT-010', quantity: 36 },
+  ]},
+  { id: 'PRD-006', code: 'COLUMN', name: 'Column', description: 'Industrial distillation column', bomVersion: '1.0', active: true, bom: [
+    { materialId: 'MAT-002', quantity: 220 }, { materialId: 'MAT-004', quantity: 12 },
+    { materialId: 'MAT-003', quantity: 9 }, { materialId: 'MAT-010', quantity: 30 },
+  ]},
+  { id: 'PRD-007', code: 'BOILER-SYSTEM', name: 'Boiler System', description: 'Packaged industrial boiler system', bomVersion: '1.0', active: true, bom: [
+    { materialId: 'MAT-005', quantity: 420 }, { materialId: 'MAT-006', quantity: 75 },
+    { materialId: 'MAT-007', quantity: 60 }, { materialId: 'MAT-010', quantity: 55 },
+  ]},
+];
+
+export const seedMaterialRequirements: MaterialRequirement[] = [
+  {
+    id: 'MR-0055', orderId: 'ORD-2026-0055', productId: 'PRD-003', productName: 'Heat Exchanger', quantity: 2,
+    status: 'Shortage', createdAt: '2026-04-10T08:00:00Z', updatedAt: '2026-04-10T08:00:00Z',
+    lines: [
+      { materialId: 'MAT-002', requiredQty: 170, reservedQty: 120, consumedQty: 0 },
+      { materialId: 'MAT-001', requiredQty: 50, reservedQty: 50, consumedQty: 0 },
+      { materialId: 'MAT-004', requiredQty: 12, reservedQty: 12, consumedQty: 0 },
+      { materialId: 'MAT-003', requiredQty: 8, reservedQty: 8, consumedQty: 0 },
+      { materialId: 'MAT-006', requiredQty: 64, reservedQty: 64, consumedQty: 0 },
+    ],
+  },
+  {
+    id: 'MR-0058', orderId: 'ORD-2026-0058', productId: 'PRD-001', productName: 'Reactor', quantity: 1,
+    status: 'Consumed', createdAt: '2026-04-26T09:35:00Z', updatedAt: '2026-05-01T08:30:00Z', consumedAt: '2026-05-01T08:30:00Z',
+    lines: [
+      { materialId: 'MAT-001', requiredQty: 100, reservedQty: 0, consumedQty: 100 },
+      { materialId: 'MAT-002', requiredQty: 20, reservedQty: 0, consumedQty: 20 },
+      { materialId: 'MAT-004', requiredQty: 8, reservedQty: 0, consumedQty: 8 },
+      { materialId: 'MAT-003', requiredQty: 5, reservedQty: 0, consumedQty: 5 },
+      { materialId: 'MAT-010', requiredQty: 20, reservedQty: 0, consumedQty: 20 },
+    ],
+  },
+];
+
+export const seedPurchaseRequests: PurchaseRequest[] = [
+  {
+    id: 'PUR-001', requestNumber: 'PUR-2026-001', materialId: 'MAT-002', orderId: 'ORD-2026-0055',
+    supplier: 'SteelSource Metals', quantity: 300, status: 'Requested',
+    requestedAt: '2026-04-11T09:30:00Z', note: 'Restock SS316 for ORD-2026-0055 and restore safety stock.',
+  },
+];
+
+export const seedInventoryTransactions: InventoryTransaction[] = seedMaterials.map<InventoryTransaction>((material, index) => ({
+  id: 'TXN-OPEN-' + String(index + 1).padStart(3, '0'),
+  materialId: material.id,
+  type: 'opening',
+  quantity: material.currentStock,
+  balanceAfter: material.currentStock,
+  timestamp: '2026-01-01T08:00:00Z',
+  reference: 'Opening Balance',
+  note: 'Demo opening stock',
+})).concat([
+  { id: 'TXN-CONS-001', materialId: 'MAT-001', type: 'production_consumption', quantity: -100, balanceAfter: 850, timestamp: '2026-05-01T08:30:00Z', reference: 'ORD-2026-0058', note: 'Reactor material consumption' },
+  { id: 'TXN-CONS-002', materialId: 'MAT-002', type: 'production_consumption', quantity: -20, balanceAfter: 120, timestamp: '2026-05-01T08:30:00Z', reference: 'ORD-2026-0058', note: 'Reactor material consumption' },
+]);
