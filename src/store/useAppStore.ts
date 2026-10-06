@@ -459,7 +459,7 @@ export const useAppStore = create<AppStore>()(
             note: note.trim() || undefined,
           }, ...state.inventoryTransactions],
           notifications: state.notifications.map(notification =>
-            notification.relatedId === id && notification.title === 'Low Stock Alert' && balance >= material.minimumStock
+            notification.relatedId === id && notification.title === 'Low Stock Alert'
               ? { ...notification, read: true }
               : notification),
         }));
@@ -703,7 +703,7 @@ export const useAppStore = create<AppStore>()(
             reference: request.requestNumber, note: request.note || 'Purchase received',
           }, ...state.inventoryTransactions],
           notifications: state.notifications.map(notification =>
-            notification.relatedId === material.id && notification.title === 'Low Stock Alert' && balance >= material.minimumStock
+            notification.relatedId === material.id && notification.title === 'Low Stock Alert'
               ? { ...notification, read: true }
               : notification),
         }));
@@ -718,6 +718,13 @@ export const useAppStore = create<AppStore>()(
           message: `${material.name} +${request.quantity} ${material.unit}. Inventory and order reservations recalculated.`,
           type: 'success', read: false, timestamp: now(), relatedId: request.id, relatedType: 'purchase',
         }, ...state.notifications] }));
+        if (balance < material.minimumStock) {
+          set(state => ({ notifications: [{
+            id: generateId('N'), title: 'Low Stock Alert',
+            message: `${material.name} is still below minimum after receiving stock. Current: ${balance} ${material.unit}; minimum: ${material.minimumStock} ${material.unit}.`,
+            type: 'danger', read: false, timestamp: now(), relatedId: material.id, relatedType: 'inventory',
+          }, ...state.notifications] }));
+        }
         return true;
       },
 
