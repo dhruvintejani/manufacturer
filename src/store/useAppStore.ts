@@ -300,6 +300,7 @@ export const useAppStore = create<AppStore>()(
           orderNumber: `ORD-2026-${nextNum}`,
         };
         set(s => ({ orders: [...s.orders, order] }));
+        get().calculateMaterialRequirement(order.id);
 
         // Update quotation
         if (data.quotationId) {
@@ -346,6 +347,12 @@ export const useAppStore = create<AppStore>()(
             ...o, ...data, statusHistory,
           } : o),
         }));
+        if ((data.product && data.product !== previous.product) || (data.quantity && data.quantity !== previous.quantity)) {
+          const current = get().orders.find(order => order.id === id);
+          if (current && !current.productionJobId && !['Completed', 'Cancelled'].includes(current.status)) {
+            get().calculateMaterialRequirement(id);
+          }
+        }
         if (statusChanged) {
           get().addActivity({
             type: 'order',
@@ -378,12 +385,14 @@ export const useAppStore = create<AppStore>()(
           next = previousStage && orderWorkflow.includes(previousStage) ? previousStage : 'Confirmed';
         } else {
           next = 'Cancelled';
+          get().releaseOrderMaterials(id);
         }
         get().updateOrder(id, { status: next }, changedBy, note);
         return true;
       },
       deleteOrder: (id) => {
         if (get().productionJobs.some(j => j.orderId === id)) return false;
+        get().releaseOrderMaterials(id);
         const order = get().orders.find(o => o.id === id);
         set(s => ({
           orders: s.orders.filter(o => o.id !== id),
@@ -706,6 +715,9 @@ export const useAppStore = create<AppStore>()(
 
       // Production CRUD
       addProductionJob: (data) => {
+        const existingRequirement = get().materialRequirements.find(requirement => requirement.orderId === data.orderId);
+        const requirement = existingRequirement || get().calculateMaterialRequirement(data.orderId);
+        if (!requirement || requirement.status !== 'Ready' || !get().consumeOrderMaterials(data.orderId)) return null;
         const jobs = get().productionJobs;
         const maxNum = jobs.reduce((max, j) => {
           const match = j.jobNumber.match(/PJ-(\d+)/);
@@ -811,6 +823,11 @@ export const useAppStore = create<AppStore>()(
           quotations: seedQuotations,
           orders: seedOrders,
           productionJobs: seedProductionJobs,
+          materials: seedMaterials,
+          products: seedProducts,
+          materialRequirements: seedMaterialRequirements,
+          inventoryTransactions: seedInventoryTransactions,
+          purchaseRequests: seedPurchaseRequests,
           activities: seedActivities,
           notifications: seedNotifications,
           profile: defaultDemoProfile,
@@ -826,6 +843,11 @@ export const useAppStore = create<AppStore>()(
         quotations: state.quotations,
         orders: state.orders,
         productionJobs: state.productionJobs,
+        materials: state.materials,
+        products: state.products,
+        materialRequirements: state.materialRequirements,
+        inventoryTransactions: state.inventoryTransactions,
+        purchaseRequests: state.purchaseRequests,
         activities: state.activities,
         notifications: state.notifications,
         profile: state.profile,
