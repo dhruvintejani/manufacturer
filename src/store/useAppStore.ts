@@ -67,8 +67,8 @@ interface AppStore {
   deleteOrder: (id: string) => boolean;
 
   // Materials, BOM, inventory and purchasing
-  addMaterial: (material: Omit<Material, 'id' | 'createdAt'>) => Material;
-  updateMaterial: (id: string, data: Partial<Material>) => void;
+  addMaterial: (material: Omit<Material, 'id' | 'createdAt'>) => Material | null;
+  updateMaterial: (id: string, data: Partial<Material>) => boolean;
   adjustMaterialStock: (id: string, delta: number, note?: string) => boolean;
   updateProductBom: (productId: string, items: BomItem[]) => void;
   calculateMaterialRequirement: (orderId: string) => MaterialRequirement | null;
@@ -407,12 +407,19 @@ export const useAppStore = create<AppStore>()(
 
       // Materials / BOM / Inventory / Purchasing
       addMaterial: (data) => {
+        const normalizedCode = data.code.trim().toUpperCase();
+        if (!normalizedCode || get().materials.some(material => material.code.trim().toUpperCase() === normalizedCode)) return null;
+        if (data.currentStock < 0 || data.minimumStock < 0 || data.reorderLevel < data.minimumStock) return null;
         const maxNum = get().materials.reduce((max, material) => {
           const match = material.id.match(/MAT-(\d+)/);
           return match ? Math.max(max, Number(match[1])) : max;
         }, 0);
         const material: Material = {
           ...data,
+          code: normalizedCode,
+          name: data.name.trim(),
+          category: data.category.trim(),
+          supplier: data.supplier.trim(),
           id: `MAT-${String(maxNum + 1).padStart(3, '0')}`,
           createdAt: now(),
         };
@@ -438,8 +445,26 @@ export const useAppStore = create<AppStore>()(
         return material;
       },
       updateMaterial: (id, data) => {
+        const existing = get().materials.find(material => material.id === id);
+        if (!existing) return false;
+        const normalizedCode = (data.code ?? existing.code).trim().toUpperCase();
+        if (!normalizedCode || get().materials.some(material =>
+          material.id !== id && material.code.trim().toUpperCase() === normalizedCode)) return false;
+        const minimumStock = data.minimumStock ?? existing.minimumStock;
+        const reorderLevel = data.reorderLevel ?? existing.reorderLevel;
+        if (minimumStock < 0 || reorderLevel < minimumStock) return false;
         const { currentStock: _ignoredStock, ...safeData } = data;
-        set(state => ({ materials: state.materials.map(material => material.id === id ? { ...material, ...safeData } : material) }));
+        set(state => ({
+          materials: state.materials.map(material => material.id === id ? {
+            ...material,
+            ...safeData,
+            code: normalizedCode,
+            ...(safeData.name !== undefined ? { name: safeData.name.trim() } : {}),
+            ...(safeData.category !== undefined ? { category: safeData.category.trim() } : {}),
+            ...(safeData.supplier !== undefined ? { supplier: safeData.supplier.trim() } : {}),
+          } : material),
+        }));
+        return true;
       },
       adjustMaterialStock: (id, delta, note = '') => {
         if (!Number.isFinite(delta) || delta === 0) return false;
