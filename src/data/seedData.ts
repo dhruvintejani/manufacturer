@@ -710,6 +710,16 @@ export const seedNotifications: Notification[] = [
     relatedId: 'PJ-0040',
     relatedType: 'production',
   },
+  {
+    id: 'N006',
+    title: 'Low Stock Alert',
+    message: 'SS316 Sheet stock is 120 kg, below the 400 kg minimum. ORD-2026-0055 has a material shortage.',
+    type: 'danger',
+    read: false,
+    timestamp: '2026-04-26T10:45:00Z',
+    relatedId: 'MAT-002',
+    relatedType: 'inventory',
+  },
 ];
 
 
