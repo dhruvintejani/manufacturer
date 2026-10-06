@@ -25,7 +25,7 @@ import { formatDate } from '../utils/formatters';
 const ITEMS_PER_PAGE = 8;
 const PRODUCTION_STATUSES = ['Planning', 'In Production', 'Quality Check', 'Ready', 'Completed', 'Delayed'];
 const TEAMS = ['Fabrication Team A', 'Fabrication Team B', 'Specialized Equipment Team', 'Boiler Team', 'Assembly Team'];
-const PRODUCTS = ['Pressure Vessel', 'Heat Exchanger', 'Storage Tank', 'Industrial Dryer', 'Reactor', 'Column', 'Boiler System'];
+const FALLBACK_PRODUCTS = ['Pressure Vessel', 'Heat Exchanger', 'Storage Tank', 'Industrial Dryer', 'Reactor', 'Column', 'Boiler System'];
 
 const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
 
@@ -49,7 +49,7 @@ const withStageProgress = (job: ProductionJob, progress: number) => {
 
 export const Production: React.FC = () => {
   const location = useLocation();
-  const { productionJobs, orders, customers, updateProductionJob, deleteProductionJob, addProductionJob } = useAppStore();
+  const { productionJobs, orders, customers, products, materialRequirements, updateProductionJob, deleteProductionJob, addProductionJob } = useAppStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(new URLSearchParams(location.search).get('status') === 'active' ? 'active' : 'all');
   const [page, setPage] = useState(1);
@@ -65,7 +65,7 @@ export const Production: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<ProductionJob | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [newJobForm, setNewJobForm] = useState({
-    orderId: '', product: PRODUCTS[0], quantity: 1,
+    orderId: '', product: products[0]?.name || FALLBACK_PRODUCTS[0], quantity: 1,
     startDate: new Date().toISOString().split('T')[0],
     expectedCompletion: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
     assignedTeam: TEAMS[0], notes: '',
@@ -145,6 +145,11 @@ export const Production: React.FC = () => {
     if (productionJobs.some(job => job.orderId === newJobForm.orderId)) { toast.error('A production job already exists for that order.'); return; }
     const linkedOrder = orders.find(order => order.id === newJobForm.orderId);
     if (!linkedOrder || ['Completed', 'Cancelled', 'On Hold'].includes(linkedOrder.status)) { toast.error('Select an active order before starting production.'); return; }
+    const requirement = materialRequirements.find(item => item.orderId === newJobForm.orderId);
+    if (!requirement || requirement.status !== 'Ready') {
+      toast.error('Material check is not ready. Resolve shortages from the Order or Purchase / Restock module first.');
+      return;
+    }
     const job = addProductionJob({
       jobNumber: '',
       ...newJobForm,
@@ -160,10 +165,14 @@ export const Production: React.FC = () => {
         { name: 'Completed', status: 'pending' },
       ],
     });
-    toast.success(`Production job ${job.jobNumber} created!`);
+    if (!job) {
+      toast.error('Production could not start because material reservation changed. Reopen the order and recheck stock.');
+      return;
+    }
+    toast.success(`Production job ${job.jobNumber} created. Reserved materials were consumed from inventory.`);
     setAddModalOpen(false);
     setNewJobForm({
-      orderId: '', product: PRODUCTS[0], quantity: 1,
+      orderId: '', product: products[0]?.name || FALLBACK_PRODUCTS[0], quantity: 1,
       startDate: new Date().toISOString().split('T')[0],
       expectedCompletion: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
       assignedTeam: TEAMS[0], notes: '',
@@ -424,12 +433,16 @@ export const Production: React.FC = () => {
                   product: selected?.product || f.product, quantity: selected?.quantity || f.quantity,
                   expectedCompletion: selected?.deliveryDate || f.expectedCompletion }));
               }}
-              options={[{ value: '', label: 'Select order...' }, ...orders.filter(o => !productionJobs.some(j => j.orderId === o.id) && !['Completed','Cancelled','On Hold'].includes(o.status)).map(o => ({ value: o.id, label: `${o.orderNumber} — ${o.product}` }))]} />
+              options={[{ value: '', label: 'Select material-ready order...' }, ...orders.filter(o =>
+                !productionJobs.some(j => j.orderId === o.id) &&
+                !['Completed','Cancelled','On Hold'].includes(o.status) &&
+                materialRequirements.some(requirement => requirement.orderId === o.id && requirement.status === 'Ready')
+              ).map(o => ({ value: o.id, label: `${o.orderNumber} — ${o.product}` }))]} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Product</label>
             <PremiumSelect label="Product" value={newJobForm.product} onChange={value => setNewJobForm(f => ({ ...f, product: value }))}
-              options={PRODUCTS.map(value => ({ value, label: value }))} />
+              options={(products.length ? products.map(product => product.name) : FALLBACK_PRODUCTS).map(value => ({ value, label: value }))} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Quantity</label>
