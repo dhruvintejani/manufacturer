@@ -10,15 +10,15 @@ const state = page => page.evaluate(() => JSON.parse(localStorage.getItem('forge
 
 test('seed shortage -> restock -> reservation ready -> production consumes exactly once -> low-stock alert', async ({ page }) => {
   test.setTimeout(60_000);
+  // Persist the hydrated seed snapshot with a harmless UI preference change
+  // before opening the drawer; the drawer overlay correctly blocks sidebar clicks.
+  await page.goto('/orders');
+  await page.getByRole('button', { name: 'Collapse sidebar' }).click();
   await page.goto('/orders?open=ORD-2026-0055');
   let drawer = page.getByRole('dialog', { name: /ORD-2026-0055/ });
   await expect(drawer).toBeVisible();
   await expect(drawer.getByRole('heading', { name: 'Material Readiness' })).toBeVisible();
   await expect(drawer.getByRole('button', { name: 'Create Production Job' })).toBeDisabled();
-
-  // Persist the hydrated seed snapshot without changing business data so the
-  // test can inspect the same state the UI is rendering in the production build.
-  await page.getByRole('button', { name: 'Collapse sidebar' }).click();
 
   let snapshot = await state(page);
   let requirement = snapshot.materialRequirements.find(item => item.orderId === 'ORD-2026-0055');
