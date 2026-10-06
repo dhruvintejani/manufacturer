@@ -348,7 +348,7 @@ test('every application page fits small phones and tablets without horizontal sw
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const failures = [];
   page.on('pageerror', error => failures.push(error.message));
-  const routes = ['dashboard', 'customers', 'enquiries', 'quotations', 'orders', 'production', 'reports', 'settings', 'help'];
+  const routes = ['dashboard', 'customers', 'enquiries', 'quotations', 'orders', 'bom', 'production', 'materials', 'inventory', 'purchases', 'reports', 'settings', 'help'];
   for (const width of [320, 360, 390, 428, 768, 1024]) {
     await page.setViewportSize({ width, height: width <= 428 ? 640 : 820 });
     for (const route of routes) {
