@@ -21,7 +21,6 @@ import { WorkflowStepper } from '../components/ui/WorkflowStepper';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { Modal } from '../components/ui/Modal';
 import { PremiumSelect } from '../components/ui/PremiumSelect';
-import { requirementShortages } from '../utils/inventory';
 
 const ITEMS_PER_PAGE = 8;
 const ORDER_STATUSES = ['Confirmed', 'Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'];
@@ -170,7 +169,6 @@ export const Orders: React.FC = () => {
 
   const currentOrder = viewingOrder ? orders.find(o => o.id === viewingOrder.id) || viewingOrder : null;
   const currentMaterialRequirement = currentOrder ? materialRequirements.find(requirement => requirement.orderId === currentOrder.id) : undefined;
-  const currentShortages = requirementShortages(currentMaterialRequirement);
 
   const handleRestockShortage = (materialId: string, shortageQty: number) => {
     if (!currentOrder) return;
@@ -227,7 +225,7 @@ export const Orders: React.FC = () => {
     toast.success(`Order ${order.orderNumber} created.`);
     setAddModalOpen(false);
     setNewOrderForm({
-      customerId: '', quotationId: '', product: PRODUCTS[0],
+      customerId: '', quotationId: '', product: products[0]?.name || FALLBACK_PRODUCTS[0],
       quantity: 1, orderDate: new Date().toISOString().split('T')[0],
       deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
       totalAmount: 0, paymentStatus: 'Pending', status: 'Confirmed', notes: '',
