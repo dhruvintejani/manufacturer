@@ -15,7 +15,7 @@ const units: MaterialUnit[] = ['kg', 'meter', 'piece', 'litre'];
 
 const emptyForm = {
   code: '', name: '', category: '', unit: 'kg' as MaterialUnit, currentStock: 0,
-  minimumStock: 0, reorderLevel: 0, supplier: '', status: 'active' as const,
+  minimumStock: 0, reorderLevel: 0, supplier: '', status: 'active' as 'active' | 'inactive',
 };
 
 export const Materials: React.FC = () => {
