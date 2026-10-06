@@ -10,6 +10,10 @@ import { Production } from './pages/Production';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
 import { Help } from './pages/Help';
+import { Materials } from './pages/Materials';
+import { ProductBom } from './pages/ProductBom';
+import { Inventory } from './pages/Inventory';
+import { Purchases } from './pages/Purchases';
 
 const App: React.FC = () => {
   return (
@@ -23,6 +27,10 @@ const App: React.FC = () => {
           <Route path="quotations" element={<Quotations />} />
           <Route path="orders" element={<Orders />} />
           <Route path="production" element={<Production />} />
+          <Route path="materials" element={<Materials />} />
+          <Route path="bom" element={<ProductBom />} />
+          <Route path="inventory" element={<Inventory />} />
+          <Route path="purchases" element={<Purchases />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<Settings />} />
           <Route path="help" element={<Help />} />
