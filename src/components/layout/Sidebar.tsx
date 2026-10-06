@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, ClipboardList, FileText,
   ShoppingCart, Factory, BarChart3, Settings,
   HelpCircle, ChevronLeft, ChevronRight, Zap,
-  X
+  Boxes, Layers3, Archive, ShoppingBag, X
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAppStore } from '../../store/useAppStore';
@@ -16,14 +16,28 @@ interface NavItem {
   path: string;
 }
 
-const navItems: NavItem[] = [
-  { label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, path: '/dashboard' },
-  { label: 'Customers', icon: <Users className="w-5 h-5" />, path: '/customers' },
-  { label: 'Enquiries', icon: <ClipboardList className="w-5 h-5" />, path: '/enquiries' },
-  { label: 'Quotations', icon: <FileText className="w-5 h-5" />, path: '/quotations' },
-  { label: 'Orders', icon: <ShoppingCart className="w-5 h-5" />, path: '/orders' },
-  { label: 'Production', icon: <Factory className="w-5 h-5" />, path: '/production' },
-  { label: 'Reports', icon: <BarChart3 className="w-5 h-5" />, path: '/reports' },
+const navGroups: { label: string; items: NavItem[] }[] = [
+  { label: 'Overview', items: [
+    { label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, path: '/dashboard' },
+  ]},
+  { label: 'Sales & Customers', items: [
+    { label: 'Customers', icon: <Users className="w-5 h-5" />, path: '/customers' },
+    { label: 'Enquiries', icon: <ClipboardList className="w-5 h-5" />, path: '/enquiries' },
+    { label: 'Quotations', icon: <FileText className="w-5 h-5" />, path: '/quotations' },
+    { label: 'Orders', icon: <ShoppingCart className="w-5 h-5" />, path: '/orders' },
+  ]},
+  { label: 'Manufacturing', items: [
+    { label: 'Product BOM', icon: <Layers3 className="w-5 h-5" />, path: '/bom' },
+    { label: 'Production', icon: <Factory className="w-5 h-5" />, path: '/production' },
+  ]},
+  { label: 'Materials & Procurement', items: [
+    { label: 'Materials', icon: <Boxes className="w-5 h-5" />, path: '/materials' },
+    { label: 'Inventory / Stock', icon: <Archive className="w-5 h-5" />, path: '/inventory' },
+    { label: 'Purchase / Restock', icon: <ShoppingBag className="w-5 h-5" />, path: '/purchases' },
+  ]},
+  { label: 'Analytics', items: [
+    { label: 'Reports', icon: <BarChart3 className="w-5 h-5" />, path: '/reports' },
+  ]},
 ];
 
 const bottomItems: NavItem[] = [
@@ -112,10 +126,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
 
       {/* Main Nav */}
       <div className="px-3 flex-1 overflow-y-auto sidebar-scroll">
-        <div className="px-3 pb-2 text-[10px] font-bold tracking-[.18em] text-slate-400 uppercase">Workspace</div>
-        <div className="space-y-1">
-          {navItems.map(item => (
-            <NavItemComp key={item.path} item={item} />
+        <div className="space-y-4">
+          {navGroups.map(group => (
+            <div key={group.label}>
+              {!collapsed && <div className="px-3 pb-2 text-[10px] font-bold tracking-[.18em] text-slate-400 uppercase">{group.label}</div>}
+              <div className="space-y-1">
+                {group.items.map(item => <NavItemComp key={item.path} item={item} />)}
+              </div>
+            </div>
           ))}
         </div>
 
