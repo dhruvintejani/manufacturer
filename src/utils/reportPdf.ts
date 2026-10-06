@@ -240,6 +240,6 @@ export const downloadOperationsReport = (
     sections[section]();
   }
 
-  const safe = section.toLowerCase().replaceAll(' ', '-');
+  const safe = section.toLowerCase().replace(/\s+/g, '-');
   doc.save(`forgeflow-${safe}-report-${new Date().toISOString().slice(0, 10)}.pdf`);
 };
