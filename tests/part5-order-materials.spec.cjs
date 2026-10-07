@@ -164,6 +164,6 @@ test('Part 5 order material readiness stays usable on a narrow phone', async ({ 
   }).toBeLessThanOrEqual(321);
   const bounds = await drawer.boundingBox();
   expect(bounds.width).toBeLessThanOrEqual(321);
-  // Framer Motion can settle on a sub-pixel x offset in headless WebKit.
+  // Framer Motion may settle on a sub-pixel x offset in headless WebKit.
   expect(bounds.x).toBeGreaterThanOrEqual(-2);
 });
