@@ -683,6 +683,40 @@ export const Orders: React.FC = () => {
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-900">To change an order stage, open Order Details → Update Status. Changes there are recorded in the audit history.</div>
+
+            {editMaterialsLocked ? (
+              <div className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-700">
+                Product and quantity are locked because production has started or material consumption is already recorded.
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Product</label>
+                  <PremiumSelect
+                    label="Edit order product"
+                    value={editModal.product}
+                    onChange={value => setEditModal(prev => prev ? { ...prev, product: value } : null)}
+                    options={(products.length ? products.filter(product => product.active).map(product => product.name) : FALLBACK_PRODUCTS)
+                      .map(value => ({ value, label: value }))}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="edit-order-quantity" className="block text-sm font-medium text-slate-700 mb-1.5">Quantity</label>
+                  <input
+                    id="edit-order-quantity"
+                    type="number"
+                    min={1}
+                    value={editModal.quantity}
+                    onChange={e => setEditModal(prev => prev ? { ...prev, quantity: Math.max(1, parseInt(e.target.value) || 1) } : null)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="sm:col-span-2 rounded-lg border border-violet-100 bg-violet-50 p-3 text-xs leading-5 text-violet-900">
+                  Changing product or quantity recalculates the BOM requirement and redistributes reservations across all open orders by reservation priority.
+                </div>
+              </>
+            )}
+
             {[
               { label: 'Payment Status', field: 'paymentStatus', type: 'select', options: PAYMENT_STATUSES },
               { label: 'Order Date', field: 'orderDate', type: 'date' },
