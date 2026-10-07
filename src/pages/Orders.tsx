@@ -213,6 +213,16 @@ export const Orders: React.FC = () => {
     toast.success(`${request.requestNumber} created for ${material.name}.`);
   };
 
+  const handleRecheckMaterials = () => {
+    if (!currentOrder) return;
+    const result = calculateMaterialRequirement(currentOrder.id);
+    if (!result) {
+      toast.error(`${currentOrder.product} does not have a configured BOM yet.`);
+      return;
+    }
+    toast.success(`Material check updated: ${result.status}.`);
+  };
+
   const currentIndex = currentOrder ? ORDER_STATUSES.indexOf(currentOrder.status) : -1;
   const nextOrderStatus = currentIndex >= 0 ? ORDER_STATUSES[currentIndex + 1] : undefined;
 
