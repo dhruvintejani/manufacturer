@@ -119,6 +119,9 @@ test('Part 5 releases cancelled-order reservations and immediately reallocates t
     notification.title === 'Materials Ready' &&
     notification.relatedId === laterOrder.id
   )).toBe(true);
+
+  await page.goto('/orders');
+  await expect(page.getByRole('row').filter({ hasText: laterOrder.orderNumber })).toContainText('Ready');
 });
 
 test('Part 5 locks product and quantity after production/material consumption has started', async ({ page }) => {
