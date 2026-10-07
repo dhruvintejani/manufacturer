@@ -163,6 +163,8 @@ export interface MaterialRequirement {
   productId: string;
   productName: string;
   quantity: number;
+  /** BOM version used for the latest requirement calculation. */
+  bomVersion?: string;
   status: MaterialRequirementStatus;
   lines: MaterialRequirementLine[];
   createdAt: string;
