@@ -40,6 +40,8 @@ test('current report PDF downloads for every report category', async ({ page }) 
 test('complete operations PDF downloads from the same live state', async ({ page }) => {
   await page.goto('/purchases');
   const request = page.getByRole('row').filter({ hasText: 'PUR-2026-001' });
+  await request.getByRole('button', { name: 'Mark Ordered' }).click();
+  await expect(request.getByText('Ordered', { exact: true })).toBeVisible();
   await request.getByRole('button', { name: 'Receive Material' }).click();
 
   await page.goto('/reports');
