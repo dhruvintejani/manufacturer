@@ -34,6 +34,8 @@ test('material shortage -> restock -> ready -> production consumes stock once', 
   await page.goto('/purchases');
   const requestRow = page.getByRole('row').filter({ hasText: 'PUR-2026-001' });
   await expect(requestRow).toBeVisible();
+  await requestRow.getByRole('button', { name: 'Mark Ordered' }).click();
+  await expect(requestRow.getByText('Ordered', { exact: true })).toBeVisible();
   await requestRow.getByRole('button', { name: 'Receive Material' }).click();
   await expect(requestRow.getByText('Received', { exact: true })).toBeVisible();
 

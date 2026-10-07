@@ -75,7 +75,7 @@ interface AppStore {
   rebalanceMaterialReservations: () => void;
   consumeOrderMaterials: (orderId: string) => boolean;
   releaseOrderMaterials: (orderId: string) => void;
-  createPurchaseRequest: (data: Omit<PurchaseRequest, 'id' | 'requestNumber' | 'requestedAt' | 'status'>) => PurchaseRequest;
+  createPurchaseRequest: (data: Omit<PurchaseRequest, 'id' | 'requestNumber' | 'requestedAt' | 'status'>) => PurchaseRequest | null;
   setPurchaseRequestStatus: (id: string, status: PurchaseRequestStatus) => boolean;
   receivePurchaseRequest: (id: string) => boolean;
 
@@ -698,23 +698,46 @@ export const useAppStore = create<AppStore>()(
         get().rebalanceMaterialReservations();
       },
       createPurchaseRequest: (data) => {
-        const maxNum = get().purchaseRequests.reduce((max, request) => {
+        const state = get();
+        const material = state.materials.find(item => item.id === data.materialId);
+        const supplier = data.supplier.trim();
+        const quantity = Math.round((Number(data.quantity) + Number.EPSILON) * 100) / 100;
+        if (!material || material.status !== 'active' || !supplier || !Number.isFinite(quantity) || quantity <= 0) return null;
+
+        if (data.orderId) {
+          const order = state.orders.find(item => item.id === data.orderId);
+          const requirement = state.materialRequirements.find(item => item.orderId === data.orderId);
+          const line = requirement?.lines.find(item => item.materialId === data.materialId);
+          const hasShortage = !!line && line.reservedQty < line.requiredQty && requirement?.status === 'Shortage';
+          if (!order || ['Completed', 'Cancelled'].includes(order.status) || !hasShortage) return null;
+          const duplicate = state.purchaseRequests.some(request =>
+            request.orderId === data.orderId &&
+            request.materialId === data.materialId &&
+            !['Received', 'Cancelled'].includes(request.status));
+          if (duplicate) return null;
+        }
+
+        const maxNum = state.purchaseRequests.reduce((max, request) => {
           const match = request.requestNumber.match(/PUR-\d{4}-(\d+)/);
           return match ? Math.max(max, Number(match[1])) : max;
         }, 0);
         const next = String(maxNum + 1).padStart(3, '0');
+        const requestedAt = now();
         const request: PurchaseRequest = {
           ...data,
+          supplier,
+          quantity,
+          note: data.note?.trim() || undefined,
           id: `PUR-${Date.now()}-${next}`,
           requestNumber: `PUR-2026-${next}`,
-          requestedAt: now(),
+          requestedAt,
           status: 'Requested',
         };
-        set(state => ({ purchaseRequests: [request, ...state.purchaseRequests] }));
-        const material = get().materials.find(item => item.id === data.materialId);
+        set(current => ({ purchaseRequests: [request, ...current.purchaseRequests] }));
         get().addActivity({
-          type: 'purchase', title: 'Restock requested',
-          description: `${request.requestNumber}: ${data.quantity} ${material?.unit || ''} ${material?.name || data.materialId}`,
+          type: 'purchase',
+          title: 'Restock requested',
+          description: `${request.requestNumber}: ${quantity} ${material.unit} ${material.name}${request.orderId ? ` for ${request.orderId}` : ''}`,
           relatedId: request.id,
         });
         return request;
@@ -723,51 +746,107 @@ export const useAppStore = create<AppStore>()(
         const request = get().purchaseRequests.find(item => item.id === id);
         if (!request || request.status === 'Received' || request.status === 'Cancelled') return false;
         if (status === 'Received') return get().receivePurchaseRequest(id);
-        if (!['Requested', 'Ordered', 'Cancelled'].includes(status)) return false;
+
+        const valid = (request.status === 'Requested' && ['Ordered', 'Cancelled'].includes(status)) ||
+          (request.status === 'Ordered' && status === 'Cancelled');
+        if (!valid) return false;
+
+        const changedAt = now();
         set(state => ({
           purchaseRequests: state.purchaseRequests.map(item => item.id === id ? {
-            ...item, status,
-            ...(status === 'Ordered' ? { orderedAt: now() } : {}),
+            ...item,
+            status,
+            ...(status === 'Ordered' ? { orderedAt: changedAt } : {}),
           } : item),
         }));
+        const material = get().materials.find(item => item.id === request.materialId);
+        get().addActivity({
+          type: 'purchase',
+          title: status === 'Ordered' ? 'Purchase ordered' : 'Purchase request cancelled',
+          description: status === 'Ordered'
+            ? `${request.requestNumber} ordered from ${request.supplier} for ${request.quantity} ${material?.unit || ''} ${material?.name || request.materialId}`
+            : `${request.requestNumber} cancelled`,
+          relatedId: request.id,
+        });
         return true;
       },
       receivePurchaseRequest: (id) => {
         const request = get().purchaseRequests.find(item => item.id === id);
-        if (!request || request.status === 'Received' || request.status === 'Cancelled') return false;
+        if (!request || request.status !== 'Ordered') return false;
         const material = get().materials.find(item => item.id === request.materialId);
         if (!material) return false;
-        const balance = material.currentStock + request.quantity;
+
+        const balance = Math.round((material.currentStock + request.quantity + Number.EPSILON) * 100) / 100;
         const receivedAt = now();
         set(state => ({
           materials: state.materials.map(item => item.id === material.id ? { ...item, currentStock: balance } : item),
           purchaseRequests: state.purchaseRequests.map(item => item.id === id ? { ...item, status: 'Received', receivedAt } : item),
           inventoryTransactions: [{
-            id: generateId('TXN'), materialId: material.id, type: 'purchase_received',
-            quantity: request.quantity, balanceAfter: balance, timestamp: receivedAt,
-            reference: request.requestNumber, note: request.note || 'Purchase received',
+            id: generateId('TXN'),
+            materialId: material.id,
+            type: 'purchase_received',
+            quantity: request.quantity,
+            balanceAfter: balance,
+            timestamp: receivedAt,
+            reference: request.requestNumber,
+            note: request.note || `Received from ${request.supplier}`,
           }, ...state.inventoryTransactions],
           notifications: state.notifications.map(notification =>
             notification.relatedId === material.id && notification.title === 'Low Stock Alert'
               ? { ...notification, read: true }
               : notification),
         }));
+
         get().rebalanceMaterialReservations();
+
         get().addActivity({
-          type: 'purchase', title: 'Material received',
+          type: 'purchase',
+          title: 'Material received',
           description: `${request.requestNumber} received: ${request.quantity} ${material.unit} ${material.name}; stock is now ${balance} ${material.unit}`,
           relatedId: request.id,
         });
+
         set(state => ({ notifications: [{
-          id: generateId('N'), title: 'Material Received',
+          id: generateId('N'),
+          title: 'Material Received',
           message: `${material.name} +${request.quantity} ${material.unit}. Inventory and order reservations recalculated.`,
-          type: 'success', read: false, timestamp: now(), relatedId: request.id, relatedType: 'purchase',
+          type: 'success',
+          read: false,
+          timestamp: now(),
+          relatedId: request.id,
+          relatedType: 'purchase',
         }, ...state.notifications] }));
+
+        if (request.orderId) {
+          const requirement = get().materialRequirements.find(item => item.orderId === request.orderId);
+          if (requirement?.status === 'Ready') {
+            const duplicateReady = get().notifications.some(notification =>
+              !notification.read &&
+              notification.relatedId === request.orderId &&
+              notification.title === 'Materials Ready');
+            if (!duplicateReady) set(state => ({ notifications: [{
+              id: generateId('N'),
+              title: 'Materials Ready',
+              message: `${request.orderId} now has all BOM materials reserved and can proceed to production.`,
+              type: 'success',
+              read: false,
+              timestamp: now(),
+              relatedId: request.orderId,
+              relatedType: 'order',
+            }, ...state.notifications] }));
+          }
+        }
+
         if (balance < material.minimumStock) {
           set(state => ({ notifications: [{
-            id: generateId('N'), title: 'Low Stock Alert',
+            id: generateId('N'),
+            title: 'Low Stock Alert',
             message: `${material.name} is still below minimum after receiving stock. Current: ${balance} ${material.unit}; minimum: ${material.minimumStock} ${material.unit}.`,
-            type: 'danger', read: false, timestamp: now(), relatedId: material.id, relatedType: 'inventory',
+            type: 'danger',
+            read: false,
+            timestamp: now(),
+            relatedId: material.id,
+            relatedType: 'inventory',
           }, ...state.notifications] }));
         }
         return true;
