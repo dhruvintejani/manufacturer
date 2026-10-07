@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   ShoppingBag, Plus, Truck, PackageCheck, XCircle, AlertTriangle,
-  Search, ChevronRight, Clock3, CircleCheck, Ban, Boxes,
+  Search, ChevronRight, Clock3, Ban, Boxes,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
