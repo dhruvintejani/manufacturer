@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ShoppingCart, Plus, Eye, Edit2, Trash2, PauseCircle, PlayCircle, Ban,
-  Factory, CheckCircle, ArrowRight, DollarSign, ArrowDownUp, Boxes, AlertTriangle, ShoppingBag
+  Factory, CheckCircle, ArrowRight, DollarSign, ArrowDownUp, Boxes, AlertTriangle, ShoppingBag, RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
@@ -55,7 +55,7 @@ export const Orders: React.FC = () => {
   const {
     orders, customers, productionJobs, products, materials, materialRequirements, purchaseRequests,
     addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus, changeOrderException,
-    createPurchaseRequest, profile,
+    createPurchaseRequest, calculateMaterialRequirement, profile,
   } = useAppStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') === 'active' ? 'active' : 'all');
@@ -111,6 +111,7 @@ export const Orders: React.FC = () => {
     inProduction: orders.filter(o => o.status === 'Production').length,
     completed: orders.filter(o => o.status === 'Completed').length,
     pendingPayment: orders.filter(o => ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus)).length,
+    materialShortage: materialRequirements.filter(requirement => requirement.status === 'Shortage').length,
   };
 
   const handleCreateJob = (order: Order) => {
@@ -160,15 +161,31 @@ export const Orders: React.FC = () => {
 
   const handleSaveEdit = () => {
     if (!editModal) return;
+    const original = orders.find(order => order.id === editModal.id);
+    const materialDefinitionChanged = !!original &&
+      (original.product !== editModal.product || original.quantity !== editModal.quantity);
     const { status: _status, statusHistory: _history, ...changes } = editModal;
     updateOrder(editModal.id, changes);
-    toast.success('Order updated.');
+    const updated = useAppStore.getState().orders.find(order => order.id === editModal.id) || editModal;
+    toast.success(materialDefinitionChanged
+      ? 'Order updated. Material requirements and reservations recalculated.'
+      : 'Order updated.');
     setEditModal(null);
-    if (viewingOrder?.id === editModal.id) setViewingOrder(prev => prev ? { ...prev, ...editModal } : null);
+    if (viewingOrder?.id === editModal.id) setViewingOrder(updated);
   };
 
   const currentOrder = viewingOrder ? orders.find(o => o.id === viewingOrder.id) || viewingOrder : null;
   const currentMaterialRequirement = currentOrder ? materialRequirements.find(requirement => requirement.orderId === currentOrder.id) : undefined;
+  const currentProduct = currentOrder ? products.find(product => product.name === currentOrder.product) : undefined;
+  const readyMaterialLines = currentMaterialRequirement
+    ? currentMaterialRequirement.lines.filter(line => line.reservedQty + 1e-9 >= line.requiredQty).length
+    : 0;
+  const editRequirement = editModal ? materialRequirements.find(requirement => requirement.orderId === editModal.id) : undefined;
+  const editMaterialsLocked = !!editModal && (
+    !!editModal.productionJobId ||
+    editRequirement?.status === 'Consumed' ||
+    ['Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'].includes(editModal.status)
+  );
 
   const handleRestockShortage = (materialId: string, shortageQty: number) => {
     if (!currentOrder) return;
