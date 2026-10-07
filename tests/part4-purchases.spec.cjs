@@ -60,7 +60,7 @@ test('Part 4 prevents duplicate open requests for the same order shortage', asyn
   await expect(shortage).toBeVisible();
   await expect(shortage.getByRole('button', { name: /PUR-2026-001 · Requested/ })).toBeVisible();
 
-  // Persist one harmless UI change so the Zustand snapshot exists in localStorage.
+  // Persist a harmless UI change so the Zustand snapshot exists before direct state inspection.
   await page.getByRole('button', { name: 'Collapse sidebar' }).click();
   const before = await persistedState(page);
   const beforeOpen = before.purchaseRequests.filter(request =>
