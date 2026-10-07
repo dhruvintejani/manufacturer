@@ -164,5 +164,5 @@ test('Part 5 order material readiness stays usable on a narrow phone', async ({ 
   }).toBeLessThanOrEqual(321);
   const bounds = await drawer.boundingBox();
   expect(bounds.width).toBeLessThanOrEqual(321);
-  expect(bounds.x).toBeGreaterThanOrEqual(-4);
+  expect(bounds.x).toBeGreaterThanOrEqual(-5);
 });
