@@ -270,12 +270,13 @@ export const Orders: React.FC = () => {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard title="Total Orders" value={stats.total} icon={<ShoppingCart className="w-5 h-5 text-blue-600" />} iconBg="bg-blue-50" index={0} />
         <StatCard title="Active Orders" value={stats.active} icon={<ArrowRight className="w-5 h-5 text-amber-600" />} iconBg="bg-amber-50" index={1} />
         <StatCard title="In Production" value={stats.inProduction} icon={<Factory className="w-5 h-5 text-violet-600" />} iconBg="bg-violet-50" index={2} />
         <StatCard title="Completed" value={stats.completed} icon={<CheckCircle className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={3} />
         <StatCard title="Pending Payment" value={stats.pendingPayment} icon={<DollarSign className="w-5 h-5 text-rose-600" />} iconBg="bg-rose-50" index={4} />
+        <StatCard title="Material Shortage" value={stats.materialShortage} icon={<AlertTriangle className="w-5 h-5 text-rose-600" />} iconBg="bg-rose-50" index={5} />
       </div>
 
       {/* Filters */}
@@ -298,7 +299,7 @@ export const Orders: React.FC = () => {
               <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
-                    {['Order ID', 'Customer', 'Product', 'Qty', 'Order Date', 'Delivery', 'Amount', 'Status', 'Payment', 'Actions'].map(h => (
+                    {['Order ID', 'Customer', 'Product', 'Qty', 'Order Date', 'Delivery', 'Amount', 'Materials', 'Status', 'Payment', 'Actions'].map(h => (
                       <th key={h} scope="col" className="text-left text-xs font-semibold text-slate-500 px-6 py-3.5">
                         {h === 'Order Date' ? <button type="button" onClick={() => { setNewestFirst(v => !v); setPage(1); }}
                           className="inline-flex items-center gap-1 hover:text-blue-700" title="Toggle order date sorting"
@@ -310,6 +311,8 @@ export const Orders: React.FC = () => {
                 <tbody>
                   {paginated.map((order, i) => {
                     const customer = getCustomer(order.customerId);
+                    const materialRequirement = materialRequirements.find(requirement => requirement.orderId === order.id);
+                    const materialStatus = materialRequirement?.status || 'Not Calculated';
                     return (
                       <motion.tr key={order.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }} className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors group">
                         <td className="px-6 py-4">
@@ -323,6 +326,7 @@ export const Orders: React.FC = () => {
                         <td className="px-6 py-4"><span className="text-xs text-slate-500">{formatDate(order.orderDate)}</span></td>
                         <td className="px-6 py-4"><span className="text-xs text-slate-500">{formatDate(order.deliveryDate)}</span></td>
                         <td className="px-6 py-4"><span className="text-sm font-semibold text-slate-900">{formatCurrency(order.totalAmount)}</span></td>
+                        <td className="px-6 py-4"><StatusBadge status={materialStatus} /></td>
                         <td className="px-6 py-4"><StatusBadge status={order.status} /></td>
                         <td className="px-6 py-4"><StatusBadge status={order.paymentStatus} /></td>
                         <td className="px-6 py-4">
