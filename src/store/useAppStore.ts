@@ -546,86 +546,185 @@ export const useAppStore = create<AppStore>()(
         const state = get();
         const order = state.orders.find(item => item.id === orderId);
         if (!order) return null;
-        const product = state.products.find(item => item.name === order.product);
-        if (!product || product.bom.length === 0) return null;
+
         const existing = state.materialRequirements.find(requirement => requirement.orderId === orderId);
         if (existing?.status === 'Consumed') return existing;
+        if (['Cancelled', 'Completed'].includes(order.status)) {
+          if (existing && existing.status !== 'Released') get().releaseOrderMaterials(orderId);
+          return get().materialRequirements.find(requirement => requirement.orderId === orderId) || null;
+        }
 
-        const reservedByOthers = (materialId: string) => state.materialRequirements
-          .filter(requirement => requirement.orderId !== orderId && ['Ready', 'Shortage'].includes(requirement.status))
-          .flatMap(requirement => requirement.lines)
-          .filter(line => line.materialId === materialId)
-          .reduce((sum, line) => sum + line.reservedQty, 0);
+        const product = state.products.find(item => item.name === order.product);
+        if (!product || product.bom.length === 0) {
+          if (existing && existing.status !== 'Released') {
+            set(current => ({
+              materialRequirements: current.materialRequirements.map(requirement =>
+                requirement.orderId === orderId
+                  ? {
+                      ...requirement,
+                      status: 'Released',
+                      updatedAt: now(),
+                      lines: requirement.lines.map(line => ({ ...line, reservedQty: 0 })),
+                    }
+                  : requirement),
+            }));
+            get().rebalanceMaterialReservations();
+          }
+          const alreadyMissing = get().notifications.some(notification =>
+            !notification.read && notification.relatedId === orderId && notification.title === 'BOM Missing');
+          if (!alreadyMissing) {
+            set(current => ({ notifications: [{
+              id: generateId('N'),
+              title: 'BOM Missing',
+              message: `${order.orderNumber} cannot calculate material requirements because ${order.product} has no active BOM.`,
+              type: 'warning',
+              read: false,
+              timestamp: now(),
+              relatedId: orderId,
+              relatedType: 'order',
+            }, ...current.notifications] }));
+          }
+          return null;
+        }
 
-        const lines = product.bom.map(item => {
-          const material = state.materials.find(candidate => candidate.id === item.materialId);
-          const requiredQty = item.quantity * order.quantity;
-          const available = Math.max(0, (material?.currentStock || 0) - reservedByOthers(item.materialId));
-          return {
-            materialId: item.materialId,
-            requiredQty,
-            reservedQty: Math.min(requiredQty, available),
-            consumedQty: 0,
-          };
-        });
-        const status = lines.every(line => line.reservedQty >= line.requiredQty) ? 'Ready' : 'Shortage';
+        const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+        const lines = product.bom.map(item => ({
+          materialId: item.materialId,
+          requiredQty: round(item.quantity * order.quantity),
+          // Reservations are redistributed centrally below so earlier open orders
+          // retain priority and released stock immediately flows to later orders.
+          reservedQty: 0,
+          consumedQty: 0,
+        }));
         const requirement: MaterialRequirement = {
           id: existing?.id || `MR-${order.orderNumber.replace('ORD-', '')}`,
           orderId,
           productId: product.id,
           productName: product.name,
           quantity: order.quantity,
-          status,
+          bomVersion: product.bomVersion,
+          status: 'Shortage',
           lines,
           createdAt: existing?.createdAt || now(),
           updatedAt: now(),
         };
+
         set(current => ({
           materialRequirements: existing
             ? current.materialRequirements.map(item => item.orderId === orderId ? requirement : item)
             : [...current.materialRequirements, requirement],
+          notifications: current.notifications.map(notification =>
+            notification.relatedId === orderId && notification.title === 'BOM Missing'
+              ? { ...notification, read: true }
+              : notification),
         }));
 
-        if (status === 'Shortage') {
-          const shortages = lines.filter(line => line.reservedQty < line.requiredQty);
-          const summary = shortages.map(line => {
-            const material = get().materials.find(item => item.id === line.materialId);
-            return `${material?.name || line.materialId}: ${line.requiredQty - line.reservedQty} ${material?.unit || ''}`;
-          }).join(', ');
-          const duplicate = get().notifications.some(notification =>
-            !notification.read && notification.relatedId === orderId && notification.title === 'Material Shortage');
-          if (!duplicate) set(current => ({ notifications: [{
-            id: generateId('N'), title: 'Material Shortage',
-            message: `${order.orderNumber} cannot start production. Shortage: ${summary}`,
-            type: 'danger', read: false, timestamp: now(), relatedId: orderId, relatedType: 'order',
-          }, ...current.notifications] }));
-        }
-        return requirement;
+        get().rebalanceMaterialReservations();
+        return get().materialRequirements.find(item => item.orderId === orderId) || requirement;
       },
       rebalanceMaterialReservations: () => {
         const state = get();
-        const remaining = new Map(state.materials.map(material => [material.id, material.currentStock]));
+        const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+        const remaining = new Map(state.materials.map(material => [material.id, round(material.currentStock)]));
         const updated = new Map<string, MaterialRequirement>();
+        const previousById = new Map(state.materialRequirements.map(requirement => [requirement.id, requirement]));
+
         [...state.materialRequirements]
           .filter(requirement => ['Ready', 'Shortage'].includes(requirement.status))
-          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+          .sort((a, b) => {
+            const time = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            return time || a.orderId.localeCompare(b.orderId);
+          })
           .forEach(requirement => {
             const lines = requirement.lines.map(line => {
               const available = Math.max(0, remaining.get(line.materialId) || 0);
-              const reservedQty = Math.min(line.requiredQty, available);
-              remaining.set(line.materialId, available - reservedQty);
+              const reservedQty = round(Math.min(line.requiredQty, available));
+              remaining.set(line.materialId, round(available - reservedQty));
               return { ...line, reservedQty, consumedQty: 0 };
             });
             updated.set(requirement.id, {
               ...requirement,
               lines,
-              status: lines.every(line => line.reservedQty >= line.requiredQty) ? 'Ready' : 'Shortage',
+              status: lines.every(line => line.reservedQty + 1e-9 >= line.requiredQty) ? 'Ready' : 'Shortage',
               updatedAt: now(),
             });
           });
-        set(current => ({
-          materialRequirements: current.materialRequirements.map(requirement => updated.get(requirement.id) || requirement),
-        }));
+
+        const finalRequirements = state.materialRequirements.map(requirement => updated.get(requirement.id) || requirement);
+        const byOrder = new Map(finalRequirements.map(requirement => [requirement.orderId, requirement]));
+        let notifications = state.notifications.map(notification => {
+          if (notification.title !== 'Material Shortage' || !notification.relatedId) return notification;
+          const requirement = byOrder.get(notification.relatedId);
+          return requirement?.status === 'Shortage' ? notification : { ...notification, read: true };
+        });
+
+        for (const requirement of updated.values()) {
+          const order = state.orders.find(item => item.id === requirement.orderId);
+          const previous = previousById.get(requirement.id);
+          if (requirement.status === 'Shortage') {
+            const shortageText = requirement.lines
+              .filter(line => line.reservedQty + 1e-9 < line.requiredQty)
+              .map(line => {
+                const material = state.materials.find(item => item.id === line.materialId);
+                return `${material?.name || line.materialId}: ${round(line.requiredQty - line.reservedQty)} ${material?.unit || ''}`;
+              })
+              .join(', ');
+            const existingIndex = notifications.findIndex(notification =>
+              !notification.read &&
+              notification.relatedId === requirement.orderId &&
+              notification.title === 'Material Shortage');
+            const message = `${order?.orderNumber || requirement.orderId} cannot start production. Shortage: ${shortageText}`;
+            if (existingIndex >= 0) {
+              notifications = notifications.map((notification, index) =>
+                index === existingIndex ? { ...notification, message, timestamp: now() } : notification);
+            } else {
+              notifications = [{
+                id: generateId('N'),
+                title: 'Material Shortage',
+                message,
+                type: 'danger',
+                read: false,
+                timestamp: now(),
+                relatedId: requirement.orderId,
+                relatedType: 'order',
+              }, ...notifications];
+            }
+          } else if (previous?.status === 'Shortage' && requirement.status === 'Ready') {
+            const alreadyReady = notifications.some(notification =>
+              !notification.read &&
+              notification.relatedId === requirement.orderId &&
+              notification.title === 'Materials Ready');
+            if (!alreadyReady) {
+              notifications = [{
+                id: generateId('N'),
+                title: 'Materials Ready',
+                message: `${order?.orderNumber || requirement.orderId} now has every BOM material reserved and can proceed to production.`,
+                type: 'success',
+                read: false,
+                timestamp: now(),
+                relatedId: requirement.orderId,
+                relatedType: 'order',
+              }, ...notifications];
+            }
+          }
+        }
+
+        set({
+          materialRequirements: finalRequirements,
+          notifications,
+        });
+
+        for (const requirement of updated.values()) {
+          const previous = previousById.get(requirement.id);
+          if (previous && previous.status !== requirement.status) {
+            get().addActivity({
+              type: 'inventory',
+              title: requirement.status === 'Ready' ? 'Order materials ready' : 'Order material shortage',
+              description: `${requirement.orderId}: material status changed from ${previous.status} to ${requirement.status}`,
+              relatedId: requirement.orderId,
+            });
+          }
+        }
       },
       consumeOrderMaterials: (orderId) => {
         let requirement = get().materialRequirements.find(item => item.orderId === orderId);
