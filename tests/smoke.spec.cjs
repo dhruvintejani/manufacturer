@@ -446,6 +446,8 @@ test('mobile quotation and production forms keep action buttons and dropdowns us
   // Resolve seeded SS316 shortage so a material-ready order is available for production.
   await page.goto('/purchases');
   const restockRow = page.getByRole('row').filter({ hasText: 'PUR-2026-001' });
+  await restockRow.getByRole('button', { name: 'Mark Ordered' }).click();
+  await expect(restockRow.getByText('Ordered', { exact: true })).toBeVisible();
   await restockRow.getByRole('button', { name: 'Receive Material' }).click();
   await page.goto('/production');
   await page.getByRole('button', { name: 'New Job', exact: true }).click();
