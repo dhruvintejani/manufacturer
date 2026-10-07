@@ -52,6 +52,17 @@ test('Part 5 creates an order BOM requirement and reserves available material au
     consumedQty: 0,
   });
 
+  // Core invariant: open-order reservations can never exceed physical stock,
+  // even when several orders compete for the same BOM material.
+  for (const material of state.materials) {
+    const totalReserved = state.materialRequirements
+      .filter(item => ['Ready', 'Shortage'].includes(item.status))
+      .flatMap(item => item.lines)
+      .filter(line => line.materialId === material.id)
+      .reduce((sum, line) => sum + line.reservedQty, 0);
+    expect(totalReserved, material.code + ' reservation cap').toBeLessThanOrEqual(material.currentStock + 1e-9);
+  }
+
   const row = page.getByRole('row').filter({ hasText: order.orderNumber });
   await expect(row).toContainText('Shortage');
 
