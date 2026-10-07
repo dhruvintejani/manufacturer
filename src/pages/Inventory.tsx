@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  Archive, AlertTriangle, CheckCircle2, RefreshCw, History,
+  Archive, AlertTriangle, RefreshCw, History,
   LockKeyhole, PackageCheck, SlidersHorizontal,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
