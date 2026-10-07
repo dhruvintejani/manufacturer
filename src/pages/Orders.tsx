@@ -189,6 +189,10 @@ export const Orders: React.FC = () => {
       quantity: Math.ceil(quantity * 100) / 100,
       note: `Material shortage for ${currentOrder.orderNumber}`,
     });
+    if (!request) {
+      toast.error('A valid open shortage is required and duplicate open restock requests are blocked.');
+      return;
+    }
     toast.success(`${request.requestNumber} created for ${material.name}.`);
   };
 
