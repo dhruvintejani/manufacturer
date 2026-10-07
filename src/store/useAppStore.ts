@@ -730,9 +730,32 @@ export const useAppStore = create<AppStore>()(
           }
         }
 
+        const automaticallyCancelledPurchases: PurchaseRequest[] = [];
+        const purchaseRequests = state.purchaseRequests.map(request => {
+          if (!request.orderId || ['Received', 'Cancelled'].includes(request.status)) return request;
+          const requirement = byOrder.get(request.orderId);
+          const line = requirement?.lines.find(item => item.materialId === request.materialId);
+          const shortageStillOpen = requirement?.status === 'Shortage' &&
+            !!line && line.reservedQty + 1e-9 < line.requiredQty;
+          if (shortageStillOpen) return request;
+          const cancelled: PurchaseRequest = { ...request, status: 'Cancelled' };
+          automaticallyCancelledPurchases.push(cancelled);
+          return cancelled;
+        });
+
         set({
           materialRequirements: finalRequirements,
+          purchaseRequests,
           notifications,
+        });
+
+        automaticallyCancelledPurchases.forEach(request => {
+          get().addActivity({
+            type: 'purchase',
+            title: 'Restock request auto-cancelled',
+            description: `${request.requestNumber} closed because ${request.orderId} no longer has this material shortage.`,
+            relatedId: request.id,
+          });
         });
 
         for (const requirement of updated.values()) {
