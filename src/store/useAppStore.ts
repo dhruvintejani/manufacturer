@@ -624,7 +624,9 @@ export const useAppStore = create<AppStore>()(
           productName: product.name,
           quantity: order.quantity,
           bomVersion: product.bomVersion,
-          status: 'Shortage',
+          // Preserve the prior live status until the central rebalance runs so
+          // Ready ↔ Shortage transitions can be detected and audited correctly.
+          status: existing?.status === 'Ready' ? 'Ready' : 'Shortage',
           lines,
           createdAt: existing?.createdAt || now(),
           updatedAt: now(),
