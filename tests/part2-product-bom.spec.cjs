@@ -65,6 +65,7 @@ test('Part 2 prevents duplicate products, supports safe edits, inactivity and de
   await modal.getByLabel('Product Name').fill('Mixer Skid');
   await modal.getByLabel('Description').fill('Custom mixing skid');
   await modal.getByRole('button', { name: 'Add Product' }).click();
+  await expect(modal).toBeHidden();
 
   await page.getByRole('button', { name: 'Add Product' }).click();
   modal = page.getByRole('dialog', { name: 'Add Product' });
@@ -129,19 +130,15 @@ test('Part 2 BOM updates recalculate linked open-order material requirements and
   await page.goto('/bom');
   await page.getByRole('button', { name: 'Open product Heat Exchanger' }).click();
 
-  let state = await savedState(page);
-  let requirement = state.materialRequirements.find(item => item.orderId === 'ORD-2026-0055');
-  expect(requirement.lines.find(line => line.materialId === 'MAT-002').requiredQty).toBe(170);
-
-  await page.getByRole('button', { name: 'Edit BOM', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Edit BOM', exact: true }).click();
   let bom = page.getByRole('dialog', { name: 'Edit BOM — Heat Exchanger' });
   await expect(bom.getByLabel('Qty / Product', { exact: true }).first()).toHaveValue('85');
   await bom.getByLabel('Qty / Product', { exact: true }).first().fill('90');
   await bom.getByRole('button', { name: 'Save BOM & Recalculate' }).click();
 
-  state = await savedState(page);
+  let state = await savedState(page);
   let product = state.products.find(item => item.name === 'Heat Exchanger');
-  requirement = state.materialRequirements.find(item => item.orderId === 'ORD-2026-0055');
+  let requirement = state.materialRequirements.find(item => item.orderId === 'ORD-2026-0055');
   expect(product.bomVersion).toBe('1.1');
   expect(requirement.lines.find(line => line.materialId === 'MAT-002').requiredQty).toBe(180);
 

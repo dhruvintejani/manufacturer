@@ -288,7 +288,7 @@ export const ProductBom: React.FC = () => {
               </h3>
               <button type="button" onClick={openEditBom}
                 className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100">
-                <Edit2 className="h-3.5 w-3.5" /> {selected.bom.length ? 'Edit BOM' : 'Configure BOM'}
+                <Edit2 className="h-3.5 w-3.5" /> {selected.bom.length ? 'Manage BOM' : 'Configure BOM'}
               </button>
             </div>
 
