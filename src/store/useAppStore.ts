@@ -467,37 +467,57 @@ export const useAppStore = create<AppStore>()(
         return true;
       },
       adjustMaterialStock: (id, delta, note = '') => {
-        if (!Number.isFinite(delta) || delta === 0) return false;
-        const material = get().materials.find(item => item.id === id);
-        if (!material || material.currentStock + delta < 0) return false;
-        const balance = material.currentStock + delta;
-        set(state => ({
-          materials: state.materials.map(item => item.id === id ? { ...item, currentStock: balance } : item),
+        const reason = note.trim();
+        if (!Number.isFinite(delta) || delta === 0 || !reason) return false;
+        const state = get();
+        const material = state.materials.find(item => item.id === id);
+        if (!material) return false;
+
+        const reserved = state.materialRequirements
+          .filter(requirement => ['Ready', 'Shortage'].includes(requirement.status))
+          .flatMap(requirement => requirement.lines)
+          .filter(line => line.materialId === id)
+          .reduce((sum, line) => sum + line.reservedQty, 0);
+        const balance = Math.round((material.currentStock + delta + Number.EPSILON) * 100) / 100;
+        // Manual corrections must never consume stock already reserved for open orders.
+        // Reservation release/shortage handling belongs to the order workflow, not to a stock correction.
+        if (balance < 0 || balance + 1e-9 < reserved) return false;
+
+        const timestamp = now();
+        set(current => ({
+          materials: current.materials.map(item => item.id === id ? { ...item, currentStock: balance } : item),
           inventoryTransactions: [{
             id: generateId('TXN'),
             materialId: id,
             type: 'adjustment',
-            quantity: delta,
+            quantity: Math.round((delta + Number.EPSILON) * 100) / 100,
             balanceAfter: balance,
-            timestamp: now(),
+            timestamp,
             reference: 'Stock Adjustment',
-            note: note.trim() || undefined,
-          }, ...state.inventoryTransactions],
-          notifications: state.notifications.map(notification =>
+            note: reason,
+          }, ...current.inventoryTransactions],
+          notifications: current.notifications.map(notification =>
             notification.relatedId === id && notification.title === 'Low Stock Alert'
               ? { ...notification, read: true }
               : notification),
         }));
         get().rebalanceMaterialReservations();
+        get().addActivity({
+          type: 'inventory',
+          title: 'Inventory adjusted',
+          description: `${material.name} ${delta > 0 ? '+' : ''}${delta} ${material.unit}; balance ${balance} ${material.unit}. Reason: ${reason}`,
+          relatedId: id,
+        });
+
         const updated = get().materials.find(item => item.id === id);
         if (updated && updated.currentStock < updated.minimumStock) {
           const duplicate = get().notifications.some(notification =>
             !notification.read && notification.relatedId === id && notification.title === 'Low Stock Alert');
-          if (!duplicate) set(state => ({ notifications: [{
+          if (!duplicate) set(current => ({ notifications: [{
             id: generateId('N'), title: 'Low Stock Alert',
             message: `${updated.name} is below minimum stock. Current: ${updated.currentStock} ${updated.unit}; minimum: ${updated.minimumStock} ${updated.unit}.`,
             type: 'danger', read: false, timestamp: now(), relatedId: id, relatedType: 'inventory',
-          }, ...state.notifications] }));
+          }, ...current.notifications] }));
         }
         return true;
       },
