@@ -399,7 +399,7 @@ export const Orders: React.FC = () => {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <Boxes className="h-4 w-4 text-blue-600" />
-                    <h3 className="text-sm font-bold text-slate-900">Material Readiness</h3>
+                    <h3 className="text-sm font-bold text-slate-900" data-part="5">Material Readiness</h3>
                   </div>
                   <p className="mt-1 text-xs text-slate-600">
                     {currentMaterialRequirement
