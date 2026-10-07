@@ -20,7 +20,7 @@ test('Part 3 shows physical, reserved and available stock from the same live inv
   await expect(ss304).toContainText('50');
   await expect(ss304).toContainText('800');
 
-  await page.getByRole('button', { name: 'View ledger SS316 Sheet' }).click();
+  await page.getByRole('button', { name: 'View / Adjust SS316 Sheet' }).click();
   const modal = page.getByRole('dialog', { name: /SS316 Sheet/ });
   await expect(modal).toBeVisible();
   await expect(modal.getByRole('region', { name: 'Open stock reservations' })).toContainText('ORD-2026-0055');
