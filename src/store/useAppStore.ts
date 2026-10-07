@@ -335,29 +335,50 @@ export const useAppStore = create<AppStore>()(
       updateOrder: (id, data, changedBy = 'System', note = '') => {
         const previous = get().orders.find(o => o.id === id);
         if (!previous) return;
-        const statusChanged = data.status && data.status !== previous.status;
+
+        const requirement = get().materialRequirements.find(item => item.orderId === id);
+        const materialDefinitionLocked = !!previous.productionJobId ||
+          requirement?.status === 'Consumed' ||
+          ['Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'].includes(previous.status);
+        const safeData: Partial<Order> = { ...data };
+        if (materialDefinitionLocked) {
+          delete safeData.product;
+          delete safeData.quantity;
+        }
+
+        const productChanged = !!safeData.product && safeData.product !== previous.product;
+        const quantityChanged = safeData.quantity !== undefined && safeData.quantity !== previous.quantity;
+        const statusChanged = safeData.status && safeData.status !== previous.status;
         const statusHistory = statusChanged
           ? [...(previous.statusHistory || []), {
-              from: previous.status, to: data.status as OrderStatus,
+              from: previous.status, to: safeData.status as OrderStatus,
               changedBy, changedAt: now(), note: note.trim() || undefined,
             }]
           : previous.statusHistory;
-        set(s => ({
-          orders: s.orders.map(o => o.id === id ? {
-            ...o, ...data, statusHistory,
-          } : o),
+
+        set(current => ({
+          orders: current.orders.map(order => order.id === id ? {
+            ...order, ...safeData, statusHistory,
+          } : order),
         }));
-        if ((data.product && data.product !== previous.product) || (data.quantity && data.quantity !== previous.quantity)) {
+
+        if (productChanged || quantityChanged) {
+          get().calculateMaterialRequirement(id);
           const current = get().orders.find(order => order.id === id);
-          if (current && !current.productionJobId && !['Completed', 'Cancelled'].includes(current.status)) {
-            get().calculateMaterialRequirement(id);
+          if (current) {
+            get().addActivity({
+              type: 'order',
+              title: 'Order materials recalculated',
+              description: `${current.orderNumber}: BOM requirement recalculated for ${current.quantity} × ${current.product}`,
+              relatedId: current.id,
+            });
           }
         }
         if (statusChanged) {
           get().addActivity({
             type: 'order',
             title: 'Order status updated',
-            description: `${previous.orderNumber}: ${previous.status} → ${data.status} by ${changedBy}`,
+            description: `${previous.orderNumber}: ${previous.status} → ${safeData.status} by ${changedBy}`,
             relatedId: previous.id,
           });
         }
