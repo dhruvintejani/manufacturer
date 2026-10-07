@@ -164,6 +164,5 @@ test('Part 5 order material readiness stays usable on a narrow phone', async ({ 
   }).toBeLessThanOrEqual(321);
   const bounds = await drawer.boundingBox();
   expect(bounds.width).toBeLessThanOrEqual(321);
-  // Allow the tiny sub-pixel x offset that headless WebKit can report after the drawer animation.
   expect(bounds.x).toBeGreaterThanOrEqual(-2);
 });
