@@ -61,7 +61,7 @@ export const inventorySummary = (
   }));
   return {
     materialCount: materials.length,
-    lowStockCount: positions.filter(item => item.status === 'Low Stock').length,
+    lowStockCount: positions.filter(item => ['Low Stock', 'Out of Stock'].includes(item.status)).length,
     outOfStockCount: positions.filter(item => item.status === 'Out of Stock').length,
     reorderSoonCount: positions.filter(item => item.status === 'Reorder Soon').length,
     reservedMaterialCount: positions.filter(item => item.reserved > 0).length,
