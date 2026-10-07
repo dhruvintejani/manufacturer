@@ -65,7 +65,7 @@ export const Production: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<ProductionJob | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [newJobForm, setNewJobForm] = useState({
-    orderId: '', product: products[0]?.name || FALLBACK_PRODUCTS[0], quantity: 1,
+    orderId: '', product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0], quantity: 1,
     startDate: new Date().toISOString().split('T')[0],
     expectedCompletion: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
     assignedTeam: TEAMS[0], notes: '',
@@ -172,7 +172,7 @@ export const Production: React.FC = () => {
     toast.success(`Production job ${job.jobNumber} created. Reserved materials were consumed from inventory.`);
     setAddModalOpen(false);
     setNewJobForm({
-      orderId: '', product: products[0]?.name || FALLBACK_PRODUCTS[0], quantity: 1,
+      orderId: '', product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0], quantity: 1,
       startDate: new Date().toISOString().split('T')[0],
       expectedCompletion: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
       assignedTeam: TEAMS[0], notes: '',
@@ -442,7 +442,7 @@ export const Production: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Product</label>
             <PremiumSelect label="Product" value={newJobForm.product} onChange={value => setNewJobForm(f => ({ ...f, product: value }))}
-              options={(products.length ? products.map(product => product.name) : FALLBACK_PRODUCTS).map(value => ({ value, label: value }))} />
+              options={(products.length ? products.filter(product => product.active).map(product => product.name) : FALLBACK_PRODUCTS).map(value => ({ value, label: value }))} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Quantity</label>

@@ -80,7 +80,7 @@ export const Orders: React.FC = () => {
   const [createJobOpen, setCreateJobOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [newOrderForm, setNewOrderForm] = useState({
-    customerId: '', quotationId: '', product: products[0]?.name || FALLBACK_PRODUCTS[0],
+    customerId: '', quotationId: '', product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0],
     quantity: 1, orderDate: new Date().toISOString().split('T')[0],
     deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
     totalAmount: 0, paymentStatus: 'Pending', status: 'Confirmed', notes: '',
@@ -225,7 +225,7 @@ export const Orders: React.FC = () => {
     toast.success(`Order ${order.orderNumber} created.`);
     setAddModalOpen(false);
     setNewOrderForm({
-      customerId: '', quotationId: '', product: products[0]?.name || FALLBACK_PRODUCTS[0],
+      customerId: '', quotationId: '', product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0],
       quantity: 1, orderDate: new Date().toISOString().split('T')[0],
       deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
       totalAmount: 0, paymentStatus: 'Pending', status: 'Confirmed', notes: '',
@@ -604,7 +604,7 @@ export const Orders: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Product</label>
             <PremiumSelect label="Product" value={newOrderForm.product} onChange={value => setNewOrderForm(f => ({ ...f, product: value }))}
-              options={(products.length ? products.map(product => product.name) : FALLBACK_PRODUCTS).map(value => ({ value, label: value }))} />
+              options={(products.length ? products.filter(product => product.active).map(product => product.name) : FALLBACK_PRODUCTS).map(value => ({ value, label: value }))} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Quantity</label>
