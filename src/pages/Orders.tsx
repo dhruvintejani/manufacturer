@@ -383,31 +383,117 @@ export const Orders: React.FC = () => {
               )}
             </div>
 
-            <section aria-label="Material readiness" className={`rounded-xl border p-4 ${currentMaterialRequirement?.status === 'Shortage' ? 'border-rose-200 bg-rose-50' : currentMaterialRequirement?.status === 'Ready' ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
-              <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2"><Boxes className="h-4 w-4 text-blue-600" /><h4 className="text-sm font-bold text-slate-900">Material Readiness</h4></div>
-                <StatusBadge status={currentMaterialRequirement?.status || 'Not Calculated'} />
+            <section
+              aria-label="Material readiness"
+              className={`rounded-xl border p-4 ${
+                currentMaterialRequirement?.status === 'Shortage'
+                  ? 'border-rose-200 bg-rose-50'
+                  : currentMaterialRequirement?.status === 'Ready'
+                    ? 'border-emerald-200 bg-emerald-50'
+                    : currentMaterialRequirement?.status === 'Consumed'
+                      ? 'border-blue-200 bg-blue-50'
+                      : 'border-slate-200 bg-white'
+              }`}
+            >
+              <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Boxes className="h-4 w-4 text-blue-600" />
+                    <h4 className="text-sm font-bold text-slate-900">Material Readiness</h4>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {currentMaterialRequirement
+                      ? `BOM v${currentMaterialRequirement.bomVersion || currentProduct?.bomVersion || '—'} · ${readyMaterialLines}/${currentMaterialRequirement.lines.length} material lines covered`
+                      : `${currentProduct?.name || currentOrder?.product || 'Product'} BOM has not been calculated for this order.`}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={currentMaterialRequirement?.status || 'Not Calculated'} />
+                  {currentOrder && !currentOrder.productionJobId && !['Completed', 'Cancelled'].includes(currentOrder.status) && currentMaterialRequirement?.status !== 'Consumed' && (
+                    <button
+                      type="button"
+                      onClick={handleRecheckMaterials}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" /> Recheck
+                    </button>
+                  )}
+                </div>
               </div>
+
               {!currentMaterialRequirement ? (
-                <p className="mt-3 text-sm text-slate-600">No BOM requirement is available for this order yet.</p>
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-sm font-semibold text-amber-900">BOM requirement is not available.</p>
+                  <p className="mt-1 text-xs leading-5 text-amber-800">
+                    Configure a BOM for {currentOrder?.product || 'this product'} before production can start.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setViewingOrder(null); navigate('/bom'); }}
+                    className="mt-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+                  >
+                    Open Product BOM
+                  </button>
+                </div>
               ) : (
                 <div className="mt-3 space-y-2">
                   {currentMaterialRequirement.lines.map(line => {
                     const material = materials.find(item => item.id === line.materialId);
                     const shortage = Math.max(0, line.requiredQty - line.reservedQty);
-                    return <div key={line.materialId} className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg bg-white/80 px-3 py-2">
-                      <div className="min-w-0"><div className="text-sm font-semibold text-slate-900">{material?.name || line.materialId}</div><div className="text-xs text-slate-500">Required {line.requiredQty} {material?.unit} · Reserved {line.reservedQty} {material?.unit}</div></div>
-                      {shortage > 0 ? (
-                        <button type="button" onClick={() => handleRestockShortage(line.materialId, shortage)}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700">
-                          <ShoppingBag className="h-3.5 w-3.5" /> Restock {shortage} {material?.unit}
-                        </button>
-                      ) : <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><CheckCircle className="h-4 w-4" /> Sufficient</span>}
-                    </div>;
+                    const isShortage = currentMaterialRequirement.status === 'Shortage' && shortage > 0;
+                    return (
+                      <div key={line.materialId} className="rounded-lg border border-white/80 bg-white/90 p-3 shadow-sm">
+                        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-slate-900">{material?.name || line.materialId}</div>
+                            <div className="mt-0.5 text-xs text-slate-500">{material?.code || line.materialId} · stock on hand {material?.currentStock ?? 0} {material?.unit || ''}</div>
+                          </div>
+                          {isShortage ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRestockShortage(line.materialId, shortage)}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700"
+                            >
+                              <ShoppingBag className="h-3.5 w-3.5" /> Restock {shortage} {material?.unit}
+                            </button>
+                          ) : currentMaterialRequirement.status === 'Consumed' ? (
+                            <span className="text-xs font-semibold text-blue-700">Consumed {line.consumedQty} {material?.unit}</span>
+                          ) : currentMaterialRequirement.status === 'Released' ? (
+                            <span className="text-xs font-semibold text-slate-600">Reservation released</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><CheckCircle className="h-4 w-4" /> Covered</span>
+                          )}
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                          <div className="rounded-md bg-slate-50 p-2"><span className="block text-slate-500">Required</span><strong className="mt-0.5 block tabular-nums text-slate-900">{line.requiredQty} {material?.unit}</strong></div>
+                          <div className="rounded-md bg-violet-50 p-2"><span className="block text-violet-600">Reserved</span><strong className="mt-0.5 block tabular-nums text-violet-900">{line.reservedQty} {material?.unit}</strong></div>
+                          <div className={`rounded-md p-2 ${shortage > 0 && currentMaterialRequirement.status === 'Shortage' ? 'bg-rose-100' : 'bg-emerald-50'}`}>
+                            <span className={shortage > 0 && currentMaterialRequirement.status === 'Shortage' ? 'text-rose-600' : 'text-emerald-600'}>
+                              {currentMaterialRequirement.status === 'Consumed' ? 'Consumed' : 'Shortage'}
+                            </span>
+                            <strong className={`mt-0.5 block tabular-nums ${shortage > 0 && currentMaterialRequirement.status === 'Shortage' ? 'text-rose-900' : 'text-emerald-900'}`}>
+                              {currentMaterialRequirement.status === 'Consumed' ? line.consumedQty : shortage} {material?.unit}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                    );
                   })}
-                  {currentMaterialRequirement.status === 'Shortage' && <p className="flex items-start gap-2 text-xs leading-5 text-rose-800"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> Production is locked until every BOM line is fully reserved. Receiving restock material recalculates this automatically.</p>}
-                  {currentMaterialRequirement.status === 'Ready' && <p className="text-xs leading-5 text-emerald-800">All materials are reserved. Starting production will consume the reserved quantities exactly once.</p>}
-                  {currentMaterialRequirement.status === 'Consumed' && <p className="text-xs leading-5 text-blue-800">Materials were consumed when production started; inventory transactions were recorded.</p>}
+                  {currentMaterialRequirement.status === 'Shortage' && (
+                    <p className="flex items-start gap-2 text-xs leading-5 text-rose-800">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      Production is locked until every BOM line is fully reserved. Earlier open orders keep reservation priority.
+                    </p>
+                  )}
+                  {currentMaterialRequirement.status === 'Ready' && (
+                    <p className="text-xs leading-5 text-emerald-800">All BOM materials are reserved for this order. Production can start.</p>
+                  )}
+                  {currentMaterialRequirement.status === 'Consumed' && (
+                    <p className="text-xs leading-5 text-blue-800">Materials were consumed once when production started; the requirement is now locked.</p>
+                  )}
+                  {currentMaterialRequirement.status === 'Released' && (
+                    <p className="text-xs leading-5 text-slate-700">This order no longer holds inventory reservations. Released stock is available to later open orders.</p>
+                  )}
                 </div>
               )}
             </section>
