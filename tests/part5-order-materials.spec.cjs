@@ -66,7 +66,7 @@ test('Part 5 creates an order BOM requirement and reserves available material au
   const row = page.getByRole('row').filter({ hasText: order.orderNumber });
   await expect(row).toContainText('Shortage');
 
-  await row.getByRole('button', { name: order.orderNumber }).click();
+  await row.getByRole('button', { name: order.orderNumber, exact: true }).click();
   const drawer = page.getByRole('dialog', { name: order.orderNumber });
   const readiness = drawer.getByRole('region', { name: 'Material readiness' });
   await expect(readiness).toContainText('BOM v1.0');
@@ -81,7 +81,8 @@ test('Part 5 recalculates BOM quantities and reservations when an open order qua
   const before = state.materialRequirements.find(item => item.orderId === order.id);
   expect(before.lines.find(line => line.materialId === 'MAT-001').requiredQty).toBe(100);
 
-  await page.getByRole('button', { name: order.orderNumber }).click();
+  const orderRow = page.getByRole('row').filter({ hasText: order.orderNumber });
+  await orderRow.getByRole('button', { name: order.orderNumber, exact: true }).click();
   const drawer = page.getByRole('dialog', { name: order.orderNumber });
   await drawer.getByRole('button', { name: 'Edit Order' }).click();
 
@@ -154,7 +155,14 @@ test('Part 5 order material readiness stays usable on a narrow phone', async ({ 
   const readiness = drawer.getByRole('region', { name: 'Material readiness' });
   await expect(readiness).toBeVisible();
   await expect(readiness).toContainText('SS316 Sheet');
+  // The drawer slides in with a spring animation. Verify the settled position,
+  // not an intermediate frame while it is still translated off-screen.
+  await expect.poll(async () => {
+    const bounds = await drawer.boundingBox();
+    if (!bounds) return 9999;
+    return Math.ceil(bounds.x + bounds.width);
+  }).toBeLessThanOrEqual(321);
   const bounds = await drawer.boundingBox();
   expect(bounds.x).toBeGreaterThanOrEqual(-1);
-  expect(bounds.x + bounds.width).toBeLessThanOrEqual(321);
+  expect(bounds.width).toBeLessThanOrEqual(321);
 });
