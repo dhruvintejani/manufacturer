@@ -115,13 +115,16 @@ export const Orders: React.FC = () => {
   };
 
   const handleCreateJob = (order: Order) => {
+    const startDate = new Date().toISOString().split('T')[0];
+    const fallbackCompletion = new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0];
+    const expectedCompletion = order.deliveryDate >= startDate ? order.deliveryDate : fallbackCompletion;
     const newJob = addProductionJob({
       jobNumber: '',
       orderId: order.id,
       product: order.product,
       quantity: order.quantity,
-      startDate: new Date().toISOString().split('T')[0],
-      expectedCompletion: order.deliveryDate,
+      startDate,
+      expectedCompletion,
       assignedTeam: 'Fabrication Team A',
       status: 'Planning',
       progress: 0,
@@ -583,7 +586,7 @@ export const Orders: React.FC = () => {
 
             {/* Actions */}
             <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
-              {!getJob(viewingOrder.id) && ['Confirmed', 'Production'].includes(viewingOrder.status) && (
+              {!getJob(viewingOrder.id) && viewingOrder.status === 'Confirmed' && (
                 <button disabled={currentMaterialRequirement?.status !== 'Ready'} onClick={() => setCreateJobOpen(true)}
                   title={currentMaterialRequirement?.status === 'Ready' ? 'Create production job and consume reserved materials' : 'Resolve material shortages before production'}
                   className="flex flex-1 items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-slate-300">
