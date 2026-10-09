@@ -521,7 +521,7 @@ export const Reports: React.FC = () => {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="min-w-0 space-y-4 sm:space-y-6">
           <div className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6 lg:gap-4">
             <KpiBox label="Materials" value={materials.length} sub="Master records" />
-            <KpiBox label="Below Minimum" value={inventoryReport.lowStockCount} sub="Low or out of stock" positive={inventoryReport.lowStockCount === 0} />
+            <KpiBox label="Low Stock" value={inventoryReport.lowStockCount} sub="Below minimum or out of stock" positive={inventoryReport.lowStockCount === 0} />
             <KpiBox label="Shortage Orders" value={inventoryReport.shortageOrderCount} sub="Blocked by material" positive={inventoryReport.shortageOrderCount === 0} />
             <KpiBox label="Open Restock" value={inventoryReport.openRestockCount} sub="Requested or ordered" />
             <KpiBox label="Consumption Events" value={inventoryReport.consumedThisYear} sub={`${reportingYear} production issues`} />
@@ -692,7 +692,7 @@ export const Reports: React.FC = () => {
               {inventoryReport.receipts.length ? (
                 <div className="max-w-full overflow-x-auto">
                   <table className="min-w-[560px] w-full">
-                    <thead className="bg-slate-50"><tr>{['Material','Received','Unit','Receipt Events','Latest Receipt'].map(label => <th key={label} className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{label}</th>)}</tr></thead>
+                    <thead className="bg-slate-50"><tr>{['Material','Received Qty','Unit','Receipt Count','Latest Receipt'].map(label => <th key={label} className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{label}</th>)}</tr></thead>
                     <tbody className="divide-y divide-slate-100">
                       {inventoryReport.receipts.map(row => (
                         <tr key={row.materialId}>
