@@ -1134,15 +1134,21 @@ export const useAppStore = create<AppStore>()(
         const previousRank = previous.status === 'Delayed'
           ? productionWorkflow.indexOf(productionStatusForProgress(previous.progress))
           : productionWorkflow.indexOf(previous.status);
-        if (requestedStatus !== 'Delayed') {
+        if (requestedStatus === 'Delayed') {
+          // Delayed is an exception state, not a way to keep advancing progress.
+          if (data.progress !== undefined && requestedProgress !== previous.progress) return false;
+        } else {
           const requestedRank = productionWorkflow.indexOf(requestedStatus);
           const progressRank = productionWorkflow.indexOf(productionStatusForProgress(requestedProgress));
-          if (requestedRank < 0 || requestedRank < previousRank) return false;
-          requestedStatus = productionWorkflow[Math.max(requestedRank, progressRank)];
+          const nextRank = Math.max(requestedRank, progressRank);
+          // Manufacturing stages are sequential. A single update may advance one stage
+          // (or resume a delayed job at its current/next stage), but can never skip/rewind.
+          if (requestedRank < 0 || nextRank < previousRank || nextRank > previousRank + 1) return false;
+          requestedStatus = productionWorkflow[nextRank];
         }
 
         const progress = requestedStatus === 'Delayed'
-          ? requestedProgress
+          ? previous.progress
           : Math.max(requestedProgress, productionMilestones[requestedStatus as Exclude<ProductionStatus, 'Delayed'>]);
 
         const currentStage = progress >= 100 ? previous.stages.length
