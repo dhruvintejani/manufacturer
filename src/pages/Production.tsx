@@ -529,9 +529,15 @@ export const Production: React.FC = () => {
       {/* Add Job Modal */}
       <Modal open={addModalOpen} onClose={() => setAddModalOpen(false)} title="Create Production Job" size="lg"
         footer={
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <button onClick={() => setAddModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
-            <button onClick={handleAddJob} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm">Create Job</button>
+            <button
+              onClick={handleAddJob}
+              disabled={!selectedNewOrder || selectedNewRequirement?.status !== 'Ready'}
+              className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 rounded-lg shadow-sm"
+            >
+              Start Production & Consume Materials
+            </button>
           </div>
         }
       >
@@ -540,25 +546,31 @@ export const Production: React.FC = () => {
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Linked Order <span className="text-red-500">*</span></label>
             <PremiumSelect label="Linked order" value={newJobForm.orderId}
               onChange={value => {
-                const selected = orders.find(o => o.id === value);
-                setNewJobForm(f => ({ ...f, orderId: value,
-                  product: selected?.product || f.product, quantity: selected?.quantity || f.quantity,
-                  expectedCompletion: selected?.deliveryDate || f.expectedCompletion }));
+                const selected = eligibleOrders.find(order => order.id === value);
+                setNewJobForm(current => ({
+                  ...current,
+                  orderId: value,
+                  product: selected?.product || current.product,
+                  quantity: selected?.quantity || current.quantity,
+                  expectedCompletion: selected?.deliveryDate || current.expectedCompletion,
+                }));
               }}
-              options={[{ value: '', label: 'Select material-ready order...' }, ...orders.filter(o =>
-                !productionJobs.some(j => j.orderId === o.id) &&
-                !['Completed','Cancelled','On Hold'].includes(o.status) &&
-                materialRequirements.some(requirement => requirement.orderId === o.id && requirement.status === 'Ready')
-              ).map(o => ({ value: o.id, label: `${o.orderNumber} — ${o.product}` }))]} />
+              options={[{ value: '', label: eligibleOrders.length ? 'Select material-ready order...' : 'No material-ready confirmed orders' }, ...eligibleOrders.map(order => ({
+                value: order.id,
+                label: `${order.orderNumber} — ${order.quantity} × ${order.product}`,
+              }))]} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Product</label>
-            <PremiumSelect label="Product" value={newJobForm.product} onChange={value => setNewJobForm(f => ({ ...f, product: value }))}
-              options={(products.length ? products.filter(product => product.active).map(product => product.name) : FALLBACK_PRODUCTS).map(value => ({ value, label: value }))} />
+            <div className="min-h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-800">
+              {selectedNewOrder?.product || 'Select an order'}
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Quantity</label>
-            <input type="number" min={1} value={newJobForm.quantity} onChange={e => setNewJobForm(f => ({ ...f, quantity: parseInt(e.target.value) || 1 }))} className={inputClass} />
+            <div className="min-h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold tabular-nums text-slate-800">
+              {selectedNewOrder?.quantity ?? '—'}
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Start Date</label>
@@ -577,18 +589,27 @@ export const Production: React.FC = () => {
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
             <textarea rows={2} value={newJobForm.notes} onChange={e => setNewJobForm(f => ({ ...f, notes: e.target.value }))} className={inputClass} placeholder="Production notes..." />
           </div>
+
+          <div className="sm:col-span-2 rounded-xl border border-blue-100 bg-blue-50 p-4">
+            <div className="flex items-start gap-3">
+              <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
+              <div className="min-w-0">
+                <h4 className="text-sm font-bold text-blue-950">Production start is the inventory-consumption boundary</h4>
+                {selectedNewRequirement?.status === 'Ready' ? (
+                  <p className="mt-1 text-xs leading-5 text-blue-800">
+                    All {selectedNewRequirement.lines.length} BOM material lines are reserved. Creating this job will deduct those reserved quantities exactly once and record inventory transactions against {selectedNewOrder?.orderNumber}.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs leading-5 text-blue-800">
+                    Select a confirmed order with a Ready material requirement. {blockedConfirmedOrders > 0 ? `${blockedConfirmedOrders} confirmed order${blockedConfirmedOrders === 1 ? '' : 's'} are currently blocked by material readiness.` : ''}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </Modal>
 
-      <ConfirmDialog
-        open={!!deleteTarget}
-        title="Delete Production Job"
-        description={`Delete job ${deleteTarget?.jobNumber}? This action cannot be undone.`}
-        confirmLabel="Delete"
-        variant="danger"
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
     </div>
   );
 };
