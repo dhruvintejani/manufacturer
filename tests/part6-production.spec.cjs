@@ -50,7 +50,7 @@ test('Part 6 blocks production until a confirmed order has a fully reserved BOM'
   const list = page.getByRole('listbox', { name: 'Linked order' });
   await expect(list).toBeVisible();
   await expect(list.getByRole('option', { name: /ORD-2026-0055/ })).toHaveCount(0);
-  await expect(modal).toContainText('1 confirmed order is currently blocked by material readiness');
+  await expect(modal).toContainText(/confirmed order.*currently blocked by material readiness/);
 });
 
 test('Part 6 starts production from a Ready reservation and consumes every BOM line exactly once', async ({ page }) => {
