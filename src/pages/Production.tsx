@@ -451,11 +451,11 @@ export const Production: React.FC = () => {
               </div>
               <input
                 type="range"
-                min={0}
+                min={viewingJob.progress}
                 max={100}
                 step={5}
                 value={viewingJob.progress}
-                disabled={viewingJob.status === 'Completed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))}
+                disabled={viewingJob.status === 'Completed' || viewingJob.status === 'Delayed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))}
                 aria-label="Production progress percentage"
                 onChange={e => handleUpdateProgress(viewingJob, parseInt(e.target.value))}
                 className="w-full accent-blue-600"
@@ -471,17 +471,22 @@ export const Production: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Update Status</label>
               <PremiumSelect label="Update production status" value={viewingJob.status}
-                disabled={viewingJob.status === 'Completed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))} onChange={value => handleStatusChange(viewingJob, value)}
-                options={PRODUCTION_STATUSES.map(value => ({ value, label: value, color: statusColorMap[value] }))} />
+                disabled={viewingJob.status === 'Completed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))}
+                onChange={value => handleStatusChange(viewingJob, value)}
+                options={allowedStatuses(viewingJob).map(value => ({ value, label: value, color: statusColorMap[value] }))} />
             </div>
 
             {/* Team */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Assigned Team</label>
               <PremiumSelect label="Assigned team" value={viewingJob.assignedTeam}
+                disabled={viewingJob.status === 'Completed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))}
                 onChange={value => {
-                  updateProductionJob(viewingJob.id, { assignedTeam: value });
-                  setViewingJob(prev => prev ? { ...prev, assignedTeam: value } : null);
+                  if (!updateProductionJob(viewingJob.id, { assignedTeam: value })) {
+                    toast.error('Assigned team cannot be changed while the linked order is blocked or completed.');
+                    return;
+                  }
+                  refreshViewingJob(viewingJob.id);
                   toast.success('Assigned team updated.');
                 }} options={TEAMS.map(value => ({ value, label: value }))} />
             </div>
@@ -492,9 +497,11 @@ export const Production: React.FC = () => {
               <textarea
                 rows={3}
                 defaultValue={viewingJob.notes}
+                disabled={viewingJob.status === 'Completed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))}
                 onBlur={e => {
-                  updateProductionJob(viewingJob.id, { notes: e.target.value });
-                  setViewingJob(prev => prev ? { ...prev, notes: e.target.value } : null);
+                  if (updateProductionJob(viewingJob.id, { notes: e.target.value })) {
+                    refreshViewingJob(viewingJob.id);
+                  }
                 }}
                 className={inputClass}
                 placeholder="Add production notes..."
@@ -502,25 +509,19 @@ export const Production: React.FC = () => {
             </div>
 
             {/* Mark Complete */}
-            {viewingJob.status !== 'Completed' && !orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status)) && (
+            {viewingJob.status !== 'Completed' && viewingJob.status !== 'Delayed' && !orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status)) && (
               <button
-                onClick={() => {
-                  handleUpdateProgress(viewingJob, 100);
-                  handleStatusChange({ ...viewingJob, progress: 100 }, 'Completed');
-                  toast.success(`Job ${viewingJob.jobNumber} marked as completed!`);
-                }}
+                onClick={() => handleStatusChange(viewingJob, 'Completed')}
                 className="w-full py-3 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors"
               >
                 Mark as Completed
               </button>
             )}
 
-            <button
-              onClick={() => { setDeleteTarget(viewingJob); setViewingJob(null); }}
-              className="w-full py-2.5 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors"
-            >
-              Delete Job
-            </button>
+            <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+              <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+              Production jobs are retained as audit records because starting production consumes BOM materials and links inventory transactions to the order.
+            </div>
           </div>
         </Drawer>
       )}
