@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   ShoppingBag, Plus, Truck, PackageCheck, XCircle, AlertTriangle,
   Search, ChevronRight, Clock3, Ban, Boxes,
@@ -24,6 +25,7 @@ type PurchaseForm = {
 };
 
 export const Purchases: React.FC = () => {
+  const location = useLocation();
   const {
     purchaseRequests, materials, orders, materialRequirements, inventoryTransactions,
     createPurchaseRequest, setPurchaseRequestStatus, receivePurchaseRequest,
@@ -47,6 +49,12 @@ export const Purchases: React.FC = () => {
   const selectedRequest = selectedRequestId
     ? purchaseRequests.find(request => request.id === selectedRequestId) || null
     : null;
+
+  useEffect(() => {
+    const openId = new URLSearchParams(location.search).get('open');
+    if (!openId) return;
+    if (purchaseRequests.some(request => request.id === openId)) setSelectedRequestId(openId);
+  }, [location.search, purchaseRequests]);
 
   const stats = {
     requested: purchaseRequests.filter(request => request.status === 'Requested').length,
