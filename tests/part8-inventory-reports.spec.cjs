@@ -15,7 +15,7 @@ const openInventoryReport = async page => {
 test('Part 8 shows stock, shortage, consumption and procurement analytics from one live state', async ({ page }) => {
   await openInventoryReport(page);
 
-  const belowMinimum = page.getByText('Below Minimum', { exact: true }).locator('..');
+  const belowMinimum = page.getByText('Low Stock', { exact: true }).first().locator('..');
   await expect(belowMinimum).toContainText('2');
 
   const shortageOrders = page.getByText('Shortage Orders', { exact: true }).locator('..');
@@ -97,7 +97,7 @@ test('Part 8 consumption analytics update after a material-ready order starts pr
 
   await page.goto('/orders?open=ORD-2026-0055');
   const order = page.getByRole('dialog', { name: /ORD-2026-0055/ });
-  await expect(order.getByText('All materials are reserved')).toBeVisible();
+  await expect(order.getByText('All BOM materials are reserved')).toBeVisible();
   await order.getByRole('button', { name: 'Create Production Job' }).click();
   await page.getByRole('dialog', { name: 'Create Production Job' })
     .getByRole('button', { name: 'Create Job' }).click();
