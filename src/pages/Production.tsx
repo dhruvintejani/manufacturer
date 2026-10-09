@@ -264,12 +264,14 @@ export const Production: React.FC = () => {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-7">
         <StatCard title="Active Jobs" value={stats.active} icon={<Factory className="w-5 h-5 text-blue-600" />} iconBg="bg-blue-50" index={0} />
         <StatCard title="In Production" value={stats.inProduction} icon={<Clock className="w-5 h-5 text-violet-600" />} iconBg="bg-violet-50" index={1} />
         <StatCard title="Quality Check" value={stats.qualityCheck} icon={<CheckCircle className="w-5 h-5 text-amber-600" />} iconBg="bg-amber-50" index={2} />
         <StatCard title="Delayed" value={stats.delayed} icon={<AlertTriangle className="w-5 h-5 text-red-600" />} iconBg="bg-red-50" index={3} />
         <StatCard title="Completed" value={stats.completed} icon={<CheckCircle className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={4} />
+        <StatCard title="Ready to Start" value={eligibleOrders.length} icon={<PackageCheck className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={5} />
+        <StatCard title="Material Blocked" value={blockedConfirmedOrders} icon={<LockKeyhole className="w-5 h-5 text-rose-600" />} iconBg="bg-rose-50" index={6} />
       </div>
 
       {/* Filters */}
