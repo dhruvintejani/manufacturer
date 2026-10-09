@@ -73,7 +73,7 @@ export const buildInventoryReport = (
   const purchaseStatusData = [
     { name: 'Requested', value: purchaseRequests.filter(request => request.status === 'Requested').length, fill: '#F59E0B' },
     { name: 'Ordered', value: purchaseRequests.filter(request => request.status === 'Ordered').length, fill: '#8B5CF6' },
-    { name: 'Received', value: purchaseRequests.filter(request => request.status === 'Received').length, fill: '#10B981' },
+    { name: 'Received Requests', value: purchaseRequests.filter(request => request.status === 'Received').length, fill: '#10B981' },
     { name: 'Cancelled', value: purchaseRequests.filter(request => request.status === 'Cancelled').length, fill: '#94A3B8' },
   ].filter(item => item.value > 0);
 
