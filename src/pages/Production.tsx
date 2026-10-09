@@ -232,7 +232,20 @@ export const Production: React.FC = () => {
     });
   };
 
-
+  const viewingRequirement = viewingJob
+    ? materialRequirements.find(requirement => requirement.orderId === viewingJob.orderId)
+    : undefined;
+  const viewingConsumptionTransactions = viewingJob
+    ? inventoryTransactions.filter(transaction =>
+        transaction.type === 'production_consumption' &&
+        transaction.reference === viewingJob.orderId)
+    : [];
+  const selectedNewOrder = newJobForm.orderId
+    ? orders.find(order => order.id === newJobForm.orderId)
+    : undefined;
+  const selectedNewRequirement = selectedNewOrder
+    ? materialRequirements.find(requirement => requirement.orderId === selectedNewOrder.id)
+    : undefined;
 
   return (
     <div className="page-shell">
