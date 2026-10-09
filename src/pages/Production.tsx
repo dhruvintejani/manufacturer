@@ -558,13 +558,19 @@ export const Production: React.FC = () => {
             <PremiumSelect label="Linked order" value={newJobForm.orderId}
               onChange={value => {
                 const selected = eligibleOrders.find(order => order.id === value);
-                setNewJobForm(current => ({
-                  ...current,
-                  orderId: value,
-                  product: selected?.product || current.product,
-                  quantity: selected?.quantity || current.quantity,
-                  expectedCompletion: selected?.deliveryDate || current.expectedCompletion,
-                }));
+                setNewJobForm(current => {
+                  const deliveryDate = selected?.deliveryDate;
+                  const expectedCompletion = deliveryDate && deliveryDate >= current.startDate
+                    ? deliveryDate
+                    : current.expectedCompletion;
+                  return {
+                    ...current,
+                    orderId: value,
+                    product: selected?.product || current.product,
+                    quantity: selected?.quantity || current.quantity,
+                    expectedCompletion,
+                  };
+                });
               }}
               options={[{ value: '', label: eligibleOrders.length ? 'Select material-ready order...' : 'No material-ready confirmed orders' }, ...eligibleOrders.map(order => ({
                 value: order.id,
