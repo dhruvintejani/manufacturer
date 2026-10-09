@@ -14,6 +14,7 @@ import { StatCard } from '../components/ui/StatCard';
 import { ChartAlternative, AccessibleBars } from '../components/ui/AccessibleCharts';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { formatDate, formatCurrency, formatRelativeTime } from '../utils/formatters';
+import { buildOperationalAlerts, countOperationalAlerts } from '../utils/operationalAlerts';
 
 
 const activityTypeConfig: Record<string, { bg: string; icon: React.ReactNode; color: string }> = {
@@ -70,8 +71,38 @@ export const Dashboard: React.FC = () => {
   const pendingPayments = orders
     .filter(o => ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus)).length;
   const lowStockCount = materials.filter(material => material.currentStock < material.minimumStock).length;
-  const shortageOrders = materialRequirements.filter(requirement => requirement.status === 'Shortage').length;
   const openRestock = purchaseRequests.filter(request => !['Received', 'Cancelled'].includes(request.status)).length;
+  const operationalAlerts = buildOperationalAlerts({
+    materials,
+    materialRequirements,
+    orders,
+    productionJobs,
+    purchaseRequests,
+  });
+  const operationalAlertCounts = countOperationalAlerts(operationalAlerts);
+  const alertStyles = {
+    danger: {
+      border: 'border-rose-200',
+      bg: 'bg-rose-50',
+      dot: 'bg-rose-500',
+      badge: 'bg-rose-100 text-rose-700',
+      action: 'text-rose-700 hover:bg-rose-100',
+    },
+    warning: {
+      border: 'border-amber-200',
+      bg: 'bg-amber-50',
+      dot: 'bg-amber-500',
+      badge: 'bg-amber-100 text-amber-700',
+      action: 'text-amber-700 hover:bg-amber-100',
+    },
+    info: {
+      border: 'border-blue-200',
+      bg: 'bg-blue-50',
+      dot: 'bg-blue-500',
+      badge: 'bg-blue-100 text-blue-700',
+      action: 'text-blue-700 hover:bg-blue-100',
+    },
+  } as const;
 
   // Recent data
   const recentEnquiries = [...enquiries].sort((a, b) =>
@@ -194,25 +225,68 @@ export const Dashboard: React.FC = () => {
         />
       </div>
 
-      {(lowStockCount > 0 || shortageOrders > 0) && (
-        <section className="rounded-xl border border-rose-200 bg-rose-50 p-4">
-          <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-3">
-              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
-              <div className="min-w-0">
-                <h2 className="text-sm font-bold text-rose-900">Material attention required</h2>
-                <p className="mt-1 text-sm leading-6 text-rose-800">
-                  {lowStockCount} material{lowStockCount === 1 ? '' : 's'} below minimum · {shortageOrders} order{shortageOrders === 1 ? '' : 's'} blocked by material shortage.
-                </p>
-              </div>
+      <section aria-label="Operations attention center" className="min-w-0 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-6">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${operationalAlerts.length ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
+              <AlertTriangle className="h-5 w-5" />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => navigate('/inventory')} className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100">Open Inventory</button>
-              <button type="button" onClick={() => navigate('/purchases')} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700">Restock</button>
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900">Operations Attention</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                {operationalAlerts.length
+                  ? `${operationalAlerts.length} live condition${operationalAlerts.length === 1 ? '' : 's'} need review. Alerts disappear automatically when the underlying state is resolved.`
+                  : 'No active material, production or restock conditions need attention.'}
+              </p>
             </div>
           </div>
-        </section>
-      )}
+          <div className="flex flex-wrap gap-2">
+            {operationalAlertCounts.danger > 0 && <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-700">{operationalAlertCounts.danger} critical</span>}
+            {operationalAlertCounts.warning > 0 && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">{operationalAlertCounts.warning} warning</span>}
+            {operationalAlertCounts.info > 0 && <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">{operationalAlertCounts.info} tracking</span>}
+          </div>
+        </div>
+
+        {operationalAlerts.length > 0 ? (
+          <div className="grid min-w-0 grid-cols-1 gap-3 p-4 sm:p-6 lg:grid-cols-2">
+            {operationalAlerts.slice(0, 6).map(alert => {
+              const style = alertStyles[alert.severity];
+              return (
+                <article key={alert.key} className={`min-w-0 rounded-xl border p-4 ${style.border} ${style.bg}`}>
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${style.dot}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                        <h3 className="break-words text-sm font-bold text-slate-900">{alert.title}</h3>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${style.badge}`}>
+                          {alert.category.replace('-', ' ')}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">{alert.message}</p>
+                      <button type="button"
+                        aria-label={`Open alert: ${alert.title}`}
+                        onClick={() => navigate(alert.path)}
+                        className={`mt-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${style.action}`}>
+                        {alert.actionLabel} <ArrowRight className="ml-1 inline h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="px-4 py-6 text-sm text-emerald-700 sm:px-6">
+            Inventory thresholds, material reservations, production delays and open restocks are all clear.
+          </div>
+        )}
+
+        <div className="flex min-w-0 flex-wrap gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3 sm:px-6">
+          <button type="button" onClick={() => navigate('/inventory')} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100">Inventory</button>
+          <button type="button" onClick={() => navigate('/purchases')} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100">Purchase / Restock</button>
+          <button type="button" onClick={() => navigate('/production')} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100">Production</button>
+        </div>
+      </section>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
