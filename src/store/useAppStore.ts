@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import {
   Customer, Enquiry, Quotation,
   Order, ProductionJob, Activity, Notification,
-  EnquiryStatus, OrderStatus, Material, Product, MaterialRequirement,
+  EnquiryStatus, OrderStatus, ProductionStatus, Material, Product, MaterialRequirement,
   InventoryTransaction, PurchaseRequest, PurchaseRequestStatus, BomItem,
 } from '../types';
 import {
@@ -81,8 +81,8 @@ interface AppStore {
 
   // Production actions
   addProductionJob: (job: Omit<ProductionJob, 'id'>) => ProductionJob | null;
-  updateProductionJob: (id: string, data: Partial<ProductionJob>) => void;
-  deleteProductionJob: (id: string) => void;
+  updateProductionJob: (id: string, data: Partial<ProductionJob>) => boolean;
+  deleteProductionJob: (id: string) => boolean;
 
   // Notification actions
   markNotificationRead: (id: string) => void;
@@ -105,6 +105,20 @@ const generateId = (prefix: string) => {
 
 const now = () => new Date().toISOString();
 const orderWorkflow: OrderStatus[] = ['Confirmed', 'Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'];
+const productionWorkflow: ProductionStatus[] = ['Planning', 'In Production', 'Quality Check', 'Ready', 'Completed'];
+const productionMilestones: Record<Exclude<ProductionStatus, 'Delayed'>, number> = {
+  Planning: 0,
+  'In Production': 20,
+  'Quality Check': 85,
+  Ready: 95,
+  Completed: 100,
+};
+const productionStatusForProgress = (progress: number): Exclude<ProductionStatus, 'Delayed'> =>
+  progress >= 100 ? 'Completed'
+  : progress >= 95 ? 'Ready'
+  : progress >= 85 ? 'Quality Check'
+  : progress >= 20 ? 'In Production'
+  : 'Planning';
 
 export const useAppStore = create<AppStore>()(
   persist(
