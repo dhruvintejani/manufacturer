@@ -334,7 +334,6 @@ export const Production: React.FC = () => {
                       <td className="px-6 py-4">
                         <RowActions label={`Actions for ${job.jobNumber}`} actions={[
   { label: 'View details', onClick: () => setViewingJob(job), icon: <Eye className="h-4 w-4" /> },
-  { label: 'Delete job', onClick: () => setDeleteTarget(job), icon: <Trash2 className="h-4 w-4" />, danger: true },
 ]} />
                       </td>
                     </motion.tr>
