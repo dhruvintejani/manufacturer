@@ -790,35 +790,48 @@ export const useAppStore = create<AppStore>()(
         let requirement = get().materialRequirements.find(item => item.orderId === orderId);
         if (!requirement) requirement = get().calculateMaterialRequirement(orderId) || undefined;
         if (!requirement || requirement.status !== 'Ready') return false;
+
         const state = get();
+        const fullyReserved = requirement.lines.every(line =>
+          line.requiredQty > 0 &&
+          line.reservedQty + 1e-9 >= line.requiredQty &&
+          line.consumedQty === 0);
+        if (!fullyReserved) {
+          get().rebalanceMaterialReservations();
+          return false;
+        }
+
         const insufficient = requirement.lines.some(line => {
           const material = state.materials.find(item => item.id === line.materialId);
-          return !material || material.currentStock < line.requiredQty;
+          return !material || material.currentStock + 1e-9 < line.requiredQty;
         });
         if (insufficient) {
           get().rebalanceMaterialReservations();
           return false;
         }
 
+        const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
         const consumedAt = now();
         const balances = new Map<string, number>();
         const materials = state.materials.map(material => {
           const line = requirement!.lines.find(item => item.materialId === material.id);
           if (!line) return material;
-          const currentStock = material.currentStock - line.requiredQty;
+          const currentStock = round(material.currentStock - line.requiredQty);
           balances.set(material.id, currentStock);
           return { ...material, currentStock };
         });
+
         const transactions: InventoryTransaction[] = requirement.lines.map(line => ({
           id: generateId('TXN'),
           materialId: line.materialId,
           type: 'production_consumption',
-          quantity: -line.requiredQty,
-          balanceAfter: balances.get(line.materialId) || 0,
+          quantity: -round(line.requiredQty),
+          balanceAfter: balances.get(line.materialId) ?? 0,
           timestamp: consumedAt,
           reference: orderId,
           note: `${requirement!.productName} production consumption`,
         }));
+
         set(current => ({
           materials,
           inventoryTransactions: [...transactions, ...current.inventoryTransactions],
@@ -827,22 +840,34 @@ export const useAppStore = create<AppStore>()(
             status: 'Consumed',
             updatedAt: consumedAt,
             consumedAt,
-            lines: item.lines.map(line => ({ ...line, consumedQty: line.requiredQty, reservedQty: 0 })),
+            lines: item.lines.map(line => ({
+              ...line,
+              consumedQty: round(line.requiredQty),
+              reservedQty: 0,
+            })),
           } : item),
         }));
+
         get().rebalanceMaterialReservations();
         get().materials.filter(material => material.currentStock < material.minimumStock).forEach(material => {
           const duplicate = get().notifications.some(notification =>
             !notification.read && notification.relatedId === material.id && notification.title === 'Low Stock Alert');
           if (!duplicate) set(current => ({ notifications: [{
-            id: generateId('N'), title: 'Low Stock Alert',
+            id: generateId('N'),
+            title: 'Low Stock Alert',
             message: `${material.name} stock is ${material.currentStock} ${material.unit}, below minimum ${material.minimumStock} ${material.unit}. Restock recommended.`,
-            type: 'danger', read: false, timestamp: now(), relatedId: material.id, relatedType: 'inventory',
+            type: 'danger',
+            read: false,
+            timestamp: now(),
+            relatedId: material.id,
+            relatedType: 'inventory',
           }, ...current.notifications] }));
         });
+
         get().addActivity({
-          type: 'inventory', title: 'Materials consumed',
-          description: `Reserved materials consumed for ${orderId}; stock levels updated`,
+          type: 'inventory',
+          title: 'Materials consumed',
+          description: `Reserved BOM materials consumed exactly once for ${orderId}; inventory ledger updated.`,
           relatedId: orderId,
         });
         return true;
