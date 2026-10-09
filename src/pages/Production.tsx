@@ -138,9 +138,20 @@ export const Production: React.FC = () => {
       ? (job.progress >= 95 ? 'Ready' : job.progress >= 85 ? 'Quality Check' : job.progress >= 20 ? 'In Production' : 'Planning')
       : job.status;
     const index = Math.max(0, PRODUCTION_FLOW.indexOf(base as ProductionStatus));
-    return job.status === 'Delayed'
-      ? ['Delayed', ...PRODUCTION_FLOW.slice(index)]
-      : [...PRODUCTION_FLOW.slice(index), 'Delayed'];
+    const current = PRODUCTION_FLOW[index];
+    const next = PRODUCTION_FLOW[index + 1];
+    const options: ProductionStatus[] = job.status === 'Delayed' ? ['Delayed', current] : [current];
+    if (next) options.push(next);
+    if (job.status !== 'Delayed') options.push('Delayed');
+    return Array.from(new Set(options));
+  };
+
+  const maxProgressForJob = (job: ProductionJob) => {
+    if (job.status === 'Delayed') return job.progress;
+    if (job.status === 'Planning') return 84;
+    if (job.status === 'In Production') return 94;
+    if (job.status === 'Quality Check') return 99;
+    return 100;
   };
 
   const handleUpdateProgress = (job: ProductionJob, progress: number) => {
@@ -452,7 +463,7 @@ export const Production: React.FC = () => {
               <input
                 type="range"
                 min={viewingJob.progress}
-                max={100}
+                max={maxProgressForJob(viewingJob)}
                 step={5}
                 value={viewingJob.progress}
                 disabled={viewingJob.status === 'Completed' || viewingJob.status === 'Delayed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))}
@@ -509,7 +520,7 @@ export const Production: React.FC = () => {
             </div>
 
             {/* Mark Complete */}
-            {viewingJob.status !== 'Completed' && viewingJob.status !== 'Delayed' && !orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status)) && (
+            {viewingJob.status === 'Ready' && !orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status)) && (
               <button
                 onClick={() => handleStatusChange(viewingJob, 'Completed')}
                 className="w-full py-3 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors"
