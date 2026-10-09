@@ -104,38 +104,40 @@ export const buildInventoryReport = (
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   const consumption: InventoryConsumptionReportRow[] = materials
-    .map(material => {
+    .flatMap(material => {
       const rows = consumptionTransactions.filter(transaction => transaction.materialId === material.id);
-      if (!rows.length) return null;
-      return {
+      const latest = rows[0];
+      if (!latest) return [];
+      const row: InventoryConsumptionReportRow = {
         materialId: material.id,
         materialName: material.name,
         materialCode: material.code,
         unit: material.unit,
         consumedQty: roundQty(rows.reduce((sum, transaction) => sum + Math.abs(transaction.quantity), 0)),
         eventCount: rows.length,
-        latestAt: rows[0]?.timestamp,
-        latestReference: rows[0]?.reference,
+        latestAt: latest.timestamp,
+        ...(latest.reference ? { latestReference: latest.reference } : {}),
       };
+      return [row];
     })
-    .filter((row): row is InventoryConsumptionReportRow => Boolean(row))
     .sort((a, b) => b.consumedQty - a.consumedQty);
 
   const receipts: InventoryReceiptReportRow[] = materials
-    .map(material => {
+    .flatMap(material => {
       const rows = receiptTransactions.filter(transaction => transaction.materialId === material.id);
-      if (!rows.length) return null;
-      return {
+      const latest = rows[0];
+      if (!latest) return [];
+      const row: InventoryReceiptReportRow = {
         materialId: material.id,
         materialName: material.name,
         materialCode: material.code,
         unit: material.unit,
         receivedQty: roundQty(rows.reduce((sum, transaction) => sum + Math.abs(transaction.quantity), 0)),
         eventCount: rows.length,
-        latestAt: rows[0]?.timestamp,
+        latestAt: latest.timestamp,
       };
+      return [row];
     })
-    .filter((row): row is InventoryReceiptReportRow => Boolean(row))
     .sort((a, b) => b.receivedQty - a.receivedQty);
 
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
