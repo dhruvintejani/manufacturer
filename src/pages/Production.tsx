@@ -2,18 +2,17 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Factory, Plus, Eye, Trash2,
-  Users, CheckCircle, AlertTriangle, Clock
+  Factory, Plus, Eye,
+  Users, CheckCircle, AlertTriangle, Clock, Boxes, LockKeyhole, PackageCheck
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
-import { ProductionJob } from '../types';
+import { ProductionJob, ProductionStatus } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { StatCard } from '../components/ui/StatCard';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { RowActions } from '../components/ui/RowActions';
 import { Drawer } from '../components/ui/Drawer';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Pagination } from '../components/ui/Pagination';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -23,7 +22,8 @@ import { PremiumSelect } from '../components/ui/PremiumSelect';
 import { formatDate } from '../utils/formatters';
 
 const ITEMS_PER_PAGE = 8;
-const PRODUCTION_STATUSES = ['Planning', 'In Production', 'Quality Check', 'Ready', 'Completed', 'Delayed'];
+const PRODUCTION_FLOW: ProductionStatus[] = ['Planning', 'In Production', 'Quality Check', 'Ready', 'Completed'];
+const PRODUCTION_STATUSES: ProductionStatus[] = [...PRODUCTION_FLOW, 'Delayed'];
 const TEAMS = ['Fabrication Team A', 'Fabrication Team B', 'Specialized Equipment Team', 'Boiler Team', 'Assembly Team'];
 const FALLBACK_PRODUCTS = ['Pressure Vessel', 'Heat Exchanger', 'Storage Tank', 'Industrial Dryer', 'Reactor', 'Column', 'Boiler System'];
 
@@ -49,7 +49,10 @@ const withStageProgress = (job: ProductionJob, progress: number) => {
 
 export const Production: React.FC = () => {
   const location = useLocation();
-  const { productionJobs, orders, customers, products, materialRequirements, updateProductionJob, deleteProductionJob, addProductionJob } = useAppStore();
+  const {
+    productionJobs, orders, customers, products, materials, materialRequirements, inventoryTransactions,
+    updateProductionJob, addProductionJob,
+  } = useAppStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(new URLSearchParams(location.search).get('status') === 'active' ? 'active' : 'all');
   const [page, setPage] = useState(1);
@@ -62,7 +65,6 @@ export const Production: React.FC = () => {
     const record = productionJobs.find(job => job.id === openId);
     if (record) setViewingJob(record);
   }, [location.search, productionJobs]);
-  const [deleteTarget, setDeleteTarget] = useState<ProductionJob | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [newJobForm, setNewJobForm] = useState({
     orderId: '', product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0], quantity: 1,
@@ -108,78 +110,153 @@ export const Production: React.FC = () => {
     return true;
   };
 
+  const eligibleOrders = orders.filter(order =>
+    order.status === 'Confirmed' &&
+    !order.productionJobId &&
+    !productionJobs.some(job => job.orderId === order.id) &&
+    materialRequirements.some(requirement =>
+      requirement.orderId === order.id &&
+      requirement.status === 'Ready' &&
+      requirement.lines.length > 0 &&
+      requirement.lines.every(line => line.reservedQty + 1e-9 >= line.requiredQty))
+  );
+  const blockedConfirmedOrders = orders.filter(order =>
+    order.status === 'Confirmed' &&
+    !order.productionJobId &&
+    !productionJobs.some(job => job.orderId === order.id) &&
+    !materialRequirements.some(requirement => requirement.orderId === order.id && requirement.status === 'Ready')
+  ).length;
+
+  const refreshViewingJob = (id: string) => {
+    const current = useAppStore.getState().productionJobs.find(job => job.id === id) || null;
+    setViewingJob(current);
+  };
+
+  const allowedStatuses = (job: ProductionJob): ProductionStatus[] => {
+    if (job.status === 'Completed') return ['Completed'];
+    const base = job.status === 'Delayed'
+      ? (job.progress >= 95 ? 'Ready' : job.progress >= 85 ? 'Quality Check' : job.progress >= 20 ? 'In Production' : 'Planning')
+      : job.status;
+    const index = Math.max(0, PRODUCTION_FLOW.indexOf(base as ProductionStatus));
+    const current = PRODUCTION_FLOW[index];
+    const next = PRODUCTION_FLOW[index + 1];
+    const options: ProductionStatus[] = job.status === 'Delayed' ? ['Delayed', current] : [current];
+    if (next) options.push(next);
+    if (job.status !== 'Delayed') options.push('Delayed');
+    return Array.from(new Set(options));
+  };
+
+  const maxProgressForJob = (job: ProductionJob) => {
+    if (job.status === 'Delayed') return job.progress;
+    if (job.status === 'Planning') return 84;
+    if (job.status === 'In Production') return 94;
+    if (job.status === 'Quality Check') return 99;
+    return 100;
+  };
+
   const handleUpdateProgress = (job: ProductionJob, progress: number) => {
     if (!canChangeProduction(job)) return;
-    let status = job.status;
+    if (job.status === 'Delayed') {
+      toast.error('Resume the delayed job before changing production progress.');
+      return;
+    }
+    if (progress < job.progress) {
+      toast.error('Production progress cannot move backward.');
+      return;
+    }
+
+    let status: ProductionStatus = job.status;
     if (progress >= 100) status = 'Completed';
+    else if (progress >= 95) status = 'Ready';
     else if (progress >= 85) status = 'Quality Check';
-    else if (progress >= 10) status = 'In Production';
+    else if (progress >= 20 && ['Planning', 'In Production'].includes(job.status)) status = 'In Production';
     const stages = withStageProgress(job, progress);
-    updateProductionJob(job.id, { progress, stages, status: status as any });
-    setViewingJob(prev => prev ? { ...prev, progress, stages, status: status as any } : null);
+    if (!updateProductionJob(job.id, { progress, stages, status })) {
+      toast.error('Production update was rejected to protect the linked order workflow.');
+      return;
+    }
+    refreshViewingJob(job.id);
   };
 
   const handleStatusChange = (job: ProductionJob, status: string) => {
     if (!canChangeProduction(job)) return;
+    const nextStatus = status as ProductionStatus;
     const milestone: Record<string, number> = { Planning: 0, 'In Production': 20, 'Quality Check': 85, Ready: 95, Completed: 100 };
-    const progress = status === 'Delayed' ? job.progress : Math.max(job.progress, milestone[status] || 0);
+    const progress = nextStatus === 'Delayed' ? job.progress : Math.max(job.progress, milestone[nextStatus] || 0);
     const stages = withStageProgress(job, progress);
-    updateProductionJob(job.id, { status: status as any, progress, stages });
-    toast.success(`Job ${job.jobNumber} status updated to ${status}`);
-    setViewingJob(prev => prev ? { ...prev, status: status as any, progress, stages } : null);
-  };
-
-  const handleDelete = () => {
-    if (!deleteTarget) return;
-    deleteProductionJob(deleteTarget.id);
-    toast.success('Production job deleted.');
-    setDeleteTarget(null);
-    setViewingJob(null);
+    if (!updateProductionJob(job.id, { status: nextStatus, progress, stages })) {
+      toast.error('Production stages can move forward only. Resume delayed work at the current stage.');
+      return;
+    }
+    toast.success(`Job ${job.jobNumber} status updated to ${nextStatus}`);
+    refreshViewingJob(job.id);
   };
 
   const handleAddJob = () => {
-    if (!newJobForm.product || !newJobForm.orderId) {
-      toast.error('Please fill all required fields.');
+    if (!newJobForm.orderId) {
+      toast.error('Select a material-ready confirmed order.');
       return;
     }
-    if (productionJobs.some(job => job.orderId === newJobForm.orderId)) { toast.error('A production job already exists for that order.'); return; }
     const linkedOrder = orders.find(order => order.id === newJobForm.orderId);
-    if (!linkedOrder || ['Completed', 'Cancelled', 'On Hold'].includes(linkedOrder.status)) { toast.error('Select an active order before starting production.'); return; }
-    const requirement = materialRequirements.find(item => item.orderId === newJobForm.orderId);
-    if (!requirement || requirement.status !== 'Ready') {
-      toast.error('Material check is not ready. Resolve shortages from the Order or Purchase / Restock module first.');
+    if (!linkedOrder || linkedOrder.status !== 'Confirmed') {
+      toast.error('Production can start only from a confirmed order.');
       return;
     }
+    if (productionJobs.some(job => job.orderId === linkedOrder.id) || linkedOrder.productionJobId) {
+      toast.error('A production job already exists for that order.');
+      return;
+    }
+    const requirement = materialRequirements.find(item => item.orderId === linkedOrder.id);
+    if (!requirement || requirement.status !== 'Ready' ||
+        requirement.lines.some(line => line.reservedQty + 1e-9 < line.requiredQty)) {
+      toast.error('Material check is not ready. Resolve shortages before starting production.');
+      return;
+    }
+    if (new Date(newJobForm.expectedCompletion).getTime() < new Date(newJobForm.startDate).getTime()) {
+      toast.error('Expected completion cannot be before the production start date.');
+      return;
+    }
+
     const job = addProductionJob({
       jobNumber: '',
       ...newJobForm,
+      product: linkedOrder.product,
+      quantity: linkedOrder.quantity,
       status: 'Planning',
       progress: 0,
-      stages: [
-        { name: 'Planning', status: 'in-progress' },
-        { name: 'Material Preparation', status: 'pending' },
-        { name: 'Fabrication', status: 'pending' },
-        { name: 'Assembly', status: 'pending' },
-        { name: 'Quality Check', status: 'pending' },
-        { name: 'Ready', status: 'pending' },
-        { name: 'Completed', status: 'pending' },
-      ],
+      stages: [],
     });
     if (!job) {
-      toast.error('Production could not start because material reservation changed. Reopen the order and recheck stock.');
+      toast.error('Production could not start because the order or material reservation changed. Recheck the order.');
       return;
     }
-    toast.success(`Production job ${job.jobNumber} created. Reserved materials were consumed from inventory.`);
+    toast.success(`Production job ${job.jobNumber} created. Reserved BOM materials were consumed exactly once.`);
     setAddModalOpen(false);
     setNewJobForm({
-      orderId: '', product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0], quantity: 1,
+      orderId: '',
+      product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0],
+      quantity: 1,
       startDate: new Date().toISOString().split('T')[0],
       expectedCompletion: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
-      assignedTeam: TEAMS[0], notes: '',
+      assignedTeam: TEAMS[0],
+      notes: '',
     });
   };
 
-
+  const viewingRequirement = viewingJob
+    ? materialRequirements.find(requirement => requirement.orderId === viewingJob.orderId)
+    : undefined;
+  const viewingConsumptionTransactions = viewingJob
+    ? inventoryTransactions.filter(transaction =>
+        transaction.type === 'production_consumption' &&
+        transaction.reference === viewingJob.orderId)
+    : [];
+  const selectedNewOrder = newJobForm.orderId
+    ? orders.find(order => order.id === newJobForm.orderId)
+    : undefined;
+  const selectedNewRequirement = selectedNewOrder
+    ? materialRequirements.find(requirement => requirement.orderId === selectedNewOrder.id)
+    : undefined;
 
   return (
     <div className="page-shell">
@@ -198,12 +275,14 @@ export const Production: React.FC = () => {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-7">
         <StatCard title="Active Jobs" value={stats.active} icon={<Factory className="w-5 h-5 text-blue-600" />} iconBg="bg-blue-50" index={0} />
         <StatCard title="In Production" value={stats.inProduction} icon={<Clock className="w-5 h-5 text-violet-600" />} iconBg="bg-violet-50" index={1} />
         <StatCard title="Quality Check" value={stats.qualityCheck} icon={<CheckCircle className="w-5 h-5 text-amber-600" />} iconBg="bg-amber-50" index={2} />
         <StatCard title="Delayed" value={stats.delayed} icon={<AlertTriangle className="w-5 h-5 text-red-600" />} iconBg="bg-red-50" index={3} />
         <StatCard title="Completed" value={stats.completed} icon={<CheckCircle className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={4} />
+        <StatCard title="Ready to Start" value={eligibleOrders.length} icon={<PackageCheck className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={5} />
+        <StatCard title="Material Blocked" value={blockedConfirmedOrders} icon={<LockKeyhole className="w-5 h-5 text-rose-600" />} iconBg="bg-rose-50" index={6} />
       </div>
 
       {/* Filters */}
@@ -266,7 +345,6 @@ export const Production: React.FC = () => {
                       <td className="px-6 py-4">
                         <RowActions label={`Actions for ${job.jobNumber}`} actions={[
   { label: 'View details', onClick: () => setViewingJob(job), icon: <Eye className="h-4 w-4" /> },
-  { label: 'Delete job', onClick: () => setDeleteTarget(job), icon: <Trash2 className="h-4 w-4" />, danger: true },
 ]} />
                       </td>
                     </motion.tr>
@@ -321,6 +399,50 @@ export const Production: React.FC = () => {
               </div>
             </div>
 
+            {/* Material Consumption */}
+            <section aria-label="Production material consumption" className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+                  <Boxes className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Material Consumption</h4>
+                      <p className="mt-0.5 text-xs text-slate-600">Inventory deducted when this production job was created.</p>
+                    </div>
+                    <StatusBadge status={viewingRequirement?.status || 'Legacy'} />
+                  </div>
+                  {viewingRequirement?.status === 'Consumed' ? (
+                    <>
+                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {viewingRequirement.lines.map(line => {
+                          const material = materials.find(item => item.id === line.materialId);
+                          return (
+                            <div key={line.materialId} className="rounded-lg border border-blue-100 bg-white px-3 py-2">
+                              <div className="text-xs font-semibold text-slate-900">{material?.name || line.materialId}</div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                Consumed <strong className="text-blue-700">{line.consumedQty} {material?.unit || ''}</strong>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                        <span>Consumed: <strong>{viewingRequirement.consumedAt ? new Date(viewingRequirement.consumedAt).toLocaleString() : 'Recorded'}</strong></span>
+                        <span>Ledger entries: <strong>{viewingConsumptionTransactions.length}</strong></span>
+                        <span>BOM: <strong>v{viewingRequirement.bomVersion || '1.0'}</strong></span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="mt-3 text-xs leading-5 text-slate-600">
+                      This legacy demo job does not have a linked consumed-material record. New production jobs always require a Ready BOM reservation and create inventory consumption entries automatically.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
+
             {/* Progress Control */}
             <div className="bg-slate-50 rounded-xl p-4">
               <div className="flex items-center justify-between mb-3">
@@ -340,11 +462,11 @@ export const Production: React.FC = () => {
               </div>
               <input
                 type="range"
-                min={0}
-                max={100}
+                min={viewingJob.progress}
+                max={maxProgressForJob(viewingJob)}
                 step={5}
                 value={viewingJob.progress}
-                disabled={viewingJob.status === 'Completed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))}
+                disabled={viewingJob.status === 'Completed' || viewingJob.status === 'Delayed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))}
                 aria-label="Production progress percentage"
                 onChange={e => handleUpdateProgress(viewingJob, parseInt(e.target.value))}
                 className="w-full accent-blue-600"
@@ -360,17 +482,22 @@ export const Production: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Update Status</label>
               <PremiumSelect label="Update production status" value={viewingJob.status}
-                disabled={viewingJob.status === 'Completed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))} onChange={value => handleStatusChange(viewingJob, value)}
-                options={PRODUCTION_STATUSES.map(value => ({ value, label: value, color: statusColorMap[value] }))} />
+                disabled={viewingJob.status === 'Completed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))}
+                onChange={value => handleStatusChange(viewingJob, value)}
+                options={allowedStatuses(viewingJob).map(value => ({ value, label: value, color: statusColorMap[value] }))} />
             </div>
 
             {/* Team */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Assigned Team</label>
               <PremiumSelect label="Assigned team" value={viewingJob.assignedTeam}
+                disabled={viewingJob.status === 'Completed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))}
                 onChange={value => {
-                  updateProductionJob(viewingJob.id, { assignedTeam: value });
-                  setViewingJob(prev => prev ? { ...prev, assignedTeam: value } : null);
+                  if (!updateProductionJob(viewingJob.id, { assignedTeam: value })) {
+                    toast.error('Assigned team cannot be changed while the linked order is blocked or completed.');
+                    return;
+                  }
+                  refreshViewingJob(viewingJob.id);
                   toast.success('Assigned team updated.');
                 }} options={TEAMS.map(value => ({ value, label: value }))} />
             </div>
@@ -381,9 +508,11 @@ export const Production: React.FC = () => {
               <textarea
                 rows={3}
                 defaultValue={viewingJob.notes}
+                disabled={viewingJob.status === 'Completed' || orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status))}
                 onBlur={e => {
-                  updateProductionJob(viewingJob.id, { notes: e.target.value });
-                  setViewingJob(prev => prev ? { ...prev, notes: e.target.value } : null);
+                  if (updateProductionJob(viewingJob.id, { notes: e.target.value })) {
+                    refreshViewingJob(viewingJob.id);
+                  }
                 }}
                 className={inputClass}
                 placeholder="Add production notes..."
@@ -391,25 +520,19 @@ export const Production: React.FC = () => {
             </div>
 
             {/* Mark Complete */}
-            {viewingJob.status !== 'Completed' && !orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status)) && (
+            {viewingJob.status === 'Ready' && !orders.some(order => order.id === viewingJob.orderId && ['On Hold', 'Cancelled'].includes(order.status)) && (
               <button
-                onClick={() => {
-                  handleUpdateProgress(viewingJob, 100);
-                  handleStatusChange({ ...viewingJob, progress: 100 }, 'Completed');
-                  toast.success(`Job ${viewingJob.jobNumber} marked as completed!`);
-                }}
+                onClick={() => handleStatusChange(viewingJob, 'Completed')}
                 className="w-full py-3 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors"
               >
                 Mark as Completed
               </button>
             )}
 
-            <button
-              onClick={() => { setDeleteTarget(viewingJob); setViewingJob(null); }}
-              className="w-full py-2.5 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors"
-            >
-              Delete Job
-            </button>
+            <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+              <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+              Production jobs are retained as audit records because starting production consumes BOM materials and links inventory transactions to the order.
+            </div>
           </div>
         </Drawer>
       )}
@@ -417,9 +540,15 @@ export const Production: React.FC = () => {
       {/* Add Job Modal */}
       <Modal open={addModalOpen} onClose={() => setAddModalOpen(false)} title="Create Production Job" size="lg"
         footer={
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <button onClick={() => setAddModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
-            <button onClick={handleAddJob} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm">Create Job</button>
+            <button
+              onClick={handleAddJob}
+              disabled={!selectedNewOrder || selectedNewRequirement?.status !== 'Ready'}
+              className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 rounded-lg shadow-sm"
+            >
+              Start Production & Consume Materials
+            </button>
           </div>
         }
       >
@@ -428,25 +557,37 @@ export const Production: React.FC = () => {
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Linked Order <span className="text-red-500">*</span></label>
             <PremiumSelect label="Linked order" value={newJobForm.orderId}
               onChange={value => {
-                const selected = orders.find(o => o.id === value);
-                setNewJobForm(f => ({ ...f, orderId: value,
-                  product: selected?.product || f.product, quantity: selected?.quantity || f.quantity,
-                  expectedCompletion: selected?.deliveryDate || f.expectedCompletion }));
+                const selected = eligibleOrders.find(order => order.id === value);
+                setNewJobForm(current => {
+                  const deliveryDate = selected?.deliveryDate;
+                  const expectedCompletion = deliveryDate && deliveryDate >= current.startDate
+                    ? deliveryDate
+                    : current.expectedCompletion;
+                  return {
+                    ...current,
+                    orderId: value,
+                    product: selected?.product || current.product,
+                    quantity: selected?.quantity || current.quantity,
+                    expectedCompletion,
+                  };
+                });
               }}
-              options={[{ value: '', label: 'Select material-ready order...' }, ...orders.filter(o =>
-                !productionJobs.some(j => j.orderId === o.id) &&
-                !['Completed','Cancelled','On Hold'].includes(o.status) &&
-                materialRequirements.some(requirement => requirement.orderId === o.id && requirement.status === 'Ready')
-              ).map(o => ({ value: o.id, label: `${o.orderNumber} — ${o.product}` }))]} />
+              options={[{ value: '', label: eligibleOrders.length ? 'Select material-ready order...' : 'No material-ready confirmed orders' }, ...eligibleOrders.map(order => ({
+                value: order.id,
+                label: `${order.orderNumber} — ${order.quantity} × ${order.product}`,
+              }))]} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Product</label>
-            <PremiumSelect label="Product" value={newJobForm.product} onChange={value => setNewJobForm(f => ({ ...f, product: value }))}
-              options={(products.length ? products.filter(product => product.active).map(product => product.name) : FALLBACK_PRODUCTS).map(value => ({ value, label: value }))} />
+            <div className="min-h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-800">
+              {selectedNewOrder?.product || 'Select an order'}
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Quantity</label>
-            <input type="number" min={1} value={newJobForm.quantity} onChange={e => setNewJobForm(f => ({ ...f, quantity: parseInt(e.target.value) || 1 }))} className={inputClass} />
+            <div className="min-h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold tabular-nums text-slate-800">
+              {selectedNewOrder?.quantity ?? '—'}
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Start Date</label>
@@ -465,18 +606,27 @@ export const Production: React.FC = () => {
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
             <textarea rows={2} value={newJobForm.notes} onChange={e => setNewJobForm(f => ({ ...f, notes: e.target.value }))} className={inputClass} placeholder="Production notes..." />
           </div>
+
+          <div className="sm:col-span-2 rounded-xl border border-blue-100 bg-blue-50 p-4">
+            <div className="flex items-start gap-3">
+              <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
+              <div className="min-w-0">
+                <h4 className="text-sm font-bold text-blue-950">Production start is the inventory-consumption boundary</h4>
+                {selectedNewRequirement?.status === 'Ready' ? (
+                  <p className="mt-1 text-xs leading-5 text-blue-800">
+                    All {selectedNewRequirement.lines.length} BOM material lines are reserved. Creating this job will deduct those reserved quantities exactly once and record inventory transactions against {selectedNewOrder?.orderNumber}.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs leading-5 text-blue-800">
+                    Select a confirmed order with a Ready material requirement. {blockedConfirmedOrders > 0 ? `${blockedConfirmedOrders} confirmed order${blockedConfirmedOrders === 1 ? '' : 's'} are currently blocked by material readiness.` : ''}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </Modal>
 
-      <ConfirmDialog
-        open={!!deleteTarget}
-        title="Delete Production Job"
-        description={`Delete job ${deleteTarget?.jobNumber}? This action cannot be undone.`}
-        confirmLabel="Delete"
-        variant="danger"
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
     </div>
   );
 };

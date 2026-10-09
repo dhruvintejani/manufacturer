@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import {
   Customer, Enquiry, Quotation,
   Order, ProductionJob, Activity, Notification,
-  EnquiryStatus, OrderStatus, Material, Product, MaterialRequirement,
+  EnquiryStatus, OrderStatus, ProductionStatus, Material, Product, MaterialRequirement,
   InventoryTransaction, PurchaseRequest, PurchaseRequestStatus, BomItem,
 } from '../types';
 import {
@@ -81,8 +81,8 @@ interface AppStore {
 
   // Production actions
   addProductionJob: (job: Omit<ProductionJob, 'id'>) => ProductionJob | null;
-  updateProductionJob: (id: string, data: Partial<ProductionJob>) => void;
-  deleteProductionJob: (id: string) => void;
+  updateProductionJob: (id: string, data: Partial<ProductionJob>) => boolean;
+  deleteProductionJob: (id: string) => boolean;
 
   // Notification actions
   markNotificationRead: (id: string) => void;
@@ -105,6 +105,20 @@ const generateId = (prefix: string) => {
 
 const now = () => new Date().toISOString();
 const orderWorkflow: OrderStatus[] = ['Confirmed', 'Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'];
+const productionWorkflow: ProductionStatus[] = ['Planning', 'In Production', 'Quality Check', 'Ready', 'Completed'];
+const productionMilestones: Record<Exclude<ProductionStatus, 'Delayed'>, number> = {
+  Planning: 0,
+  'In Production': 20,
+  'Quality Check': 85,
+  Ready: 95,
+  Completed: 100,
+};
+const productionStatusForProgress = (progress: number): Exclude<ProductionStatus, 'Delayed'> =>
+  progress >= 100 ? 'Completed'
+  : progress >= 95 ? 'Ready'
+  : progress >= 85 ? 'Quality Check'
+  : progress >= 20 ? 'In Production'
+  : 'Planning';
 
 export const useAppStore = create<AppStore>()(
   persist(
@@ -776,35 +790,48 @@ export const useAppStore = create<AppStore>()(
         let requirement = get().materialRequirements.find(item => item.orderId === orderId);
         if (!requirement) requirement = get().calculateMaterialRequirement(orderId) || undefined;
         if (!requirement || requirement.status !== 'Ready') return false;
+
         const state = get();
+        const fullyReserved = requirement.lines.every(line =>
+          line.requiredQty > 0 &&
+          line.reservedQty + 1e-9 >= line.requiredQty &&
+          line.consumedQty === 0);
+        if (!fullyReserved) {
+          get().rebalanceMaterialReservations();
+          return false;
+        }
+
         const insufficient = requirement.lines.some(line => {
           const material = state.materials.find(item => item.id === line.materialId);
-          return !material || material.currentStock < line.requiredQty;
+          return !material || material.currentStock + 1e-9 < line.requiredQty;
         });
         if (insufficient) {
           get().rebalanceMaterialReservations();
           return false;
         }
 
+        const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
         const consumedAt = now();
         const balances = new Map<string, number>();
         const materials = state.materials.map(material => {
           const line = requirement!.lines.find(item => item.materialId === material.id);
           if (!line) return material;
-          const currentStock = material.currentStock - line.requiredQty;
+          const currentStock = round(material.currentStock - line.requiredQty);
           balances.set(material.id, currentStock);
           return { ...material, currentStock };
         });
+
         const transactions: InventoryTransaction[] = requirement.lines.map(line => ({
           id: generateId('TXN'),
           materialId: line.materialId,
           type: 'production_consumption',
-          quantity: -line.requiredQty,
-          balanceAfter: balances.get(line.materialId) || 0,
+          quantity: -round(line.requiredQty),
+          balanceAfter: balances.get(line.materialId) ?? 0,
           timestamp: consumedAt,
           reference: orderId,
           note: `${requirement!.productName} production consumption`,
         }));
+
         set(current => ({
           materials,
           inventoryTransactions: [...transactions, ...current.inventoryTransactions],
@@ -813,22 +840,34 @@ export const useAppStore = create<AppStore>()(
             status: 'Consumed',
             updatedAt: consumedAt,
             consumedAt,
-            lines: item.lines.map(line => ({ ...line, consumedQty: line.requiredQty, reservedQty: 0 })),
+            lines: item.lines.map(line => ({
+              ...line,
+              consumedQty: round(line.requiredQty),
+              reservedQty: 0,
+            })),
           } : item),
         }));
+
         get().rebalanceMaterialReservations();
         get().materials.filter(material => material.currentStock < material.minimumStock).forEach(material => {
           const duplicate = get().notifications.some(notification =>
             !notification.read && notification.relatedId === material.id && notification.title === 'Low Stock Alert');
           if (!duplicate) set(current => ({ notifications: [{
-            id: generateId('N'), title: 'Low Stock Alert',
+            id: generateId('N'),
+            title: 'Low Stock Alert',
             message: `${material.name} stock is ${material.currentStock} ${material.unit}, below minimum ${material.minimumStock} ${material.unit}. Restock recommended.`,
-            type: 'danger', read: false, timestamp: now(), relatedId: material.id, relatedType: 'inventory',
+            type: 'danger',
+            read: false,
+            timestamp: now(),
+            relatedId: material.id,
+            relatedType: 'inventory',
           }, ...current.notifications] }));
         });
+
         get().addActivity({
-          type: 'inventory', title: 'Materials consumed',
-          description: `Reserved materials consumed for ${orderId}; stock levels updated`,
+          type: 'inventory',
+          title: 'Materials consumed',
+          description: `Reserved BOM materials consumed exactly once for ${orderId}; inventory ledger updated.`,
           relatedId: orderId,
         });
         return true;
@@ -999,12 +1038,34 @@ export const useAppStore = create<AppStore>()(
 
       // Production CRUD
       addProductionJob: (data) => {
-        const existingRequirement = get().materialRequirements.find(requirement => requirement.orderId === data.orderId);
-        const requirement = existingRequirement || get().calculateMaterialRequirement(data.orderId);
-        if (!requirement || requirement.status !== 'Ready' || !get().consumeOrderMaterials(data.orderId)) return null;
+        const state = get();
+        const linkedOrder = state.orders.find(order => order.id === data.orderId);
+        if (!linkedOrder || linkedOrder.status !== 'Confirmed' || linkedOrder.productionJobId) return null;
+        if (state.productionJobs.some(job => job.orderId === linkedOrder.id)) return null;
+
+        const requirement = state.materialRequirements.find(item => item.orderId === linkedOrder.id)
+          || get().calculateMaterialRequirement(linkedOrder.id);
+        const fullyReserved = !!requirement &&
+          requirement.status === 'Ready' &&
+          requirement.lines.length > 0 &&
+          requirement.lines.every(line =>
+            line.requiredQty > 0 &&
+            line.reservedQty + 1e-9 >= line.requiredQty &&
+            line.consumedQty === 0);
+        if (!fullyReserved) return null;
+
+        const startDate = data.startDate;
+        const expectedCompletion = data.expectedCompletion;
+        if (!startDate || !expectedCompletion ||
+            new Date(expectedCompletion).getTime() < new Date(startDate).getTime()) return null;
+
+        // Consumption is the production-start boundary. This can succeed only once
+        // because the material requirement changes from Ready -> Consumed atomically.
+        if (!get().consumeOrderMaterials(linkedOrder.id)) return null;
+
         const jobs = get().productionJobs;
-        const maxNum = jobs.reduce((max, j) => {
-          const match = j.jobNumber.match(/PJ-(\d+)/);
+        const maxNum = jobs.reduce((max, job) => {
+          const match = job.jobNumber.match(/PJ-(\d+)/);
           return match ? Math.max(max, parseInt(match[1])) : max;
         }, 45);
         const nextNum = String(maxNum + 1).padStart(4, '0');
@@ -1012,67 +1073,176 @@ export const useAppStore = create<AppStore>()(
           ...data,
           id: `PJ-${nextNum}`,
           jobNumber: `PJ-${nextNum}`,
+          orderId: linkedOrder.id,
+          product: linkedOrder.product,
+          quantity: linkedOrder.quantity,
+          status: 'Planning',
+          progress: 0,
+          notes: data.notes.trim(),
+          stages: [
+            { name: 'Planning', status: 'in-progress' },
+            { name: 'Material Preparation', status: 'pending' },
+            { name: 'Fabrication', status: 'pending' },
+            { name: 'Assembly', status: 'pending' },
+            { name: 'Quality Check', status: 'pending' },
+            { name: 'Ready', status: 'pending' },
+            { name: 'Completed', status: 'pending' },
+          ],
         };
-        set(s => ({ productionJobs: [...s.productionJobs, job] }));
+        set(current => ({ productionJobs: [...current.productionJobs, job] }));
 
-        // Update order status
-        if (data.orderId) {
-          const linkedOrder = get().orders.find(o => o.id === data.orderId);
-          get().updateOrder(data.orderId, {
-            ...(linkedOrder?.status === 'Confirmed' ? { status: 'Production' as OrderStatus } : {}),
-            productionJobId: job.id,
-          }, 'Production system', `Production job ${job.jobNumber} created`);
-        }
+        get().updateOrder(linkedOrder.id, {
+          status: 'Production',
+          productionJobId: job.id,
+        }, 'Production system', `Production job ${job.jobNumber} created and BOM materials consumed`);
+
         get().addActivity({
           type: 'production',
           title: 'Production job started',
-          description: `Production job ${job.jobNumber} started for ${data.product}`,
+          description: `${job.jobNumber} started for ${linkedOrder.orderNumber}; ${linkedOrder.quantity} × ${linkedOrder.product}. Reserved BOM materials were consumed.`,
           relatedId: job.id,
         });
-        set(s => ({
+        set(current => ({
           notifications: [{
             id: generateId('N'),
             title: 'Production Started',
-            message: `Production job ${job.jobNumber} started for ${data.product}`,
+            message: `${job.jobNumber} started for ${linkedOrder.orderNumber}. Reserved materials were consumed from inventory.`,
             type: 'info',
             read: false,
             timestamp: now(),
             relatedId: job.id,
             relatedType: 'production',
-          }, ...s.notifications]
+          }, ...current.notifications],
         }));
         return job;
       },
       updateProductionJob: (id, data) => {
-        const previous = get().productionJobs.find(j => j.id === id);
-        if (!previous) return;
-        set(s => ({ productionJobs: s.productionJobs.map(j => j.id === id ? { ...j, ...data } : j) }));
-        if (data.status && data.status !== previous.status) {
+        const previous = get().productionJobs.find(job => job.id === id);
+        if (!previous) return false;
+        const linkedOrder = get().orders.find(order => order.id === previous.orderId);
+        if (!linkedOrder || ['On Hold', 'Cancelled'].includes(linkedOrder.status)) return false;
+        if (previous.status === 'Completed') return false;
+
+        const requestedProgress = data.progress === undefined
+          ? previous.progress
+          : Math.round(Math.min(100, Math.max(0, Number(data.progress))));
+        if (!Number.isFinite(requestedProgress) || requestedProgress < previous.progress) return false;
+
+        let requestedStatus = (data.status || previous.status) as ProductionStatus;
+        if (!['Planning', 'In Production', 'Quality Check', 'Ready', 'Completed', 'Delayed'].includes(requestedStatus)) return false;
+
+        const previousRank = previous.status === 'Delayed'
+          ? productionWorkflow.indexOf(productionStatusForProgress(previous.progress))
+          : productionWorkflow.indexOf(previous.status);
+        if (requestedStatus === 'Delayed') {
+          // Delayed is an exception state, not a way to keep advancing progress.
+          if (data.progress !== undefined && requestedProgress !== previous.progress) return false;
+        } else {
+          const requestedRank = productionWorkflow.indexOf(requestedStatus);
+          const progressRank = productionWorkflow.indexOf(productionStatusForProgress(requestedProgress));
+          const nextRank = Math.max(requestedRank, progressRank);
+          // Manufacturing stages are sequential. A single update may advance one stage
+          // (or resume a delayed job at its current/next stage), but can never skip/rewind.
+          if (requestedRank < 0 || nextRank < previousRank || nextRank > previousRank + 1) return false;
+          requestedStatus = productionWorkflow[nextRank];
+        }
+
+        const progress = requestedStatus === 'Delayed'
+          ? previous.progress
+          : Math.max(requestedProgress, productionMilestones[requestedStatus as Exclude<ProductionStatus, 'Delayed'>]);
+
+        const currentStage = progress >= 100 ? previous.stages.length
+          : progress >= 95 ? 5
+          : progress >= 85 ? 4
+          : progress >= 65 ? 3
+          : progress >= 20 ? 2
+          : progress >= 1 ? 1
+          : 0;
+        const changedAt = now();
+        const stages = previous.stages.map((stage, index) => ({
+          ...stage,
+          status: (index < currentStage ? 'completed' : index === currentStage ? 'in-progress' : 'pending') as 'completed' | 'in-progress' | 'pending',
+          date: index < currentStage ? stage.date || changedAt : stage.date,
+        }));
+
+        const {
+          id: _id,
+          jobNumber: _jobNumber,
+          orderId: _orderId,
+          product: _product,
+          quantity: _quantity,
+          status: _status,
+          progress: _progress,
+          stages: _stages,
+          ...editable
+        } = data;
+        const next: ProductionJob = {
+          ...previous,
+          ...editable,
+          status: requestedStatus,
+          progress,
+          stages,
+          orderId: previous.orderId,
+          product: previous.product,
+          quantity: previous.quantity,
+        };
+        set(current => ({
+          productionJobs: current.productionJobs.map(job => job.id === id ? next : job),
+        }));
+
+        const statusChanged = next.status !== previous.status;
+        if (statusChanged) {
           get().addActivity({
             type: 'production',
-            title: data.status === 'Completed' ? 'Production completed' : 'Production status updated',
-            description: `Job ${previous.jobNumber}: ${previous.status} → ${data.status}`,
+            title: next.status === 'Completed' ? 'Production completed' : 'Production status updated',
+            description: `Job ${previous.jobNumber}: ${previous.status} → ${next.status}`,
             relatedId: id,
           });
-          // Production milestones advance (never rewind) the associated order.
-          const target: OrderStatus | null = data.status === 'Quality Check' ? 'Quality Check'
-            : ['Ready', 'Completed'].includes(data.status) ? 'Ready' : null;
-          const linked = get().orders.find(o => o.id === previous.orderId);
-          if (target && linked && orderWorkflow.includes(linked.status)) {
-            const from = orderWorkflow.indexOf(linked.status);
-            const to = orderWorkflow.indexOf(target);
-            for (let index = from + 1; index <= to; index++) {
-              get().updateOrder(linked.id, { status: orderWorkflow[index] }, 'Production system',
-                `Job ${previous.jobNumber} moved to ${data.status}`);
-            }
+        }
+
+        // Production milestones move the sales order forward, never backward.
+        const target: OrderStatus | null = next.status === 'Quality Check' ? 'Quality Check'
+          : ['Ready', 'Completed'].includes(next.status) ? 'Ready'
+          : null;
+        if (target && orderWorkflow.includes(linkedOrder.status)) {
+          const from = orderWorkflow.indexOf(linkedOrder.status);
+          const to = orderWorkflow.indexOf(target);
+          for (let index = from + 1; index <= to; index++) {
+            get().updateOrder(linkedOrder.id, { status: orderWorkflow[index] }, 'Production system',
+              `Job ${previous.jobNumber} moved to ${next.status}`);
           }
         }
+
+        if (statusChanged && ['Ready', 'Completed'].includes(next.status)) {
+          const duplicate = get().notifications.some(notification =>
+            !notification.read &&
+            notification.relatedId === linkedOrder.id &&
+            notification.title === 'Production Ready');
+          if (!duplicate) set(current => ({ notifications: [{
+            id: generateId('N'),
+            title: 'Production Ready',
+            message: `${linkedOrder.orderNumber} finished manufacturing and is ready for dispatch workflow.`,
+            type: 'success',
+            read: false,
+            timestamp: now(),
+            relatedId: linkedOrder.id,
+            relatedType: 'order',
+          }, ...current.notifications] }));
+        }
+        return true;
       },
       deleteProductionJob: (id) => {
-        set(s => ({
-          productionJobs: s.productionJobs.filter(j => j.id !== id),
-          orders: s.orders.map(o => o.productionJobId === id ? { ...o, productionJobId: undefined } : o),
-        }));
+        const job = get().productionJobs.find(item => item.id === id);
+        if (!job) return false;
+        const linkedOrder = get().orders.find(order => order.id === job.orderId);
+        const requirement = get().materialRequirements.find(item => item.orderId === job.orderId);
+
+        // Once a job is linked to an order or materials were consumed, deletion would
+        // break the inventory/order audit chain. Keep the production record immutable.
+        if (linkedOrder || requirement?.status === 'Consumed') return false;
+
+        set(current => ({ productionJobs: current.productionJobs.filter(item => item.id !== id) }));
+        return true;
       },
 
       // Notifications

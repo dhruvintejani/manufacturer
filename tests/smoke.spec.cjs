@@ -458,7 +458,7 @@ test('mobile quotation and production forms keep action buttons and dropdowns us
   await job.getByRole('button', { name: 'Assigned team' }).click();
   await expect(page.getByRole('listbox', { name: 'Assigned team' })).toBeVisible();
   await page.getByRole('option', { name: 'Fabrication Team B' }).click();
-  await job.getByRole('button', { name: 'Create Job' }).click();
+  await job.getByRole('button', { name: 'Start Production & Consume Materials' }).click();
   await expect(job).toBeHidden();
 
   await page.goto('/quotations');
