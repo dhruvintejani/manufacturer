@@ -110,74 +110,125 @@ export const Production: React.FC = () => {
     return true;
   };
 
+  const eligibleOrders = orders.filter(order =>
+    order.status === 'Confirmed' &&
+    !order.productionJobId &&
+    !productionJobs.some(job => job.orderId === order.id) &&
+    materialRequirements.some(requirement =>
+      requirement.orderId === order.id &&
+      requirement.status === 'Ready' &&
+      requirement.lines.length > 0 &&
+      requirement.lines.every(line => line.reservedQty + 1e-9 >= line.requiredQty))
+  );
+  const blockedConfirmedOrders = orders.filter(order =>
+    order.status === 'Confirmed' &&
+    !order.productionJobId &&
+    !productionJobs.some(job => job.orderId === order.id) &&
+    !materialRequirements.some(requirement => requirement.orderId === order.id && requirement.status === 'Ready')
+  ).length;
+
+  const refreshViewingJob = (id: string) => {
+    const current = useAppStore.getState().productionJobs.find(job => job.id === id) || null;
+    setViewingJob(current);
+  };
+
+  const allowedStatuses = (job: ProductionJob): ProductionStatus[] => {
+    if (job.status === 'Completed') return ['Completed'];
+    const base = job.status === 'Delayed'
+      ? (job.progress >= 95 ? 'Ready' : job.progress >= 85 ? 'Quality Check' : job.progress >= 20 ? 'In Production' : 'Planning')
+      : job.status;
+    const index = Math.max(0, PRODUCTION_FLOW.indexOf(base as ProductionStatus));
+    return job.status === 'Delayed'
+      ? ['Delayed', ...PRODUCTION_FLOW.slice(index)]
+      : [...PRODUCTION_FLOW.slice(index), 'Delayed'];
+  };
+
   const handleUpdateProgress = (job: ProductionJob, progress: number) => {
     if (!canChangeProduction(job)) return;
-    let status = job.status;
+    if (job.status === 'Delayed') {
+      toast.error('Resume the delayed job before changing production progress.');
+      return;
+    }
+    if (progress < job.progress) {
+      toast.error('Production progress cannot move backward.');
+      return;
+    }
+
+    let status: ProductionStatus = job.status;
     if (progress >= 100) status = 'Completed';
+    else if (progress >= 95) status = 'Ready';
     else if (progress >= 85) status = 'Quality Check';
-    else if (progress >= 10) status = 'In Production';
+    else if (progress >= 20 && ['Planning', 'In Production'].includes(job.status)) status = 'In Production';
     const stages = withStageProgress(job, progress);
-    updateProductionJob(job.id, { progress, stages, status: status as any });
-    setViewingJob(prev => prev ? { ...prev, progress, stages, status: status as any } : null);
+    if (!updateProductionJob(job.id, { progress, stages, status })) {
+      toast.error('Production update was rejected to protect the linked order workflow.');
+      return;
+    }
+    refreshViewingJob(job.id);
   };
 
   const handleStatusChange = (job: ProductionJob, status: string) => {
     if (!canChangeProduction(job)) return;
+    const nextStatus = status as ProductionStatus;
     const milestone: Record<string, number> = { Planning: 0, 'In Production': 20, 'Quality Check': 85, Ready: 95, Completed: 100 };
-    const progress = status === 'Delayed' ? job.progress : Math.max(job.progress, milestone[status] || 0);
+    const progress = nextStatus === 'Delayed' ? job.progress : Math.max(job.progress, milestone[nextStatus] || 0);
     const stages = withStageProgress(job, progress);
-    updateProductionJob(job.id, { status: status as any, progress, stages });
-    toast.success(`Job ${job.jobNumber} status updated to ${status}`);
-    setViewingJob(prev => prev ? { ...prev, status: status as any, progress, stages } : null);
-  };
-
-  const handleDelete = () => {
-    if (!deleteTarget) return;
-    deleteProductionJob(deleteTarget.id);
-    toast.success('Production job deleted.');
-    setDeleteTarget(null);
-    setViewingJob(null);
+    if (!updateProductionJob(job.id, { status: nextStatus, progress, stages })) {
+      toast.error('Production stages can move forward only. Resume delayed work at the current stage.');
+      return;
+    }
+    toast.success(`Job ${job.jobNumber} status updated to ${nextStatus}`);
+    refreshViewingJob(job.id);
   };
 
   const handleAddJob = () => {
-    if (!newJobForm.product || !newJobForm.orderId) {
-      toast.error('Please fill all required fields.');
+    if (!newJobForm.orderId) {
+      toast.error('Select a material-ready confirmed order.');
       return;
     }
-    if (productionJobs.some(job => job.orderId === newJobForm.orderId)) { toast.error('A production job already exists for that order.'); return; }
     const linkedOrder = orders.find(order => order.id === newJobForm.orderId);
-    if (!linkedOrder || ['Completed', 'Cancelled', 'On Hold'].includes(linkedOrder.status)) { toast.error('Select an active order before starting production.'); return; }
-    const requirement = materialRequirements.find(item => item.orderId === newJobForm.orderId);
-    if (!requirement || requirement.status !== 'Ready') {
-      toast.error('Material check is not ready. Resolve shortages from the Order or Purchase / Restock module first.');
+    if (!linkedOrder || linkedOrder.status !== 'Confirmed') {
+      toast.error('Production can start only from a confirmed order.');
       return;
     }
+    if (productionJobs.some(job => job.orderId === linkedOrder.id) || linkedOrder.productionJobId) {
+      toast.error('A production job already exists for that order.');
+      return;
+    }
+    const requirement = materialRequirements.find(item => item.orderId === linkedOrder.id);
+    if (!requirement || requirement.status !== 'Ready' ||
+        requirement.lines.some(line => line.reservedQty + 1e-9 < line.requiredQty)) {
+      toast.error('Material check is not ready. Resolve shortages before starting production.');
+      return;
+    }
+    if (new Date(newJobForm.expectedCompletion).getTime() < new Date(newJobForm.startDate).getTime()) {
+      toast.error('Expected completion cannot be before the production start date.');
+      return;
+    }
+
     const job = addProductionJob({
       jobNumber: '',
       ...newJobForm,
+      product: linkedOrder.product,
+      quantity: linkedOrder.quantity,
       status: 'Planning',
       progress: 0,
-      stages: [
-        { name: 'Planning', status: 'in-progress' },
-        { name: 'Material Preparation', status: 'pending' },
-        { name: 'Fabrication', status: 'pending' },
-        { name: 'Assembly', status: 'pending' },
-        { name: 'Quality Check', status: 'pending' },
-        { name: 'Ready', status: 'pending' },
-        { name: 'Completed', status: 'pending' },
-      ],
+      stages: [],
     });
     if (!job) {
-      toast.error('Production could not start because material reservation changed. Reopen the order and recheck stock.');
+      toast.error('Production could not start because the order or material reservation changed. Recheck the order.');
       return;
     }
-    toast.success(`Production job ${job.jobNumber} created. Reserved materials were consumed from inventory.`);
+    toast.success(`Production job ${job.jobNumber} created. Reserved BOM materials were consumed exactly once.`);
     setAddModalOpen(false);
     setNewJobForm({
-      orderId: '', product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0], quantity: 1,
+      orderId: '',
+      product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0],
+      quantity: 1,
       startDate: new Date().toISOString().split('T')[0],
       expectedCompletion: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
-      assignedTeam: TEAMS[0], notes: '',
+      assignedTeam: TEAMS[0],
+      notes: '',
     });
   };
 
