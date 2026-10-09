@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   ClipboardList, Edit2, Plus, Trash2, Layers3, PackageCheck,
   PackagePlus, Save, Search, ShieldAlert,
@@ -33,6 +34,7 @@ const emptyProductForm: ProductForm = {
 };
 
 export const ProductBom: React.FC = () => {
+  const location = useLocation();
   const {
     products, materials, materialRequirements,
     orders, enquiries, quotations, productionJobs,
@@ -46,6 +48,12 @@ export const ProductBom: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productForm, setProductForm] = useState<ProductForm>(emptyProductForm);
   const [deleteOpen, setDeleteOpen] = useState(false);
+
+  useEffect(() => {
+    const openId = new URLSearchParams(location.search).get('open');
+    if (!openId) return;
+    if (products.some(product => product.id === openId)) setSelectedId(openId);
+  }, [location.search, products]);
 
   const selected = products.find(product => product.id === selectedId) || products[0];
 
