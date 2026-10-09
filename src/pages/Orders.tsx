@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ShoppingCart, Plus, Eye, Edit2, Trash2, PauseCircle, PlayCircle, Ban,
-  Factory, CheckCircle, ArrowRight, DollarSign, ArrowDownUp, Boxes, AlertTriangle, ShoppingBag
+  Factory, CheckCircle, ArrowRight, DollarSign, ArrowDownUp, Boxes, AlertTriangle, ShoppingBag, RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
@@ -55,7 +55,7 @@ export const Orders: React.FC = () => {
   const {
     orders, customers, productionJobs, products, materials, materialRequirements, purchaseRequests,
     addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus, changeOrderException,
-    createPurchaseRequest, profile,
+    createPurchaseRequest, calculateMaterialRequirement, profile,
   } = useAppStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') === 'active' ? 'active' : 'all');
@@ -111,6 +111,7 @@ export const Orders: React.FC = () => {
     inProduction: orders.filter(o => o.status === 'Production').length,
     completed: orders.filter(o => o.status === 'Completed').length,
     pendingPayment: orders.filter(o => ['Pending', 'Partial', 'Overdue'].includes(o.paymentStatus)).length,
+    materialShortage: materialRequirements.filter(requirement => requirement.status === 'Shortage').length,
   };
 
   const handleCreateJob = (order: Order) => {
@@ -160,15 +161,31 @@ export const Orders: React.FC = () => {
 
   const handleSaveEdit = () => {
     if (!editModal) return;
+    const original = orders.find(order => order.id === editModal.id);
+    const materialDefinitionChanged = !!original &&
+      (original.product !== editModal.product || original.quantity !== editModal.quantity);
     const { status: _status, statusHistory: _history, ...changes } = editModal;
     updateOrder(editModal.id, changes);
-    toast.success('Order updated.');
+    const updated = useAppStore.getState().orders.find(order => order.id === editModal.id) || editModal;
+    toast.success(materialDefinitionChanged
+      ? 'Order updated. Material requirements and reservations recalculated.'
+      : 'Order updated.');
     setEditModal(null);
-    if (viewingOrder?.id === editModal.id) setViewingOrder(prev => prev ? { ...prev, ...editModal } : null);
+    if (viewingOrder?.id === editModal.id) setViewingOrder(updated);
   };
 
   const currentOrder = viewingOrder ? orders.find(o => o.id === viewingOrder.id) || viewingOrder : null;
   const currentMaterialRequirement = currentOrder ? materialRequirements.find(requirement => requirement.orderId === currentOrder.id) : undefined;
+  const currentProduct = currentOrder ? products.find(product => product.name === currentOrder.product) : undefined;
+  const readyMaterialLines = currentMaterialRequirement
+    ? currentMaterialRequirement.lines.filter(line => line.reservedQty + 1e-9 >= line.requiredQty).length
+    : 0;
+  const editRequirement = editModal ? materialRequirements.find(requirement => requirement.orderId === editModal.id) : undefined;
+  const editMaterialsLocked = !!editModal && (
+    !!editModal.productionJobId ||
+    editRequirement?.status === 'Consumed' ||
+    ['Production', 'Quality Check', 'Ready', 'Dispatched', 'Completed'].includes(editModal.status)
+  );
 
   const handleRestockShortage = (materialId: string, shortageQty: number) => {
     if (!currentOrder) return;
@@ -194,6 +211,16 @@ export const Orders: React.FC = () => {
       return;
     }
     toast.success(`${request.requestNumber} created for ${material.name}.`);
+  };
+
+  const handleRecheckMaterials = () => {
+    if (!currentOrder) return;
+    const result = calculateMaterialRequirement(currentOrder.id);
+    if (!result) {
+      toast.error(`${currentOrder.product} does not have a configured BOM yet.`);
+      return;
+    }
+    toast.success(`Material check updated: ${result.status}.`);
   };
 
   const currentIndex = currentOrder ? ORDER_STATUSES.indexOf(currentOrder.status) : -1;
@@ -253,12 +280,13 @@ export const Orders: React.FC = () => {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard title="Total Orders" value={stats.total} icon={<ShoppingCart className="w-5 h-5 text-blue-600" />} iconBg="bg-blue-50" index={0} />
         <StatCard title="Active Orders" value={stats.active} icon={<ArrowRight className="w-5 h-5 text-amber-600" />} iconBg="bg-amber-50" index={1} />
         <StatCard title="In Production" value={stats.inProduction} icon={<Factory className="w-5 h-5 text-violet-600" />} iconBg="bg-violet-50" index={2} />
         <StatCard title="Completed" value={stats.completed} icon={<CheckCircle className="w-5 h-5 text-emerald-600" />} iconBg="bg-emerald-50" index={3} />
         <StatCard title="Pending Payment" value={stats.pendingPayment} icon={<DollarSign className="w-5 h-5 text-rose-600" />} iconBg="bg-rose-50" index={4} />
+        <StatCard title="Material Shortage" value={stats.materialShortage} icon={<AlertTriangle className="w-5 h-5 text-rose-600" />} iconBg="bg-rose-50" index={5} />
       </div>
 
       {/* Filters */}
@@ -281,7 +309,7 @@ export const Orders: React.FC = () => {
               <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
-                    {['Order ID', 'Customer', 'Product', 'Qty', 'Order Date', 'Delivery', 'Amount', 'Status', 'Payment', 'Actions'].map(h => (
+                    {['Order ID', 'Customer', 'Product', 'Qty', 'Order Date', 'Delivery', 'Amount', 'Materials', 'Status', 'Payment', 'Actions'].map(h => (
                       <th key={h} scope="col" className="text-left text-xs font-semibold text-slate-500 px-6 py-3.5">
                         {h === 'Order Date' ? <button type="button" onClick={() => { setNewestFirst(v => !v); setPage(1); }}
                           className="inline-flex items-center gap-1 hover:text-blue-700" title="Toggle order date sorting"
@@ -293,6 +321,8 @@ export const Orders: React.FC = () => {
                 <tbody>
                   {paginated.map((order, i) => {
                     const customer = getCustomer(order.customerId);
+                    const materialRequirement = materialRequirements.find(requirement => requirement.orderId === order.id);
+                    const materialStatus = materialRequirement?.status || 'Not Calculated';
                     return (
                       <motion.tr key={order.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }} className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors group">
                         <td className="px-6 py-4">
@@ -306,6 +336,7 @@ export const Orders: React.FC = () => {
                         <td className="px-6 py-4"><span className="text-xs text-slate-500">{formatDate(order.orderDate)}</span></td>
                         <td className="px-6 py-4"><span className="text-xs text-slate-500">{formatDate(order.deliveryDate)}</span></td>
                         <td className="px-6 py-4"><span className="text-sm font-semibold text-slate-900">{formatCurrency(order.totalAmount)}</span></td>
+                        <td className="px-6 py-4"><StatusBadge status={materialStatus} /></td>
                         <td className="px-6 py-4"><StatusBadge status={order.status} /></td>
                         <td className="px-6 py-4"><StatusBadge status={order.paymentStatus} /></td>
                         <td className="px-6 py-4">
@@ -352,31 +383,117 @@ export const Orders: React.FC = () => {
               )}
             </div>
 
-            <section aria-label="Material readiness" className={`rounded-xl border p-4 ${currentMaterialRequirement?.status === 'Shortage' ? 'border-rose-200 bg-rose-50' : currentMaterialRequirement?.status === 'Ready' ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
-              <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2"><Boxes className="h-4 w-4 text-blue-600" /><h4 className="text-sm font-bold text-slate-900">Material Readiness</h4></div>
-                <StatusBadge status={currentMaterialRequirement?.status || 'Not Calculated'} />
+            <section
+              aria-label="Material readiness"
+              className={`rounded-xl border p-4 ${
+                currentMaterialRequirement?.status === 'Shortage'
+                  ? 'border-rose-200 bg-rose-50'
+                  : currentMaterialRequirement?.status === 'Ready'
+                    ? 'border-emerald-200 bg-emerald-50'
+                    : currentMaterialRequirement?.status === 'Consumed'
+                      ? 'border-blue-200 bg-blue-50'
+                      : 'border-slate-200 bg-white'
+              }`}
+            >
+              <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Boxes className="h-4 w-4 text-blue-600" />
+                    <h3 className="text-sm font-bold text-slate-900">Material Readiness</h3>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {currentMaterialRequirement
+                      ? `BOM v${currentMaterialRequirement.bomVersion || currentProduct?.bomVersion || '—'} · ${readyMaterialLines}/${currentMaterialRequirement.lines.length} material lines covered`
+                      : `${currentProduct?.name || currentOrder?.product || 'Product'} BOM has not been calculated for this order.`}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={currentMaterialRequirement?.status || 'Not Calculated'} />
+                  {currentOrder && !currentOrder.productionJobId && !['Completed', 'Cancelled'].includes(currentOrder.status) && currentMaterialRequirement?.status !== 'Consumed' && (
+                    <button
+                      type="button"
+                      onClick={handleRecheckMaterials}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" /> Recheck
+                    </button>
+                  )}
+                </div>
               </div>
+
               {!currentMaterialRequirement ? (
-                <p className="mt-3 text-sm text-slate-600">No BOM requirement is available for this order yet.</p>
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-sm font-semibold text-amber-900">BOM requirement is not available.</p>
+                  <p className="mt-1 text-xs leading-5 text-amber-800">
+                    Configure a BOM for {currentOrder?.product || 'this product'} before production can start.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setViewingOrder(null); navigate('/bom'); }}
+                    className="mt-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+                  >
+                    Open Product BOM
+                  </button>
+                </div>
               ) : (
                 <div className="mt-3 space-y-2">
                   {currentMaterialRequirement.lines.map(line => {
                     const material = materials.find(item => item.id === line.materialId);
                     const shortage = Math.max(0, line.requiredQty - line.reservedQty);
-                    return <div key={line.materialId} className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg bg-white/80 px-3 py-2">
-                      <div className="min-w-0"><div className="text-sm font-semibold text-slate-900">{material?.name || line.materialId}</div><div className="text-xs text-slate-500">Required {line.requiredQty} {material?.unit} · Reserved {line.reservedQty} {material?.unit}</div></div>
-                      {shortage > 0 ? (
-                        <button type="button" onClick={() => handleRestockShortage(line.materialId, shortage)}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700">
-                          <ShoppingBag className="h-3.5 w-3.5" /> Restock {shortage} {material?.unit}
-                        </button>
-                      ) : <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><CheckCircle className="h-4 w-4" /> Sufficient</span>}
-                    </div>;
+                    const isShortage = currentMaterialRequirement.status === 'Shortage' && shortage > 0;
+                    return (
+                      <div key={line.materialId} className="rounded-lg border border-white/80 bg-white/90 p-3 shadow-sm">
+                        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-slate-900">{material?.name || line.materialId}</div>
+                            <div className="mt-0.5 text-xs text-slate-500">{material?.code || line.materialId} · stock on hand {material?.currentStock ?? 0} {material?.unit || ''}</div>
+                          </div>
+                          {isShortage ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRestockShortage(line.materialId, shortage)}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700"
+                            >
+                              <ShoppingBag className="h-3.5 w-3.5" /> Restock {shortage} {material?.unit}
+                            </button>
+                          ) : currentMaterialRequirement.status === 'Consumed' ? (
+                            <span className="text-xs font-semibold text-blue-700">Consumed {line.consumedQty} {material?.unit}</span>
+                          ) : currentMaterialRequirement.status === 'Released' ? (
+                            <span className="text-xs font-semibold text-slate-600">Reservation released</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><CheckCircle className="h-4 w-4" /> Covered</span>
+                          )}
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                          <div className="rounded-md bg-slate-50 p-2"><span className="block text-slate-500">Required</span><strong className="mt-0.5 block tabular-nums text-slate-900">{line.requiredQty} {material?.unit}</strong></div>
+                          <div className="rounded-md bg-violet-50 p-2"><span className="block text-violet-600">Reserved</span><strong className="mt-0.5 block tabular-nums text-violet-900">{line.reservedQty} {material?.unit}</strong></div>
+                          <div className={`rounded-md p-2 ${shortage > 0 && currentMaterialRequirement.status === 'Shortage' ? 'bg-rose-100' : 'bg-emerald-50'}`}>
+                            <span className={shortage > 0 && currentMaterialRequirement.status === 'Shortage' ? 'text-rose-600' : 'text-emerald-600'}>
+                              {currentMaterialRequirement.status === 'Consumed' ? 'Consumed' : 'Shortage'}
+                            </span>
+                            <strong className={`mt-0.5 block tabular-nums ${shortage > 0 && currentMaterialRequirement.status === 'Shortage' ? 'text-rose-900' : 'text-emerald-900'}`}>
+                              {currentMaterialRequirement.status === 'Consumed' ? line.consumedQty : shortage} {material?.unit}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                    );
                   })}
-                  {currentMaterialRequirement.status === 'Shortage' && <p className="flex items-start gap-2 text-xs leading-5 text-rose-800"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> Production is locked until every BOM line is fully reserved. Receiving restock material recalculates this automatically.</p>}
-                  {currentMaterialRequirement.status === 'Ready' && <p className="text-xs leading-5 text-emerald-800">All materials are reserved. Starting production will consume the reserved quantities exactly once.</p>}
-                  {currentMaterialRequirement.status === 'Consumed' && <p className="text-xs leading-5 text-blue-800">Materials were consumed when production started; inventory transactions were recorded.</p>}
+                  {currentMaterialRequirement.status === 'Shortage' && (
+                    <p className="flex items-start gap-2 text-xs leading-5 text-rose-800">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      Production is locked until every BOM line is fully reserved. Earlier open orders keep reservation priority.
+                    </p>
+                  )}
+                  {currentMaterialRequirement.status === 'Ready' && (
+                    <p className="text-xs leading-5 text-emerald-800">All BOM materials are reserved for this order. Production can start.</p>
+                  )}
+                  {currentMaterialRequirement.status === 'Consumed' && (
+                    <p className="text-xs leading-5 text-blue-800">Materials were consumed once when production started; the requirement is now locked.</p>
+                  )}
+                  {currentMaterialRequirement.status === 'Released' && (
+                    <p className="text-xs leading-5 text-slate-700">This order no longer holds inventory reservations. Released stock is available to later open orders.</p>
+                  )}
                 </div>
               )}
             </section>
@@ -566,6 +683,40 @@ export const Orders: React.FC = () => {
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-900">To change an order stage, open Order Details → Update Status. Changes there are recorded in the audit history.</div>
+
+            {editMaterialsLocked ? (
+              <div className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-700">
+                Product and quantity are locked because production has started or material consumption is already recorded.
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Product</label>
+                  <PremiumSelect
+                    label="Edit order product"
+                    value={editModal.product}
+                    onChange={value => setEditModal(prev => prev ? { ...prev, product: value } : null)}
+                    options={(products.length ? products.filter(product => product.active).map(product => product.name) : FALLBACK_PRODUCTS)
+                      .map(value => ({ value, label: value }))}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="edit-order-quantity" className="block text-sm font-medium text-slate-700 mb-1.5">Quantity</label>
+                  <input
+                    id="edit-order-quantity"
+                    type="number"
+                    min={1}
+                    value={editModal.quantity}
+                    onChange={e => setEditModal(prev => prev ? { ...prev, quantity: Math.max(1, parseInt(e.target.value) || 1) } : null)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="sm:col-span-2 rounded-lg border border-violet-100 bg-violet-50 p-3 text-xs leading-5 text-violet-900">
+                  Changing product or quantity recalculates the BOM requirement and redistributes reservations across all open orders by reservation priority.
+                </div>
+              </>
+            )}
+
             {[
               { label: 'Payment Status', field: 'paymentStatus', type: 'select', options: PAYMENT_STATUSES },
               { label: 'Order Date', field: 'orderDate', type: 'date' },

@@ -47,7 +47,7 @@ test('material shortage -> restock -> ready -> production consumes stock once', 
 
   await page.goto('/orders?open=ORD-2026-0055');
   drawer = page.getByRole('dialog', { name: /ORD-2026-0055/ });
-  await expect(drawer.getByText('All materials are reserved')).toBeVisible();
+  await expect(drawer.getByText('All BOM materials are reserved for this order. Production can start.')).toBeVisible();
   await drawer.getByRole('button', { name: 'Create Production Job' }).click();
   await page.getByRole('dialog', { name: 'Create Production Job' }).getByRole('button', { name: 'Create Job' }).click();
   await expect(page).toHaveURL(/\/production$/);
