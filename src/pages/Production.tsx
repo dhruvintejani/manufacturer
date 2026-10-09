@@ -2,18 +2,17 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Factory, Plus, Eye, Trash2,
-  Users, CheckCircle, AlertTriangle, Clock
+  Factory, Plus, Eye,
+  Users, CheckCircle, AlertTriangle, Clock, Boxes, LockKeyhole, PackageCheck
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
-import { ProductionJob } from '../types';
+import { ProductionJob, ProductionStatus } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { StatCard } from '../components/ui/StatCard';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { RowActions } from '../components/ui/RowActions';
 import { Drawer } from '../components/ui/Drawer';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Pagination } from '../components/ui/Pagination';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -23,7 +22,8 @@ import { PremiumSelect } from '../components/ui/PremiumSelect';
 import { formatDate } from '../utils/formatters';
 
 const ITEMS_PER_PAGE = 8;
-const PRODUCTION_STATUSES = ['Planning', 'In Production', 'Quality Check', 'Ready', 'Completed', 'Delayed'];
+const PRODUCTION_FLOW: ProductionStatus[] = ['Planning', 'In Production', 'Quality Check', 'Ready', 'Completed'];
+const PRODUCTION_STATUSES: ProductionStatus[] = [...PRODUCTION_FLOW, 'Delayed'];
 const TEAMS = ['Fabrication Team A', 'Fabrication Team B', 'Specialized Equipment Team', 'Boiler Team', 'Assembly Team'];
 const FALLBACK_PRODUCTS = ['Pressure Vessel', 'Heat Exchanger', 'Storage Tank', 'Industrial Dryer', 'Reactor', 'Column', 'Boiler System'];
 
@@ -49,7 +49,10 @@ const withStageProgress = (job: ProductionJob, progress: number) => {
 
 export const Production: React.FC = () => {
   const location = useLocation();
-  const { productionJobs, orders, customers, products, materialRequirements, updateProductionJob, deleteProductionJob, addProductionJob } = useAppStore();
+  const {
+    productionJobs, orders, customers, products, materials, materialRequirements, inventoryTransactions,
+    updateProductionJob, addProductionJob,
+  } = useAppStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(new URLSearchParams(location.search).get('status') === 'active' ? 'active' : 'all');
   const [page, setPage] = useState(1);
@@ -62,7 +65,6 @@ export const Production: React.FC = () => {
     const record = productionJobs.find(job => job.id === openId);
     if (record) setViewingJob(record);
   }, [location.search, productionJobs]);
-  const [deleteTarget, setDeleteTarget] = useState<ProductionJob | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [newJobForm, setNewJobForm] = useState({
     orderId: '', product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0], quantity: 1,
