@@ -388,6 +388,50 @@ export const Production: React.FC = () => {
               </div>
             </div>
 
+            {/* Material Consumption */}
+            <section aria-label="Production material consumption" className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+                  <Boxes className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Material Consumption</h4>
+                      <p className="mt-0.5 text-xs text-slate-600">Inventory deducted when this production job was created.</p>
+                    </div>
+                    <StatusBadge status={viewingRequirement?.status || 'Legacy'} />
+                  </div>
+                  {viewingRequirement?.status === 'Consumed' ? (
+                    <>
+                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {viewingRequirement.lines.map(line => {
+                          const material = materials.find(item => item.id === line.materialId);
+                          return (
+                            <div key={line.materialId} className="rounded-lg border border-blue-100 bg-white px-3 py-2">
+                              <div className="text-xs font-semibold text-slate-900">{material?.name || line.materialId}</div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                Consumed <strong className="text-blue-700">{line.consumedQty} {material?.unit || ''}</strong>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                        <span>Consumed: <strong>{viewingRequirement.consumedAt ? new Date(viewingRequirement.consumedAt).toLocaleString() : 'Recorded'}</strong></span>
+                        <span>Ledger entries: <strong>{viewingConsumptionTransactions.length}</strong></span>
+                        <span>BOM: <strong>v{viewingRequirement.bomVersion || '1.0'}</strong></span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="mt-3 text-xs leading-5 text-slate-600">
+                      This legacy demo job does not have a linked consumed-material record. New production jobs always require a Ready BOM reservation and create inventory consumption entries automatically.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
+
             {/* Progress Control */}
             <div className="bg-slate-50 rounded-xl p-4">
               <div className="flex items-center justify-between mb-3">
