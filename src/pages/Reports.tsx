@@ -10,7 +10,8 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { ChartAlternative, AccessibleBars, AccessibleDonut, AccessibleHorizontalBars } from '../components/ui/AccessibleCharts';
 import { formatCurrency } from '../utils/formatters';
 import { downloadOperationsReport, ReportSection } from '../utils/reportPdf';
-import { availableForMaterial, materialStockStatus, reservedForMaterial } from '../utils/inventory';
+import { inventoryTransactionLabel } from '../utils/inventory';
+import { buildInventoryReport } from '../utils/inventoryReports';
 import { StatusBadge } from '../components/ui/StatusBadge';
 
 const TABS: ReportSection[] = ['Sales', 'Production', 'Customers', 'Enquiries', 'Inventory'];
@@ -153,9 +154,16 @@ export const Reports: React.FC = () => {
     customers, enquiries, quotations, orders, productionJobs,
     materials, materialRequirements, inventoryTransactions, purchaseRequests,
   };
-  const lowStockMaterials = materials.filter(material => material.currentStock < material.minimumStock);
-  const shortageRequirements = materialRequirements.filter(requirement => requirement.status === 'Shortage');
-  const openPurchaseRequests = purchaseRequests.filter(request => !['Received', 'Cancelled'].includes(request.status));
+  const inventoryReport = useMemo(() => buildInventoryReport(
+    materials,
+    materialRequirements,
+    inventoryTransactions,
+    purchaseRequests,
+    reportingYear,
+  ), [materials, materialRequirements, inventoryTransactions, purchaseRequests, reportingYear]);
+
+  const lowStockPositions = inventoryReport.positions.filter(item =>
+    ['Low Stock', 'Out of Stock'].includes(item.status));
 
   return (
     <div className="page-shell">
@@ -511,75 +519,256 @@ export const Reports: React.FC = () => {
       {/* Inventory Tab */}
       {activeTab === 'Inventory' && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="min-w-0 space-y-4 sm:space-y-6">
-          <div className="grid min-w-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-4 lg:gap-4">
-            <KpiBox label="Materials" value={materials.length} sub="Material master records" />
-            <KpiBox label="Low Stock" value={lowStockMaterials.length} sub="Below minimum level" positive={lowStockMaterials.length === 0} />
-            <KpiBox label="Shortage Orders" value={shortageRequirements.length} sub="Production blocked by stock" positive={shortageRequirements.length === 0} />
-            <KpiBox label="Open Restock" value={openPurchaseRequests.length} sub="Requested or ordered" />
+          <div className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6 lg:gap-4">
+            <KpiBox label="Materials" value={materials.length} sub="Master records" />
+            <KpiBox label="Low Stock" value={inventoryReport.lowStockCount} sub="Below minimum or out of stock" positive={inventoryReport.lowStockCount === 0} />
+            <KpiBox label="Shortage Orders" value={inventoryReport.shortageOrderCount} sub="Blocked by material" positive={inventoryReport.shortageOrderCount === 0} />
+            <KpiBox label="Open Restock" value={inventoryReport.openRestockCount} sub="Requested or ordered" />
+            <KpiBox label="Consumption Events" value={inventoryReport.consumedThisYear} sub={`${reportingYear} production issues`} />
+            <KpiBox label="Receipt Events" value={inventoryReport.receivedThisYear} sub={`${reportingYear} purchase receipts`} />
           </div>
 
-          {lowStockMaterials.length > 0 && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+          {lowStockPositions.length > 0 && (
+            <section className="rounded-xl border border-rose-200 bg-rose-50 p-4" aria-label="Inventory report low stock alerts">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
                 <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-rose-900">Low stock requiring attention</h3>
-                  <p className="mt-1 text-sm leading-6 text-rose-800">
-                    {lowStockMaterials.map(material => `${material.name} (${material.currentStock}/${material.minimumStock} ${material.unit})`).join(' · ')}
-                  </p>
+                  <h3 className="text-sm font-bold text-rose-900">Stock requiring attention</h3>
+                  <p className="mt-1 text-xs leading-5 text-rose-700">Physical stock is below the configured minimum level. Quantities remain in each material's own unit.</p>
+                  <div className="mt-2 flex min-w-0 flex-wrap gap-2">
+                    {lowStockPositions.map(({ material, status }) => (
+                      <span key={material.id} className="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-800">
+                        {material.name}: {material.currentStock}/{material.minimumStock} {material.unit} · {status}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            </section>
           )}
 
+          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-3 xl:gap-6">
+            <section className="min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
+              <h3 className="mb-1 text-sm font-semibold text-slate-900">Stock Health</h3>
+              <p className="mb-4 text-xs text-slate-500">Material count by current stock threshold.</p>
+              <ChartAlternative title="Inventory Stock Health" fallback={<AccessibleDonut title="Inventory Stock Health" data={inventoryReport.stockStatusData} />}>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={inventoryReport.stockStatusData} cx="50%" cy="50%" innerRadius={55} outerRadius={82} paddingAngle={3} dataKey="value">
+                      {inventoryReport.stockStatusData.map((entry, index) => <Cell key={index} fill={entry.fill} />)}
+                    </Pie>
+                    <Tooltip />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </ChartAlternative>
+            </section>
+
+            <section className="min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
+              <h3 className="mb-1 text-sm font-semibold text-slate-900">Purchase Lifecycle</h3>
+              <p className="mb-4 text-xs text-slate-500">Request count by procurement status.</p>
+              <ChartAlternative title="Purchase Lifecycle" fallback={<AccessibleDonut title="Purchase Lifecycle" data={inventoryReport.purchaseStatusData} />}>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={inventoryReport.purchaseStatusData} cx="50%" cy="50%" innerRadius={55} outerRadius={82} paddingAngle={3} dataKey="value">
+                      {inventoryReport.purchaseStatusData.map((entry, index) => <Cell key={index} fill={entry.fill} />)}
+                    </Pie>
+                    <Tooltip />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </ChartAlternative>
+            </section>
+
+            <section className="min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6 xl:col-span-1">
+              <h3 className="mb-1 text-sm font-semibold text-slate-900">Inventory Movement Events ({reportingYear})</h3>
+              <p className="mb-4 text-xs text-slate-500">Event counts only; material quantities are not mixed across kg, pieces, metres or litres.</p>
+              <ChartAlternative title="Inventory Movement Events" fallback={<AccessibleBars title="Inventory Movement Events" data={inventoryReport.movement.map(row => ({ ...row, label: row.month }))} series={[
+                { key: 'received', label: 'Receipts', color: '#10b981' },
+                { key: 'consumed', label: 'Consumption', color: '#2563eb' },
+                { key: 'adjustments', label: 'Adjustments', color: '#8b5cf6' },
+              ]} />}>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={inventoryReport.movement} margin={{ left: -20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
+                    <Bar dataKey="received" name="Receipts" fill="#10B981" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="consumed" name="Consumption" fill="#3B82F6" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="adjustments" name="Adjustments" fill="#8B5CF6" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartAlternative>
+            </section>
+          </div>
+
           <section className="min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-4 py-3 sm:px-6"><h3 className="text-sm font-semibold text-slate-900">Inventory Position</h3></div>
+            <div className="border-b border-slate-100 px-4 py-3 sm:px-6">
+              <h3 className="text-sm font-semibold text-slate-900">Inventory Position</h3>
+              <p className="mt-1 text-xs text-slate-500">Physical − reserved = available. Reserved quantities are held for open material requirements.</p>
+            </div>
             <div className="max-w-full overflow-x-auto">
-              <table className="min-w-[820px] w-full">
-                <thead className="bg-slate-50"><tr>{['Material','Physical','Reserved','Available','Minimum','Unit','Status'].map(label => <th key={label} className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{label}</th>)}</tr></thead>
+              <table className="min-w-[940px] w-full">
+                <thead className="bg-slate-50"><tr>{['Material','Physical','Reserved','Available','Minimum','Reorder','Unit','Supplier','Status'].map(label => <th key={label} className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{label}</th>)}</tr></thead>
                 <tbody className="divide-y divide-slate-100">
-                  {materials.map(material => {
-                    const reserved = reservedForMaterial(material.id, materialRequirements);
-                    return <tr key={material.id}>
+                  {inventoryReport.positions.map(({ material, physical, reserved, available, status }) => (
+                    <tr key={material.id}>
                       <td className="px-4 py-3"><div className="text-sm font-semibold text-slate-900">{material.name}</div><div className="text-xs text-slate-500">{material.code}</div></td>
-                      <td className="px-4 py-3 text-sm font-bold tabular-nums text-slate-900">{material.currentStock}</td>
+                      <td className="px-4 py-3 text-sm font-bold tabular-nums text-slate-900">{physical}</td>
                       <td className="px-4 py-3 text-sm font-semibold tabular-nums text-violet-700">{reserved}</td>
-                      <td className="px-4 py-3 text-sm font-semibold tabular-nums text-blue-700">{availableForMaterial(material, materialRequirements)}</td>
+                      <td className="px-4 py-3 text-sm font-semibold tabular-nums text-blue-700">{available}</td>
                       <td className="px-4 py-3 text-sm tabular-nums text-slate-600">{material.minimumStock}</td>
+                      <td className="px-4 py-3 text-sm tabular-nums text-slate-600">{material.reorderLevel}</td>
                       <td className="px-4 py-3 text-sm text-slate-600">{material.unit}</td>
-                      <td className="px-4 py-3"><StatusBadge status={materialStockStatus(material)} /></td>
-                    </tr>;
-                  })}
+                      <td className="px-4 py-3 text-sm text-slate-600">{material.supplier}</td>
+                      <td className="px-4 py-3"><StatusBadge status={status} /></td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </section>
 
+          <section className="min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm" aria-label="Material shortage report">
+            <div className="border-b border-slate-100 px-4 py-3 sm:px-6">
+              <h3 className="text-sm font-semibold text-slate-900">Material Shortages</h3>
+              <p className="mt-1 text-xs text-slate-500">Exact shortage by order and BOM line. Quantities remain in the material's own unit.</p>
+            </div>
+            {inventoryReport.shortages.length ? (
+              <div className="max-w-full overflow-x-auto">
+                <table className="min-w-[860px] w-full">
+                  <thead className="bg-slate-50"><tr>{['Order','Product','Material','Required','Reserved','Shortage','Unit'].map(label => <th key={label} className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{label}</th>)}</tr></thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {inventoryReport.shortages.map(row => (
+                      <tr key={row.orderId + row.materialId}>
+                        <td className="px-4 py-3 font-mono text-xs text-slate-700">{row.orderId}</td>
+                        <td className="px-4 py-3 text-sm text-slate-700">{row.productName}</td>
+                        <td className="px-4 py-3"><div className="text-sm font-semibold text-slate-900">{row.materialName}</div><div className="text-xs text-slate-500">{row.materialCode}</div></td>
+                        <td className="px-4 py-3 text-sm tabular-nums text-slate-700">{row.requiredQty}</td>
+                        <td className="px-4 py-3 text-sm tabular-nums text-violet-700">{row.reservedQty}</td>
+                        <td className="px-4 py-3 text-sm font-bold tabular-nums text-rose-700">{row.shortageQty}</td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{row.unit}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : <p className="p-6 text-sm text-emerald-700">No unresolved material shortages.</p>}
+          </section>
+
+          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2">
+            <section className="min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm" aria-label="Material consumption report">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <h3 className="text-sm font-semibold text-slate-900">Material Consumption</h3>
+                <p className="mt-1 text-xs text-slate-500">Production consumption aggregated per material; unlike units are never added together.</p>
+              </div>
+              {inventoryReport.consumption.length ? (
+                <div className="max-w-full overflow-x-auto">
+                  <table className="min-w-[620px] w-full">
+                    <thead className="bg-slate-50"><tr>{['Material','Consumed','Unit','Events','Latest Order'].map(label => <th key={label} className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{label}</th>)}</tr></thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {inventoryReport.consumption.map(row => (
+                        <tr key={row.materialId}>
+                          <td className="px-4 py-3"><div className="text-sm font-semibold text-slate-900">{row.materialName}</div><div className="text-xs text-slate-500">{row.materialCode}</div></td>
+                          <td className="px-4 py-3 text-sm font-bold tabular-nums text-blue-700">{row.consumedQty}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600">{row.unit}</td>
+                          <td className="px-4 py-3 text-sm tabular-nums text-slate-600">{row.eventCount}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-slate-600">{row.latestReference || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p className="p-6 text-sm text-slate-500">No production material consumption recorded.</p>}
+            </section>
+
+            <section className="min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm" aria-label="Purchase receipt report">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <h3 className="text-sm font-semibold text-slate-900">Material Receipts</h3>
+                <p className="mt-1 text-xs text-slate-500">Received purchase quantities aggregated per material.</p>
+              </div>
+              {inventoryReport.receipts.length ? (
+                <div className="max-w-full overflow-x-auto">
+                  <table className="min-w-[560px] w-full">
+                    <thead className="bg-slate-50"><tr>{['Material','Received Qty','Unit','Receipt Count','Latest Receipt'].map(label => <th key={label} className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{label}</th>)}</tr></thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {inventoryReport.receipts.map(row => (
+                        <tr key={row.materialId}>
+                          <td className="px-4 py-3"><div className="text-sm font-semibold text-slate-900">{row.materialName}</div><div className="text-xs text-slate-500">{row.materialCode}</div></td>
+                          <td className="px-4 py-3 text-sm font-bold tabular-nums text-emerald-700">{row.receivedQty}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600">{row.unit}</td>
+                          <td className="px-4 py-3 text-sm tabular-nums text-slate-600">{row.eventCount}</td>
+                          <td className="px-4 py-3 text-xs text-slate-600">{row.latestAt ? new Date(row.latestAt).toLocaleDateString() : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p className="p-6 text-sm text-slate-500">No purchase receipts recorded yet.</p>}
+            </section>
+          </div>
+
           <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2">
             <section className="min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
               <div className="border-b border-slate-100 px-4 py-3"><h3 className="text-sm font-semibold text-slate-900">Order Material Readiness</h3></div>
               <div className="divide-y divide-slate-100">
-                {materialRequirements.map(requirement => (
-                  <div key={requirement.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3">
-                    <div><div className="text-sm font-semibold text-slate-900">{requirement.orderId}</div><div className="text-xs text-slate-500">{requirement.quantity} × {requirement.productName}</div></div>
+                {materialRequirements.map(requirement => {
+                  const shortageLines = requirement.status === 'Shortage'
+                    ? requirement.lines.filter(line => line.reservedQty < line.requiredQty).length
+                    : 0;
+                  return <div key={requirement.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3">
+                    <div><div className="text-sm font-semibold text-slate-900">{requirement.orderId}</div><div className="text-xs text-slate-500">{requirement.quantity} × {requirement.productName}{shortageLines ? ` · ${shortageLines} shortage line${shortageLines === 1 ? '' : 's'}` : ''}</div></div>
                     <StatusBadge status={requirement.status} />
-                  </div>
-                ))}
+                  </div>;
+                })}
               </div>
             </section>
+
             <section className="min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
               <div className="border-b border-slate-100 px-4 py-3"><h3 className="text-sm font-semibold text-slate-900">Purchase / Restock Summary</h3></div>
               <div className="divide-y divide-slate-100">
                 {purchaseRequests.map(request => {
                   const material = materials.find(item => item.id === request.materialId);
                   return <div key={request.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3">
-                    <div className="min-w-0"><div className="text-sm font-semibold text-slate-900">{request.requestNumber}</div><div className="text-xs text-slate-500">{material?.name || request.materialId} · {request.quantity} {material?.unit}</div></div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-900">{request.requestNumber}</div>
+                      <div className="text-xs text-slate-500">{material?.name || request.materialId} · {request.quantity} {material?.unit} · {request.orderId || 'General restock'}</div>
+                    </div>
                     <StatusBadge status={request.status} />
                   </div>;
                 })}
+                {!purchaseRequests.length && <p className="p-4 text-sm text-slate-500">No purchase requests recorded.</p>}
               </div>
             </section>
           </div>
+
+          <section className="min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm" aria-label="Recent inventory transactions">
+            <div className="border-b border-slate-100 px-4 py-3 sm:px-6">
+              <h3 className="text-sm font-semibold text-slate-900">Recent Inventory Transactions</h3>
+              <p className="mt-1 text-xs text-slate-500">Latest opening, receipt, consumption and manual-adjustment ledger events.</p>
+            </div>
+            <div className="max-w-full overflow-x-auto">
+              <table className="min-w-[900px] w-full">
+                <thead className="bg-slate-50"><tr>{['Date','Material','Movement','Quantity','Balance','Reference','Note'].map(label => <th key={label} className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{label}</th>)}</tr></thead>
+                <tbody className="divide-y divide-slate-100">
+                  {inventoryReport.recentTransactions.map(transaction => {
+                    const material = materials.find(item => item.id === transaction.materialId);
+                    return <tr key={transaction.id}>
+                      <td className="px-4 py-3 text-xs text-slate-600">{new Date(transaction.timestamp).toLocaleString()}</td>
+                      <td className="px-4 py-3"><div className="text-sm font-semibold text-slate-900">{material?.name || transaction.materialId}</div><div className="text-xs text-slate-500">{material?.code}</div></td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{inventoryTransactionLabel(transaction.type)}</td>
+                      <td className={`px-4 py-3 text-sm font-bold tabular-nums ${transaction.quantity >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{transaction.quantity > 0 ? '+' : ''}{transaction.quantity} {material?.unit || ''}</td>
+                      <td className="px-4 py-3 text-sm font-semibold tabular-nums text-slate-900">{transaction.balanceAfter} {material?.unit || ''}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-slate-600">{transaction.reference || '—'}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{transaction.note || '—'}</td>
+                    </tr>;
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </motion.div>
       )}
 
