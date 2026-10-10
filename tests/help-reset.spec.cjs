@@ -67,6 +67,7 @@ test('Reset Demo Data copy names the full reset scope and reset restores product
     ];
     parsed.state.products = parsed.state.products.map((product, index) =>
       index === 0 ? { ...product, name: 'Changed Product Name', bomVersion: '99.9' } : product);
+    parsed.state.sidebarCollapsed = true;
     parsed.state.purchaseRequests = [
       {
         id: 'PUR-RESET-QA',
@@ -87,6 +88,7 @@ test('Reset Demo Data copy names the full reset scope and reset restores product
   expect(changedState.profile.name).toBe('Changed Demo User');
   expect(changedState.materials.some(material => material.id === 'MAT-RESET-QA')).toBe(true);
   expect(changedState.purchaseRequests.some(request => request.id === 'PUR-RESET-QA')).toBe(true);
+  expect(changedState.sidebarCollapsed).toBe(true);
 
   await page.getByRole('button', { name: 'Reset Demo Data' }).click();
   const dialog = page.getByRole('dialog', { name: 'Reset Demo Data' });
@@ -95,9 +97,16 @@ test('Reset Demo Data copy names the full reset scope and reset restores product
   await expect(dialog).toContainText('inventory');
   await expect(dialog).toContainText('purchases');
   await expect(dialog).toContainText('profile data');
-  await dialog.getByRole('button', { name: 'Reset Data' }).click();
+  const resetButton = dialog.getByRole('button', { name: 'Reset Everything' });
+  await expect(resetButton).toBeDisabled();
+  const confirmation = dialog.getByLabel(/Type RESET to permanently restore the original demo/i);
+  await confirmation.fill('not-reset');
+  await expect(resetButton).toBeDisabled();
+  await confirmation.fill('RESET');
+  await expect(resetButton).toBeEnabled();
+  await resetButton.click();
 
-  await expect(page.getByText('Demo data reset successfully!')).toBeVisible();
+  await expect(page.getByText('ForgeFlow demo restored to the original sample state.')).toBeVisible();
 
   const state = await page.evaluate(() => JSON.parse(localStorage.getItem('forgeflow-storage')).state);
   expect(state.profile.name).not.toBe('Changed Demo User');
@@ -106,6 +115,7 @@ test('Reset Demo Data copy names the full reset scope and reset restores product
   expect(state.products[0].bomVersion).not.toBe('99.9');
   expect(state.purchaseRequests.some(request => request.id === 'PUR-RESET-QA')).toBe(false);
   expect(state.inventoryTransactions.length).toBeGreaterThan(0);
+  expect(state.sidebarCollapsed).toBe(false);
 });
 
 test('Help and Settings remain mobile-safe after documentation/reset updates', async ({ page }) => {
