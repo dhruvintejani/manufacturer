@@ -130,7 +130,14 @@ export const Settings: React.FC = () => {
       <ConfirmDialog
         open={resetDialogOpen}
         title="Reset Demo Data"
-        description="This restores all demo records and browser-saved preferences to the original ForgeFlow sample state. Customers, enquiries, quotations, orders, production, materials, products/BOMs, inventory, purchases, notifications, activity history, profile data and sidebar preference will be replaced. This cannot be undone."
+        description="This replaces every browser-saved demo change with the original ForgeFlow sample data. Review exactly what will be reset before continuing."
+        details={[
+          'Customers & sales: customers, enquiries, quotations and orders.',
+          'Manufacturing: production jobs plus Product Master and Product BOM changes.',
+          'Inventory: materials, physical stock, reservations, material requirements and inventory transaction history.',
+          'Purchasing: purchase/restock requests, supplier-linked request status and material receipts.',
+          'Account & app state: notifications, activity history, demo profile data and the saved sidebar preference.',
+        ]}
         confirmLabel="Reset Everything"
         confirmationText="RESET"
         confirmationLabel="Type RESET to permanently restore the original demo"
