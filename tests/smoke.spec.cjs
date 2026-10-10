@@ -196,9 +196,19 @@ test('table next, previous and numbered pages all start at the top', async ({ pa
   await checkPage('2', 2);
 });
 
-test('help has dedicated manufacturing workflow guidance, not settings', async ({ page }) => {
+test('help explains the connected BOM, inventory, restock and production workflow', async ({ page }) => {
   await page.goto('/help');
   await expect(page.getByRole('heading', { name: 'Help & Support' })).toBeVisible();
+
+  const flow = page.getByRole('region', { name: 'BOM inventory restock production workflow' });
+  await expect(flow).toBeVisible();
+  await expect(flow.getByRole('heading', { name: 'BOM → Inventory → Restock → Production' })).toBeVisible();
+  await expect(flow.getByRole('heading', { name: 'Enough stock' })).toBeVisible();
+  await expect(flow.getByRole('heading', { name: 'Material shortage' })).toBeVisible();
+  await expect(flow).toContainText('Requested → Ordered → Received');
+  await expect(flow).toContainText('Production unlocked');
+  await expect(flow).toContainText('consumption transactions exactly once');
+
   await expect(page.getByText(/This preview stores operational changes/)).toBeVisible();
   await page.getByRole('button', { name: 'Quotations', exact: true }).click();
   await expect(page.getByText(/Prepare Email opens your email application/)).toBeVisible();
