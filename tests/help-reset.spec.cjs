@@ -81,7 +81,7 @@ test('Reset Demo Data copy names the full reset scope and reset restores product
   });
 
   await page.reload();
-  await expect(page.getByText('Changed Demo User', { exact: true })).toBeVisible();
+  await expect(page.getByText('Changed Demo User', { exact: true }).first()).toBeVisible();
 
   await page.getByRole('button', { name: 'Reset Demo Data' }).click();
   const dialog = page.getByRole('dialog', { name: 'Reset Demo Data' });
