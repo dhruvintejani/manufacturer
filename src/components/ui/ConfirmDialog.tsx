@@ -11,6 +11,8 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: 'danger' | 'warning' | 'info';
+  confirmationText?: string;
+  confirmationLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -22,11 +24,22 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   variant = 'danger',
+  confirmationText,
+  confirmationLabel = 'Type to confirm',
   onConfirm,
   onCancel,
 }) => {
   const dialogRef = React.useRef<HTMLDivElement>(null);
+  const [typedConfirmation, setTypedConfirmation] = React.useState('');
   useAccessibleOverlay(open, onCancel, dialogRef);
+
+  React.useEffect(() => {
+    if (!open) setTypedConfirmation('');
+  }, [open]);
+
+  const requiresTypedConfirmation = Boolean(confirmationText);
+  const confirmationMatches = !requiresTypedConfirmation ||
+    typedConfirmation.trim().toUpperCase() === confirmationText!.trim().toUpperCase();
 
   const variantStyles = {
     danger: { icon: 'text-red-500', bg: 'bg-red-50', btn: 'bg-red-600 hover:bg-red-700 text-white' },
@@ -75,6 +88,21 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
+            {requiresTypedConfirmation && (
+              <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <label htmlFor="confirm-dialog-text" className="block text-xs font-semibold text-amber-900">
+                  {confirmationLabel}: <span className="font-mono">{confirmationText}</span>
+                </label>
+                <input
+                  id="confirm-dialog-text"
+                  value={typedConfirmation}
+                  onChange={event => setTypedConfirmation(event.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="mt-2 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+            )}
             <div className="mt-5 flex justify-end gap-3">
               <button
                 onClick={onCancel}
@@ -83,8 +111,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 {cancelLabel}
               </button>
               <button
-                onClick={() => { onConfirm(); }}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${s.btn}`}
+                onClick={() => { if (confirmationMatches) onConfirm(); }}
+                disabled={!confirmationMatches}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${s.btn} disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 {confirmLabel}
               </button>
