@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
-  Archive, BarChart3, BookOpen, Boxes, ChevronDown, ClipboardList, Factory,
-  FileText, Layers3, LifeBuoy, PackageCheck, ShieldCheck, ShoppingBag, Sparkles,
+  AlertTriangle, Archive, BarChart3, BookOpen, Boxes, CheckCircle2, ChevronDown,
+  ClipboardList, Factory, FileText, Layers3, LifeBuoy, PackageCheck, ShieldCheck,
+  ShoppingBag, Sparkles,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -114,6 +115,59 @@ export const Help: React.FC = () => {
                   {index + 1}. {label}
                 </span>
               ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-label="BOM inventory restock production workflow" className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-5">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Material decision flow</p>
+            <h2 className="mt-1 text-lg font-bold text-slate-900">BOM → Inventory → Restock → Production</h2>
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
+              This is the key manufacturing-control sequence to explain during a client demo. The order quantity drives the BOM requirement, inventory reserves what is available, and production stays locked until every required material line is ready.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <article className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-emerald-900">Enough stock</h3>
+                  <p className="mt-1 text-sm leading-6 text-emerald-900/80">
+                    Order → Product BOM → Material Requirement → Inventory reserves every required line → Material Ready → Create Production Job → reserved stock is consumed once.
+                  </p>
+                </div>
+              </div>
+            </article>
+
+            <article className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-rose-900">Material shortage</h3>
+                  <p className="mt-1 text-sm leading-6 text-rose-900/80">
+                    Order → Product BOM → Shortage detected → Purchase / Restock → Requested → Ordered → Received → Inventory updated → reservations recalculated → Production unlocked.
+                  </p>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">1. Requirement</div>
+              <p className="mt-1 text-sm leading-5 text-slate-700">Order quantity × BOM quantity calculates the material needed for each line.</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">2. Reservation</div>
+              <p className="mt-1 text-sm leading-5 text-slate-700">Available stock is reserved against the order so the same quantity cannot be promised twice.</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">3. Production start</div>
+              <p className="mt-1 text-sm leading-5 text-slate-700">Starting production converts reserved quantities into inventory-consumption transactions exactly once.</p>
             </div>
           </div>
         </div>
