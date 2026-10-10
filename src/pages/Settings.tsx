@@ -85,7 +85,7 @@ export const Settings: React.FC = () => {
               <h3 className="text-sm font-semibold text-slate-900">Demo Data</h3>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed mb-4">
-              Reset all demo data to its original state. This will restore all customers, enquiries, quotations, orders, and production jobs.
+              Reset the entire browser demo to its original sample state. This restores customers, enquiries, quotations, orders, production jobs, materials, product BOMs, inventory transactions, purchase/restock requests, notifications, activity history, and the demo profile.
             </p>
             <button
               onClick={() => setResetDialogOpen(true)}
@@ -120,7 +120,7 @@ export const Settings: React.FC = () => {
               <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
             </div>
             <p className="text-sm leading-relaxed text-slate-600">
-              Order, enquiry and production updates appear in the in-app notification menu.
+              Order, enquiry, production, material shortage, low-stock and purchase/restock updates appear in the in-app notification menu.
               Email and desktop push notifications are not connected in this browser-only demo.
             </p>
           </motion.div>
@@ -130,7 +130,7 @@ export const Settings: React.FC = () => {
       <ConfirmDialog
         open={resetDialogOpen}
         title="Reset Demo Data"
-        description="This will restore all data to the original demo state. Any changes you've made will be lost."
+        description="This restores all demo records and preferences stored in this browser, including materials, products/BOMs, inventory, purchases, notifications, activity history, and profile data. Any changes you have made will be lost."
         confirmLabel="Reset Data"
         variant="warning"
         onConfirm={() => {
