@@ -48,7 +48,7 @@ test('Part 10 completes the full customer-to-report manufacturing workflow with 
   await customerModal.getByLabel('Email Address').fill('qa-part10@example.test');
   await customerModal.getByLabel('Phone').fill('+91 98765 43210');
   await customerModal.getByLabel('Country').fill('India');
-  await customerModal.getByLabel('Address').fill('Industrial Estate, Gujarat');
+  await customerModal.getByLabel('Address', { exact: true }).fill('Industrial Estate, Gujarat');
   await customerModal.getByRole('button', { name: 'Add Customer', exact: true }).click();
   await expect(page.getByText(company, { exact: true }).first()).toBeVisible();
 
