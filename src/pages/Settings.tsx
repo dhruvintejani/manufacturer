@@ -85,7 +85,7 @@ export const Settings: React.FC = () => {
               <h3 className="text-sm font-semibold text-slate-900">Demo Data</h3>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed mb-4">
-              Reset the entire browser demo to its original sample state. This restores customers, enquiries, quotations, orders, production jobs, materials, product BOMs, inventory transactions, purchase/restock requests, notifications, activity history, and the demo profile.
+              Reset the entire browser demo to its original sample state. This restores customers, enquiries, quotations, orders, production jobs, materials, product BOMs, inventory transactions, purchase/restock requests, notifications, activity history, the demo profile, and saved sidebar preference.
             </p>
             <button
               onClick={() => setResetDialogOpen(true)}
@@ -130,13 +130,15 @@ export const Settings: React.FC = () => {
       <ConfirmDialog
         open={resetDialogOpen}
         title="Reset Demo Data"
-        description="This restores all demo records and preferences stored in this browser, including materials, products/BOMs, inventory, purchases, notifications, activity history, and profile data. Any changes you have made will be lost."
-        confirmLabel="Reset Data"
+        description="This restores all demo records and browser-saved preferences to the original ForgeFlow sample state. Customers, enquiries, quotations, orders, production, materials, products/BOMs, inventory, purchases, notifications, activity history, profile data and sidebar preference will be replaced. This cannot be undone."
+        confirmLabel="Reset Everything"
+        confirmationText="RESET"
+        confirmationLabel="Type RESET to permanently restore the original demo"
         variant="warning"
         onConfirm={() => {
           resetDemoData();
           setResetDialogOpen(false);
-          toast.success('Demo data reset successfully!');
+          toast.success('ForgeFlow demo restored to the original sample state.');
         }}
         onCancel={() => setResetDialogOpen(false)}
       />
