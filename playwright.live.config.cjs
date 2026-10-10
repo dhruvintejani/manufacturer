@@ -20,11 +20,11 @@ module.exports = defineConfig({
   projects: [
     {
       name: 'live-desktop-chrome',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], browserName: 'chromium' },
     },
     {
       name: 'live-mobile-safari',
-      use: { ...devices['iPhone 13'] },
+      use: { ...devices['iPhone 13'], browserName: 'webkit' },
     },
   ],
 });
