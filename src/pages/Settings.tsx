@@ -85,7 +85,7 @@ export const Settings: React.FC = () => {
               <h3 className="text-sm font-semibold text-slate-900">Demo Data</h3>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed mb-4">
-              Reset the entire browser demo to its original sample state. This restores customers, enquiries, quotations, orders, production jobs, materials, product BOMs, inventory transactions, purchase/restock requests, notifications, activity history, the demo profile, and saved sidebar preference.
+              Resetting demo data erases every browser-saved change and restores ForgeFlow to its original sample state. This includes sales records, production jobs, products and BOMs, materials and inventory, purchase/restock records, notifications, activity history, the demo profile, and saved app preferences.
             </p>
             <button
               onClick={() => setResetDialogOpen(true)}
@@ -130,14 +130,14 @@ export const Settings: React.FC = () => {
       <ConfirmDialog
         open={resetDialogOpen}
         title="Reset Demo Data"
-        description="This replaces every browser-saved demo change with the original ForgeFlow sample data. Review exactly what will be reset before continuing."
+        description="This action is destructive for this browser. Every demo change listed below will be erased and replaced with ForgeFlow's original sample data. It cannot be undone."
         details={[
-          'Customers & sales: customers, enquiries, quotations and orders.',
-          'Manufacturing: production jobs.',
-          'products/BOMs: Product Master and Product BOM records and definitions.',
-          'Inventory: materials, physical stock, reservations, material requirements and inventory transaction history.',
-          'Purchasing / purchases: purchase/restock requests, supplier-linked request status and material receipts.',
-          'Account & app state: demo profile data, notifications, activity history and the saved sidebar preference.',
+          'Customers & sales — customers, enquiries, quotations and orders.',
+          'Manufacturing — production jobs and their demo status history.',
+          'Products & BOMs — Product Master records, product definitions and Bill of Materials changes.',
+          'Inventory — materials, physical stock, reserved/available stock, material requirements and inventory transaction history.',
+          'Purchases — purchase/restock requests, supplier links, request status and material receipt records.',
+          'Profile & app state — demo profile data, notifications, activity history and the saved sidebar preference.',
         ]}
         confirmLabel="Reset Everything"
         confirmationText="RESET"
