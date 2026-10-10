@@ -133,10 +133,11 @@ export const Settings: React.FC = () => {
         description="This replaces every browser-saved demo change with the original ForgeFlow sample data. Review exactly what will be reset before continuing."
         details={[
           'Customers & sales: customers, enquiries, quotations and orders.',
-          'Manufacturing: production jobs plus Product Master and Product BOM changes.',
+          'Manufacturing: production jobs.',
+          'Products/BOMs: Product Master records and Product BOM definitions.',
           'Inventory: materials, physical stock, reservations, material requirements and inventory transaction history.',
-          'Purchasing: purchase/restock requests, supplier-linked request status and material receipts.',
-          'Account & app state: notifications, activity history, demo profile data and the saved sidebar preference.',
+          'Purchases: purchase/restock requests, supplier-linked request status and material receipts.',
+          'Profile data & app state: demo profile data, notifications, activity history and the saved sidebar preference.',
         ]}
         confirmLabel="Reset Everything"
         confirmationText="RESET"
