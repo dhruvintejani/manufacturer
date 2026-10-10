@@ -172,11 +172,11 @@ export const Reports: React.FC = () => {
         subtitle={`Records shown are demo data. Monthly charts use ${reportingYear}; order values assume a common reporting currency (no FX conversion).`}
         breadcrumbs={[{ label: 'Dashboard' }, { label: 'Reports' }]}
         actions={<>
-          <button type="button" onClick={() => downloadOperationsReport(pdfData, activeTab)}
+          <button type="button" onClick={() => downloadOperationsReport(pdfData, activeTab, { reportingYear })}
             className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">
             <Download className="h-4 w-4" /> Current Report PDF
           </button>
-          <button type="button" onClick={() => downloadOperationsReport(pdfData, 'Complete')}
+          <button type="button" onClick={() => downloadOperationsReport(pdfData, 'Complete', { reportingYear })}
             className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
             <FileDown className="h-4 w-4" /> Complete PDF
           </button>
