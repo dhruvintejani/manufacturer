@@ -8,6 +8,7 @@ interface ConfirmDialogProps {
   open: boolean;
   title: string;
   description: string;
+  details?: string[];
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: 'danger' | 'warning' | 'info';
@@ -21,6 +22,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   open,
   title,
   description,
+  details,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   variant = 'danger',
@@ -78,7 +80,17 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               </div>
               <div className="flex-1 min-w-0">
                 <h3 id="confirm-title" className="text-base font-semibold text-slate-900">{title}</h3>
-                <p className="mt-1 text-sm text-slate-600">{description}</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+                {details && details.length > 0 && (
+                  <ul className="mt-3 space-y-1.5 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                    {details.map(detail => (
+                      <li key={detail} className="flex items-start gap-2">
+                        <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                        <span>{detail}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <button
                 onClick={onCancel}
