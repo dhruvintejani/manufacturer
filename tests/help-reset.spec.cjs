@@ -37,8 +37,10 @@ test('Reset Demo Data copy names the full reset scope and reset restores product
 
   await expect(page.getByText(/materials, product BOMs, inventory transactions, purchase\/restock requests/i)).toBeVisible();
 
-  // Ensure a persisted snapshot exists, then deliberately alter multiple reset domains.
-  await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+  // Ensure a persisted snapshot exists using a control available on both desktop and mobile,
+  // then deliberately alter multiple reset domains.
+  await page.getByRole('button', { name: 'Save Profile' }).click();
+  await expect(page.getByText('Demo profile saved in this browser.')).toBeVisible();
   await page.evaluate(() => {
     const raw = localStorage.getItem('forgeflow-storage');
     const parsed = JSON.parse(raw);
