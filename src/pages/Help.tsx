@@ -22,6 +22,7 @@ const sections = [
     steps: [
       'Add products, quantities, unit prices, discounts, taxes, validity and commercial terms.',
       'Save Draft while preparing the offer. Generate PDF creates a downloadable quotation document.',
+      'Prepare Email opens your email application. Attach the downloaded PDF and send it yourself; this demo does not send email automatically.',
       'Mark the quotation Sent only after sharing it with the customer. When accepted, mark it Approved and use Convert to Order.',
     ],
   },
