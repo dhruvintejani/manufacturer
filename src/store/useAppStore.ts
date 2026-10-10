@@ -1285,6 +1285,8 @@ export const useAppStore = create<AppStore>()(
           activities: seedActivities,
           notifications: seedNotifications,
           profile: defaultDemoProfile,
+          sidebarCollapsed: false,
+          sidebarMobileOpen: false,
         });
       },
     }),
