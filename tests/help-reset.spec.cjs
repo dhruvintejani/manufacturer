@@ -83,7 +83,10 @@ test('Reset Demo Data copy names the full reset scope and reset restores product
   });
 
   await page.reload();
-  await expect(page.getByText('Changed Demo User', { exact: true }).first()).toBeVisible();
+  const changedState = await page.evaluate(() => JSON.parse(localStorage.getItem('forgeflow-storage')).state);
+  expect(changedState.profile.name).toBe('Changed Demo User');
+  expect(changedState.materials.some(material => material.id === 'MAT-RESET-QA')).toBe(true);
+  expect(changedState.purchaseRequests.some(request => request.id === 'PUR-RESET-QA')).toBe(true);
 
   await page.getByRole('button', { name: 'Reset Demo Data' }).click();
   const dialog = page.getByRole('dialog', { name: 'Reset Demo Data' });
