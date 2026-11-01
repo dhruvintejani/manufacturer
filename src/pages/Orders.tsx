@@ -19,6 +19,7 @@ import { Pagination } from '../components/ui/Pagination';
 import { EmptyState } from '../components/ui/EmptyState';
 import { WorkflowStepper } from '../components/ui/WorkflowStepper';
 import { formatDate, formatCurrency } from '../utils/formatters';
+import { orderCurrency } from '../utils/orderValue';
 import { Modal } from '../components/ui/Modal';
 import { PremiumSelect } from '../components/ui/PremiumSelect';
 
@@ -53,7 +54,7 @@ export const Orders: React.FC = () => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const {
-    orders, customers, productionJobs, products, materials, materialRequirements, purchaseRequests,
+    orders, customers, quotations, productionJobs, products, materials, materialRequirements, purchaseRequests,
     addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus, changeOrderException,
     createPurchaseRequest, calculateMaterialRequirement, profile,
   } = useAppStore();
@@ -352,7 +353,7 @@ export const Orders: React.FC = () => {
                         <td className="px-6 py-4"><span className="text-sm text-slate-700">{order.quantity}</span></td>
                         <td className="px-6 py-4"><span className="text-xs text-slate-500">{formatDate(order.orderDate)}</span></td>
                         <td className="px-6 py-4"><span className="text-xs text-slate-500">{formatDate(order.deliveryDate)}</span></td>
-                        <td className="px-6 py-4"><span className="text-sm font-semibold text-slate-900">{formatCurrency(order.totalAmount, order.currency || 'USD')}</span></td>
+                        <td className="px-6 py-4"><span className="text-sm font-semibold text-slate-900">{formatCurrency(order.totalAmount, orderCurrency(order, quotations))}</span></td>
                         <td className="px-6 py-4"><StatusBadge status={materialStatus} /></td>
                         <td className="px-6 py-4"><StatusBadge status={order.status} /></td>
                         <td className="px-6 py-4"><StatusBadge status={order.paymentStatus} /></td>
@@ -546,7 +547,7 @@ export const Orders: React.FC = () => {
                 { label: 'Quantity', value: `${viewingOrder.quantity} units` },
                 { label: 'Order Date', value: formatDate(viewingOrder.orderDate) },
                 { label: 'Delivery Date', value: formatDate(viewingOrder.deliveryDate) },
-                { label: 'Total Amount', value: formatCurrency(viewingOrder.totalAmount, viewingOrder.currency || 'USD') },
+                { label: 'Total Amount', value: formatCurrency(viewingOrder.totalAmount, orderCurrency(viewingOrder, quotations)) },
               ].map((item: any) => (
                 <div key={item.label} className={item.span ? 'col-span-2' : ''}>
                   <div className="text-xs text-slate-500">{item.label}</div>
