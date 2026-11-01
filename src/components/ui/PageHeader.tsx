@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 
 interface BreadcrumbItem {
@@ -20,6 +20,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   breadcrumbs,
   actions,
 }) => {
+  const reducedMotion = useReducedMotion();
   return (
     <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-4 sm:mb-6">
       <div>
@@ -36,18 +37,18 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           </nav>
         )}
         <motion.h1
-          initial={{ opacity: 0, y: -8 }}
+          initial={reducedMotion ? false : { opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-          className="break-words text-xl font-bold leading-tight text-slate-900 sm:text-2xl"
+          transition={{ duration: reducedMotion ? 0 : 0.2 }}
+          className="break-words text-xl font-bold tracking-tight leading-tight text-slate-900 sm:text-2xl"
         >
           {title}
         </motion.h1>
         {subtitle && (
           <motion.p
-            initial={{ opacity: 0 }}
+            initial={reducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.2, delay: 0.05 }}
+            transition={{ duration: reducedMotion ? 0 : 0.2, delay: reducedMotion ? 0 : 0.05 }}
             className="break-words text-sm leading-relaxed text-slate-500 mt-1"
           >
             {subtitle}
@@ -56,9 +57,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       </div>
       {actions && (
         <motion.div
-          initial={{ opacity: 0, y: -8 }}
+          initial={reducedMotion ? false : { opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, delay: 0.1 }}
+          transition={{ duration: reducedMotion ? 0 : 0.2, delay: reducedMotion ? 0 : 0.1 }}
           className="flex min-w-0 w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3"
         >
           {actions}
