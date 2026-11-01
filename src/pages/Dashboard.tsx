@@ -556,7 +556,7 @@ export const Dashboard: React.FC = () => {
                       <span className="text-sm text-slate-600">{order.quantity}</span>
                     </td>
                     <td className="px-6 py-3.5">
-                      <span className="text-sm font-semibold text-slate-900">{formatCurrency(order.totalAmount)}</span>
+                      <span className="text-sm font-semibold text-slate-900">{formatCurrency(order.totalAmount, order.currency || 'USD')}</span>
                     </td>
                     <td className="px-6 py-3.5">
                       <StatusBadge status={order.status} />
