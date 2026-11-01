@@ -209,7 +209,7 @@ test('help explains the connected BOM, inventory, restock and production workflo
   await expect(flow).toContainText('Production unlocked');
   await expect(flow).toContainText('consumption transactions exactly once');
 
-  await expect(page.getByText(/This preview stores operational changes/)).toBeVisible();
+  await expect(page.getByText(/This workspace stores operational changes/)).toBeVisible();
   await page.getByRole('button', { name: 'Quotations', exact: true }).click();
   await expect(page.getByText(/Prepare Email opens your email application/)).toBeVisible();
 });
