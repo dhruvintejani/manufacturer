@@ -227,7 +227,7 @@ export const Help: React.FC = () => {
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900"><LifeBuoy className="h-4 w-4 text-blue-600" /> Workspace data & troubleshooting</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              This preview stores operational changes in the current browser. It has no shared production database, sign-in service or automatic email delivery. Check active filters, search terms and linked order/material records if a value looks unexpected.
+              This workspace stores operational changes in the current browser. It has no shared production database, sign-in service or automatic email delivery. Check active filters, search terms and linked order/material records if a value looks unexpected.
             </p>
             <p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">
               Reset Workspace Data is destructive. It restores the original customers, enquiries, quotations, orders, production jobs, materials, product BOMs, inventory ledger, purchase/restock requests, notifications, activity history and profile in this browser.
