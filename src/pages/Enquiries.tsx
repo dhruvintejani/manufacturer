@@ -1,3 +1,4 @@
+import { recordRowInteractions } from '../utils/recordRow';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -238,7 +239,7 @@ export const Enquiries: React.FC = () => {
                     const customer = getCustomer(enq.customerId);
                     return (
                       <motion.tr
-                        key={enq.id}
+                        key={enq.id} {...recordRowInteractions(() => setViewingEnquiry(enq))}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: i * 0.04 }}
