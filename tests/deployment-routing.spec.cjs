@@ -44,7 +44,7 @@ test('320-1023px Chrome screens get visible CSS report charts, not hidden SVG ch
   for (const width of [320, 375, 768, 820, 1023]) {
     await page.setViewportSize({ width, height: 800 });
     await page.goto('/reports');
-    const monthly = page.locator('[data-html-chart="Monthly Order Value"]');
+    const monthly = page.locator('[data-html-chart="Monthly USD Order Value"]');
     await expect(monthly).toBeVisible();
     expect(await monthly.locator('[data-chart-value]').count(), 'monthly bars at width ' + width).toBe(12);
     const visibleBars = await monthly.locator('[data-chart-value]').evaluateAll(nodes =>
@@ -56,7 +56,7 @@ test('320-1023px Chrome screens get visible CSS report charts, not hidden SVG ch
     await expect(donut).toBeVisible();
     expect(Number(await donut.getAttribute('data-chart-total'))).toBeGreaterThan(0);
     expect(await donut.evaluate(node => getComputedStyle(node).backgroundImage)).toContain('conic-gradient');
-    await expect(page.locator('[data-svg-chart="Monthly Order Value"]')).toBeHidden();
+    await expect(page.locator('[data-svg-chart="Monthly USD Order Value"]')).toBeHidden();
     const overallScroll = await page.locator('main').evaluate(el => el.scrollWidth - el.clientWidth);
     expect(overallScroll, 'no sideways whole-screen scroll at width ' + width).toBeLessThan(4);
   }
