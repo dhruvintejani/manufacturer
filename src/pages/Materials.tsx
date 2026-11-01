@@ -1,3 +1,4 @@
+import { recordRowInteractions } from '../utils/recordRow';
 import React, { useMemo, useState } from 'react';
 import { Boxes, Plus, AlertTriangle, CheckCircle2, Edit2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -22,6 +23,8 @@ export const Materials: React.FC = () => {
   const { materials, addMaterial, updateMaterial } = useAppStore();
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Material | null>(null);
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const viewing = materials.find(material => material.id === viewingId) ?? null;
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
@@ -122,7 +125,7 @@ export const Materials: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {filtered.map(material => {
                 const stockStatus = materialStockStatus(material);
-                return <tr key={material.id} className="hover:bg-slate-50">
+                return <tr key={material.id} {...recordRowInteractions(() => setViewingId(material.id))} className="hover:bg-slate-50">
                   <td className="px-4 py-3 font-mono text-xs text-slate-500">{material.code}</td>
                   <td className="px-4 py-3 text-sm font-semibold text-slate-900">{material.name}</td>
                   <td className="px-4 py-3 text-sm text-slate-600">{material.category}</td>
@@ -141,6 +144,41 @@ export const Materials: React.FC = () => {
         </div>
         {!filtered.length && <p className="p-8 text-center text-sm text-slate-500">No materials match your search.</p>}
       </section>
+
+      <Modal
+        open={!!viewing}
+        onClose={() => setViewingId(null)}
+        title={viewing?.name}
+        subtitle={viewing ? `${viewing.code} · ${viewing.category}` : undefined}
+        footer={<div className="flex justify-end gap-2">
+          <button type="button" onClick={() => setViewingId(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold">Close</button>
+          <button type="button" onClick={() => { if (viewing) { openEdit(viewing); setViewingId(null); } }}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Edit Material</button>
+        </div>}
+      >
+        {viewing && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {[
+              ['Material code', viewing.code],
+              ['Category', viewing.category],
+              ['Stock', `${viewing.currentStock} ${viewing.unit}`],
+              ['Minimum stock', `${viewing.minimumStock} ${viewing.unit}`],
+              ['Reorder level', `${viewing.reorderLevel} ${viewing.unit}`],
+              ['Preferred supplier', viewing.supplier],
+            ].map(([label, value]) => (
+              <div key={label} className="min-w-0 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                <div className="text-xs font-semibold text-slate-500">{label}</div>
+                <div className="mt-1 break-words text-sm font-bold text-slate-900">{value}</div>
+              </div>
+            ))}
+            <div className="col-span-2 sm:col-span-3 flex items-center gap-2">
+              <span className="text-xs text-slate-500">Material status</span>
+              <StatusBadge status={viewing.status} />
+              <StatusBadge status={materialStockStatus(viewing)} />
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={adding || !!editing} onClose={close} title={editing ? 'Edit Material' : 'Add Material'}
         subtitle={editing ? 'Stock quantity is adjusted from Inventory so every change is recorded.' : 'Create a material master record with opening stock.'}
