@@ -438,3 +438,29 @@ button, input, textarea, select { font-family:inherit; }
   .forge-hero :is(button,a) { flex:1 1 auto; }
   .forge-topbar [role="region"][aria-label="Search results"] { max-height:65dvh; }
 }
+
+
+/* Detail affordances and consistent rounded popup surfaces, including custom editors. */
+.page-shell tbody tr[tabindex="0"] { cursor:pointer; transition:background-color .18s ease, box-shadow .18s ease; }
+.page-shell tbody tr[tabindex="0"]:hover { background-color:#edf8f3; }
+.page-shell tbody tr[tabindex="0"]:focus-visible { outline:2px solid #119b83; outline-offset:-3px; background-color:#f0f9f5; }
+.page-shell tbody tr[tabindex="0"]:hover td:first-child { box-shadow:inset 3px 0 0 #1cab8c; }
+.forge-modal {
+  overflow:hidden;
+  border-radius:24px !important;
+  background:#fff;
+  isolation:isolate;
+}
+.forge-modal > :first-child { border-top-left-radius:inherit; border-top-right-radius:inherit; }
+.forge-modal > :last-child { border-bottom-left-radius:inherit; border-bottom-right-radius:inherit; }
+.forge-modal [class*="overflow-y-auto"] { min-height:0; }
+.forge-drawer { overflow:hidden; border-radius:20px 0 0 20px; isolation:isolate; }
+.forge-drawer > :first-child { border-top-left-radius:inherit; }
+.forge-drawer .border-b { border-color:#e5eee9; }
+@media (max-width:639px) {
+  .forge-modal { border-radius:19px !important; }
+  .forge-drawer { border-radius:0; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .page-shell tbody tr[tabindex="0"] { transition:none; }
+}
