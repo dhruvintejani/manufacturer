@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ClipboardList, FileText, ShoppingCart, Factory,
-  DollarSign, Clock, ArrowRight, Package, Boxes, AlertTriangle, ShoppingBag
+  DollarSign, Clock, ArrowRight, BarChart3, Package, Boxes, AlertTriangle, ShoppingBag
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -136,38 +136,57 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="page-shell">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <motion.h1
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-2xl font-bold text-slate-900"
-          >
-            Hello, {profile.name.split(' ')[0]} 👋
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.05 }}
-            className="text-slate-500 mt-1 text-sm"
-          >
-            Here's what's happening with your manufacturing operations today.
-          </motion.p>
+      {/* Manufacturing command center — premium editorial hero */}
+      <section className="forge-hero" aria-label="Manufacturing command center">
+        <div className="relative z-10 flex flex-col justify-between gap-8 lg:flex-row lg:items-center">
+          <div className="min-w-0 max-w-2xl">
+            <span className="forge-hero-kicker">Manufacturing command center</span>
+            <motion.h1
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="forge-hero-title mt-4"
+            >
+              Hello, {profile.name.split(' ')[0]}.
+              <span className="block text-[#8de2c4]">Your operations, in focus.</span>
+            </motion.h1>
+            <p className="forge-hero-copy mt-3 max-w-xl">
+              From incoming enquiries to production and dispatch — a clear view of the work moving your factory forward.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-2.5">
+              <button type="button" onClick={() => navigate('/orders')} className="forge-hero-action">
+                Review orders <ArrowRight className="h-4 w-4" />
+              </button>
+              <button type="button" onClick={() => navigate('/reports')} className="forge-hero-secondary">
+                Explore reports <BarChart3 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          <div className="w-full shrink-0 lg:w-[245px]">
+            <div className="mb-5 flex items-center gap-2 text-[11px] font-semibold text-[#bddbd1]">
+              <Clock className="h-4 w-4" />
+              <span>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="forge-hero-metric">
+                <strong>{activeOrders}</strong><small>Active orders</small>
+              </div>
+              <div className="forge-hero-metric">
+                <strong>{activeJobs}</strong><small>Production jobs</small>
+              </div>
+              <div className="forge-hero-metric">
+                <strong>{lowStockCount}</strong><small>Low stock</small>
+              </div>
+              <div className="forge-hero-metric">
+                <strong>{openRestock}</strong><small>Open restocks</small>
+              </div>
+            </div>
+          </div>
         </div>
-        <motion.div
-          initial={{ opacity: 0, x: 16 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.1 }}
-          className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-xl px-3.5 py-2 shadow-sm"
-        >
-          <Clock className="w-4 h-4 text-slate-400" />
-          <span className="font-medium">{new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-        </motion.div>
-      </div>
+      </section>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 lg:gap-4">
         <StatCard
           title="Total Enquiries"
           value={totalEnquiries}
@@ -337,7 +356,7 @@ export const Dashboard: React.FC = () => {
                 wrapperStyle={{ fontSize: '11px', paddingTop: '16px' }}
                 formatter={(v) => <span className="text-slate-600">{v}</span>}
               />
-              <Area type="monotone" dataKey="enquiries" name="Enquiries" stroke="#3B82F6" strokeWidth={2} fill="url(#gEnquiries)" dot={false} />
+              <Area type="monotone" dataKey="enquiries" name="Enquiries" stroke="#119b83" strokeWidth={2} fill="url(#gEnquiries)" dot={false} />
               <Area type="monotone" dataKey="quotations" name="Quotations" stroke="#8B5CF6" strokeWidth={2} fill="url(#gQuotations)" dot={false} />
               <Area type="monotone" dataKey="orders" name="Orders" stroke="#10B981" strokeWidth={2} fill="url(#gOrders)" dot={false} />
             </AreaChart>
