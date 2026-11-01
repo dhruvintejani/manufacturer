@@ -22,10 +22,10 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className={cn('flex flex-col items-center justify-center py-16 px-4 text-center', className)}
+      className={cn('forge-empty-state flex flex-col items-center justify-center py-16 px-4 text-center', className)}
     >
       {icon && (
-        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 text-slate-400">
+        <div className="forge-empty-icon w-16 h-16 flex items-center justify-center mb-4">
           {icon}
         </div>
       )}
