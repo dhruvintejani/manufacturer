@@ -808,7 +808,7 @@ export const seedInventoryTransactions: InventoryTransaction[] = seedMaterials.m
   balanceAfter: material.currentStock + (material.id === 'MAT-001' ? 100 : material.id === 'MAT-002' ? 20 : 0),
   timestamp: '2026-01-01T08:00:00Z',
   reference: 'Opening Balance',
-  note: 'Demo opening stock',
+  note: 'Opening stock balance',
 })).concat([
   { id: 'TXN-CONS-001', materialId: 'MAT-001', type: 'production_consumption', quantity: -100, balanceAfter: 850, timestamp: '2026-05-01T08:30:00Z', reference: 'ORD-2026-0058', note: 'Reactor material consumption' },
   { id: 'TXN-CONS-002', materialId: 'MAT-002', type: 'production_consumption', quantity: -20, balanceAfter: 120, timestamp: '2026-05-01T08:30:00Z', reference: 'ORD-2026-0058', note: 'Reactor material consumption' },
