@@ -177,3 +177,22 @@ select { appearance: none; padding-right: 2.2rem !important; background-image: l
 @media (prefers-reduced-motion: reduce) {
   .chart-appear, .chart-bar, .chart-donut { animation: none !important; }
 }
+
+/* ForgeFlow demo polish: responsive interaction and readable touch targets. */
+:root { color-scheme: light; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled), [role="button"] { touch-action: manipulation; }
+button:not(:disabled):focus-visible, a:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .page-shell button:not(:disabled) { transition: transform 150ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease, border-color 180ms ease; }
+  .page-shell button:not(:disabled):active { transform: translateY(1px) scale(.985); }
+  .page-shell tbody tr { transition: background-color 150ms ease; }
+}
+@media (max-width: 640px) {
+  .page-shell > .grid { min-width: 0; }
+  .page-shell button { max-width: 100%; }
+  .page-shell :is(h1,h2,h3) { overflow-wrap: anywhere; }
+  .page-shell input, .page-shell select, .page-shell textarea { font-size: 16px; }
+  [role="dialog"] { max-height: min(96dvh, 100%); }
+}
+@media (prefers-reduced-motion: reduce) { .page-shell *, .page-shell *::before, .page-shell *::after { scroll-behavior: auto; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
