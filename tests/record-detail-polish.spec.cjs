@@ -37,7 +37,7 @@ test('dashboard recent enquiry and order rows deep-link to exact details', async
 
 test('material row opens read-only details and Edit remains separate', async ({ page }) => {
   await page.goto('/materials');
-  const row = page.getByRole('row').filter({ hasText: 'MAT-001' }).first();
+  const row = page.getByRole('row').filter({ hasText: 'SS304 Sheet' }).first();
   await row.getByRole('cell').nth(1).click();
   const details = page.getByRole('dialog');
   await expect(details).toContainText('MAT-001');
