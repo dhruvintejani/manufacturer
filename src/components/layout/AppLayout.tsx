@@ -25,14 +25,14 @@ export const AppLayout: React.FC = () => {
   }, [location.key]);
 
   return (
-    <div className="flex h-[100dvh] w-full min-w-0 overflow-hidden bg-[#F7F9FC]">
+    <div className="forge-app flex h-[100dvh] w-full min-w-0 overflow-hidden">
       <ToastProvider />
       <Sidebar />
       <Sidebar mobile />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header />
-        <main ref={mainRef} className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none">
+        <main ref={mainRef} className="forge-main min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none">
           <AnimatePresence mode={reducedMotion ? "sync" : "wait"}>
             <motion.div
               key={location.pathname}
