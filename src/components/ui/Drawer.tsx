@@ -56,7 +56,7 @@ export const Drawer: React.FC<DrawerProps> = ({
             ref={dialogRef}
             tabIndex={-1}
             className={cn(
-              'relative ml-auto h-[100dvh] min-w-0 max-w-[100vw] bg-white shadow-2xl flex flex-col w-full',
+              'forge-drawer relative ml-auto h-[100dvh] min-w-0 max-w-[100vw] bg-white shadow-2xl flex flex-col w-full',
               width
             )}
             role="dialog"
@@ -67,7 +67,7 @@ export const Drawer: React.FC<DrawerProps> = ({
             {(title || subtitle) && (
               <div className="flex min-w-0 items-start justify-between gap-3 px-4 py-3 sm:p-6 border-b border-slate-100">
                 <div className="min-w-0">
-                  {title && <h2 id={titleId} className="break-words text-base font-semibold text-slate-900 sm:text-lg">{title}</h2>}
+                  {title && <h2 id={titleId} className="forge-dialog-title break-words text-base font-semibold text-slate-900 sm:text-lg">{title}</h2>}
                   {subtitle && <p className="break-words text-sm text-slate-500 mt-0.5">{subtitle}</p>}
                 </div>
                 <button
