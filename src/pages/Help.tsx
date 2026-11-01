@@ -23,7 +23,7 @@ const sections = [
     steps: [
       'Add products, quantities, unit prices, discounts, taxes, validity and commercial terms.',
       'Save Draft while preparing the offer. Generate PDF creates a downloadable quotation document.',
-      'Prepare Email opens your email application. Attach the downloaded PDF and send it yourself; this demo does not send email automatically.',
+      'Prepare Email opens your email application. Attach the downloaded PDF and send it yourself; ForgeFlow does not send email automatically.',
       'Mark the quotation Sent only after sharing it with the customer. When accepted, mark it Approved and use Convert to Order.',
     ],
   },
@@ -81,7 +81,7 @@ const sections = [
     steps: [
       'Use the Inventory report to review stock position, shortages, consumption and purchase/restock activity.',
       'Download Current Report PDF for the active report tab or Complete PDF for the full operations report.',
-      'PDF totals are generated from the application data rather than screenshots, so they stay synchronized with the current demo state.',
+      'PDF totals are generated from the application data rather than screenshots, so they stay synchronized with the current workspace state.',
     ],
   },
 ];
@@ -102,8 +102,8 @@ export const Help: React.FC = () => {
           <div className="rounded-lg bg-blue-600 p-3 text-white"><BookOpen className="h-6 w-6" /></div>
           <div className="min-w-0">
             <div className="mb-1 flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-bold text-slate-900">ForgeFlow end-to-end demo</h2>
-              <span className="rounded-md bg-amber-100 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-800">Browser demo</span>
+              <h2 className="text-lg font-bold text-slate-900">ForgeFlow end-to-end workflow</h2>
+              <span className="rounded-md bg-amber-100 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-800">Browser-local</span>
             </div>
             <p className="max-w-4xl text-sm leading-6 text-slate-600">
               The connected workflow is Customer → Enquiry → Quotation → Order → Product BOM → Material Requirement → Inventory Check → Production → Quality Check → Ready → Dispatched → Completed → Reports.
@@ -126,7 +126,7 @@ export const Help: React.FC = () => {
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Material decision flow</p>
             <h2 className="mt-1 text-lg font-bold text-slate-900">BOM → Inventory → Restock → Production</h2>
             <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-              This is the key manufacturing-control sequence to explain during a client demo. The order quantity drives the BOM requirement, inventory reserves what is available, and production stays locked until every required material line is ready.
+              This is the key manufacturing-control sequence to explain during a workflow walkthrough. The order quantity drives the BOM requirement, inventory reserves what is available, and production stays locked until every required material line is ready.
             </p>
           </div>
 
@@ -225,12 +225,12 @@ export const Help: React.FC = () => {
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900"><LifeBuoy className="h-4 w-4 text-blue-600" /> Demo data & troubleshooting</h2>
+            <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900"><LifeBuoy className="h-4 w-4 text-blue-600" /> Workspace data & troubleshooting</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">
               This preview stores operational changes in the current browser. It has no shared production database, sign-in service or automatic email delivery. Check active filters, search terms and linked order/material records if a value looks unexpected.
             </p>
             <p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">
-              Reset Demo Data is destructive. It restores the original customers, enquiries, quotations, orders, production jobs, materials, product BOMs, inventory ledger, purchase/restock requests, notifications, activity history and demo profile in this browser.
+              Reset Workspace Data is destructive. It restores the original customers, enquiries, quotations, orders, production jobs, materials, product BOMs, inventory ledger, purchase/restock requests, notifications, activity history and profile in this browser.
             </p>
           </section>
 
