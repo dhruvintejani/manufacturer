@@ -1,3 +1,4 @@
+import { recordRowInteractions } from '../utils/recordRow';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -314,7 +315,7 @@ export const Production: React.FC = () => {
                 </thead>
                 <tbody>
                   {paginated.map((job, i) => (
-                    <motion.tr key={job.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }} className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors group">
+                    <motion.tr key={job.id} {...recordRowInteractions(() => setViewingJob(job))} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }} className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors group">
                       <td className="px-6 py-4">
                         <button onClick={() => setViewingJob(job)} className="text-xs font-mono font-semibold text-blue-600 hover:text-blue-700">{job.jobNumber}</button>
                       </td>
