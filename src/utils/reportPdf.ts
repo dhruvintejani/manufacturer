@@ -281,7 +281,7 @@ export const buildOperationsReport = (
     ]);
 
     table(
-      ['Company', 'Contact', 'Country', 'Orders', 'Order Value', 'Status'],
+      ['Company', 'Contact', 'Country', 'Orders', 'Order Value (by currency)', 'Status'],
       data.customers
         .map(customer => {
           const orders = data.orders.filter(order => order.customerId === customer.id);
@@ -290,7 +290,7 @@ export const buildOperationsReport = (
             customer.contactPerson,
             customer.country,
             orders.length,
-            money(orders.filter(order => orderCurrency(order, data.quotations) === 'USD').reduce((sum, order) => sum + order.totalAmount, 0)),
+            formattedOrderTotals(orders, data.quotations),
             customer.status,
           ] as Array<string | number>;
         })
