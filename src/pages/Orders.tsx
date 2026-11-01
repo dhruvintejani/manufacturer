@@ -83,7 +83,7 @@ export const Orders: React.FC = () => {
     customerId: '', quotationId: '', product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0],
     quantity: 1, orderDate: new Date().toISOString().split('T')[0],
     deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
-    totalAmount: 0, paymentStatus: 'Pending', status: 'Confirmed', notes: '',
+    totalAmount: 0, currency: 'USD', paymentStatus: 'Pending', status: 'Confirmed', notes: '',
   });
 
   const filtered = useMemo(() => {
@@ -276,7 +276,7 @@ export const Orders: React.FC = () => {
       customerId: '', quotationId: '', product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0],
       quantity: 1, orderDate: new Date().toISOString().split('T')[0],
       deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
-      totalAmount: 0, paymentStatus: 'Pending', status: 'Confirmed', notes: '',
+      totalAmount: 0, currency: 'USD', paymentStatus: 'Pending', status: 'Confirmed', notes: '',
     });
   };
 
@@ -352,7 +352,7 @@ export const Orders: React.FC = () => {
                         <td className="px-6 py-4"><span className="text-sm text-slate-700">{order.quantity}</span></td>
                         <td className="px-6 py-4"><span className="text-xs text-slate-500">{formatDate(order.orderDate)}</span></td>
                         <td className="px-6 py-4"><span className="text-xs text-slate-500">{formatDate(order.deliveryDate)}</span></td>
-                        <td className="px-6 py-4"><span className="text-sm font-semibold text-slate-900">{formatCurrency(order.totalAmount)}</span></td>
+                        <td className="px-6 py-4"><span className="text-sm font-semibold text-slate-900">{formatCurrency(order.totalAmount, order.currency || 'USD')}</span></td>
                         <td className="px-6 py-4"><StatusBadge status={materialStatus} /></td>
                         <td className="px-6 py-4"><StatusBadge status={order.status} /></td>
                         <td className="px-6 py-4"><StatusBadge status={order.paymentStatus} /></td>
@@ -546,7 +546,7 @@ export const Orders: React.FC = () => {
                 { label: 'Quantity', value: `${viewingOrder.quantity} units` },
                 { label: 'Order Date', value: formatDate(viewingOrder.orderDate) },
                 { label: 'Delivery Date', value: formatDate(viewingOrder.deliveryDate) },
-                { label: 'Total Amount', value: formatCurrency(viewingOrder.totalAmount) },
+                { label: 'Total Amount', value: formatCurrency(viewingOrder.totalAmount, viewingOrder.currency || 'USD') },
               ].map((item: any) => (
                 <div key={item.label} className={item.span ? 'col-span-2' : ''}>
                   <div className="text-xs text-slate-500">{item.label}</div>
