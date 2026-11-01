@@ -9,6 +9,7 @@ import { useAppStore } from '../store/useAppStore';
 import { PageHeader } from '../components/ui/PageHeader';
 import { ChartAlternative, AccessibleBars, AccessibleDonut, AccessibleHorizontalBars } from '../components/ui/AccessibleCharts';
 import { formatCurrency } from '../utils/formatters';
+import { commercialOrders, formattedOrderTotals, orderCurrency } from '../utils/orderValue';
 import { downloadOperationsReport, ReportSection } from '../utils/reportPdf';
 import { inventoryTransactionLabel } from '../utils/inventory';
 import { buildInventoryReport } from '../utils/inventoryReports';
@@ -61,20 +62,20 @@ export const Reports: React.FC = () => {
   // Sales data
   const salesData = useMemo(() => {
     return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month, idx) => {
-      const monthOrders = orders.filter(o => inReportingYear(o.orderDate) && new Date(o.orderDate).getMonth() === idx);
+      const monthOrders = commercialOrders(orders).filter(o => inReportingYear(o.orderDate) && new Date(o.orderDate).getMonth() === idx);
       const monthQuotes = quotations.filter(q => inReportingYear(q.date) && new Date(q.date).getMonth() === idx);
       return {
         month,
-        revenue: monthOrders.reduce((s, o) => s + o.totalAmount, 0),
+        revenue: monthOrders.filter(o => orderCurrency(o, quotations) === 'USD').reduce((s, o) => s + o.totalAmount, 0),
         quotations: monthQuotes.length,
         orders: monthOrders.length,
       };
     });
   }, [orders, quotations, reportingYear]);
 
-  const totalRevenue = orders.reduce((s, o) => s + o.totalAmount, 0);
-  const approvedOrders = orders.length;
-  const avgOrderValue = approvedOrders > 0 ? totalRevenue / approvedOrders : 0;
+  const totalOrderValue = formattedOrderTotals(orders, quotations);
+  const approvedOrders = commercialOrders(orders).length;
+  const avgOrderValue = formattedOrderTotals(orders, quotations, true);
   const convertedQuotations = quotations.filter(q => orders.some(o => o.quotationId === q.id) || Boolean(q.orderId)).length;
   const conversionRate = quotations.length > 0 ? ((convertedQuotations / quotations.length) * 100).toFixed(1) : '0';
 
@@ -111,7 +112,7 @@ export const Reports: React.FC = () => {
     name: c.companyName.split(' ')[0] + '...',
     fullName: c.companyName,
     orders: orders.filter(o => o.customerId === c.id).length,
-    revenue: orders.filter(o => o.customerId === c.id).reduce((s, o) => s + o.totalAmount, 0),
+    revenue: commercialOrders(orders).filter(o => o.customerId === c.id && orderCurrency(o, quotations) === 'USD').reduce((s, o) => s + o.totalAmount, 0),
   })).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
 
   const countryData = customers.reduce((acc, c) => {
@@ -169,7 +170,7 @@ export const Reports: React.FC = () => {
     <div className="page-shell">
       <PageHeader
         title="Reports & Analytics"
-        subtitle={`Records shown are demo data. Monthly charts use ${reportingYear}; order values assume a common reporting currency (no FX conversion).`}
+        subtitle={`Records shown are demo data. Monthly charts use ${reportingYear}. Value charts show USD only; other currencies remain separate in totals and exports.`}
         breadcrumbs={[{ label: 'Dashboard' }, { label: 'Reports' }]}
         actions={<>
           <button type="button" onClick={() => downloadOperationsReport(pdfData, activeTab, { reportingYear })}
@@ -208,23 +209,23 @@ export const Reports: React.FC = () => {
       {activeTab === 'Sales' && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="min-w-0 space-y-4 sm:space-y-6">
           <div className="grid min-w-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-4 lg:gap-4">
-            <KpiBox label="Total Order Value" value={formatCurrency(totalRevenue)} sub="All recorded orders" />
+            <KpiBox label="Total Order Value" value={totalOrderValue} sub="Excludes cancelled orders; currencies kept separate" />
             <KpiBox label="Total Orders" value={approvedOrders} />
-            <KpiBox label="Avg. Order Value" value={formatCurrency(avgOrderValue)} sub="Per recorded order" />
+            <KpiBox label="Avg. Order Value" value={avgOrderValue} sub="Average per currency" />
             <KpiBox label="Quote Conversion" value={`${conversionRate}%`} sub="Quotations linked to orders" />
           </div>
 
           <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-3 xl:gap-6">
             <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6 xl:col-span-2">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly Order Value ({reportingYear})</h3>
-              <ChartAlternative title="Monthly Order Value" fallback={<AccessibleBars title="Monthly Order Value" data={salesData.map(row => ({ ...row, label: row.month }))} series={[{ key: 'revenue', label: 'Order value', color: '#2563eb' }]} valueLabel={value => formatCurrency(value)} />}>
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly USD Order Value ({reportingYear})</h3>
+              <ChartAlternative title="Monthly USD Order Value" fallback={<AccessibleBars title="Monthly USD Order Value" data={salesData.map(row => ({ ...row, label: row.month }))} series={[{ key: 'revenue', label: 'Order value', color: '#2563eb' }]} valueLabel={value => formatCurrency(value)} />}>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={salesData} margin={{ left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={v => v > 0 ? `$${(v/1000).toFixed(0)}k` : '0'} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="revenue" name="Order value" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="revenue" name="USD order value" fill="#3B82F6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
               </ChartAlternative>
@@ -361,14 +362,14 @@ export const Reports: React.FC = () => {
 
           <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2 xl:gap-6">
             <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">Top Customers by Revenue</h3>
-              <ChartAlternative title="Top Customers by Revenue" fallback={<AccessibleHorizontalBars title="Top Customers by Revenue" data={topCustomers.map(row => ({ label: row.fullName, value: row.revenue }))} valueLabel={value => formatCurrency(value)} />}>
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">Top Customers by USD Order Value</h3>
+              <ChartAlternative title="Top Customers by USD Order Value" fallback={<AccessibleHorizontalBars title="Top Customers by USD Order Value" data={topCustomers.map(row => ({ label: row.fullName, value: row.revenue }))} valueLabel={value => formatCurrency(value)} />}>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={topCustomers} layout="vertical" margin={{ left: 20, right: 20 }}>
                   <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} width={70} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="revenue" name="Revenue" fill="#3B82F6" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="revenue" name="USD order value" fill="#3B82F6" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
               </ChartAlternative>
@@ -409,7 +410,7 @@ export const Reports: React.FC = () => {
               <table className="min-w-[650px] w-full">
               <thead className="bg-slate-50">
                 <tr>
-                  {['Rank', 'Company', 'Country', 'Orders', 'Revenue'].map(h => (
+                  {['Rank', 'Company', 'Country', 'Orders', 'USD Order Value'].map(h => (
                     <th key={h} className="text-left text-xs font-semibold text-slate-500 px-6 py-3">{h}</th>
                   ))}
                 </tr>
