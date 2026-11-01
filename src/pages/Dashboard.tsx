@@ -581,7 +581,7 @@ export const Dashboard: React.FC = () => {
                     {...recordRowInteractions(() => navigate('/orders?open=' + encodeURIComponent(order.id)))}
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.4 + i * 0.05 }
+                    transition={{ delay: 0.4 + i * 0.05 }}
                     className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors cursor-pointer"
                   >
                     <td className="px-6 py-3.5">
