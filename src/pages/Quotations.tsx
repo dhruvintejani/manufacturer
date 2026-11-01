@@ -1,3 +1,4 @@
+import { recordRowInteractions } from '../utils/recordRow';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -367,7 +368,7 @@ export const Quotations: React.FC = () => {
                     const customer = getCustomer(q.customerId);
                     const mainProduct = q.items[0]?.product || '—';
                     return (
-                      <motion.tr key={q.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }} className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors group">
+                      <motion.tr key={q.id} {...recordRowInteractions(() => setViewingQuotation(q))} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }} className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors group">
                         <td className="px-6 py-4">
                           <button onClick={() => setViewingQuotation(q)} className="text-xs font-mono font-semibold text-blue-600 hover:text-blue-700">{q.quotationNumber}</button>
                         </td>
