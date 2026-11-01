@@ -185,6 +185,14 @@ export const Dashboard: React.FC = () => {
         </div>
       </section>
 
+      <div className="flex min-w-0 flex-wrap items-end justify-between gap-3 px-1">
+        <div>
+          <div className="text-[10px] font-extrabold uppercase tracking-[.17em] text-[#0e8e76]">At a glance</div>
+          <h2 className="mt-1 text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl">Operational pulse</h2>
+        </div>
+        <p className="text-xs text-slate-500">Select a metric to explore the underlying records</p>
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 lg:gap-4">
         <StatCard
