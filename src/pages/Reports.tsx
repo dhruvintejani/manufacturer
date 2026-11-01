@@ -36,7 +36,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const KpiBox = ({ label, value, sub, positive }: { label: string; value: string | number; sub?: string; positive?: boolean }) => (
-  <div className="min-w-0 rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-5">
+  <div className="forge-report-kpi min-w-0 rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-5">
     <div className="text-sm text-slate-500 font-medium mb-1">{label}</div>
     <div className="break-words text-xl font-bold leading-tight tabular-nums text-slate-900 sm:text-2xl xl:text-3xl">{value}</div>
     {sub && (
@@ -88,7 +88,7 @@ export const Reports: React.FC = () => {
   // Production data
   const prodStatusData = [
     { name: 'Planning', value: productionJobs.filter(j => j.status === 'Planning').length, fill: '#94A3B8' },
-    { name: 'In Production', value: productionJobs.filter(j => j.status === 'In Production').length, fill: '#3B82F6' },
+    { name: 'In Production', value: productionJobs.filter(j => j.status === 'In Production').length, fill: '#119B83' },
     { name: 'Quality Check', value: productionJobs.filter(j => j.status === 'Quality Check').length, fill: '#F59E0B' },
     { name: 'Ready', value: productionJobs.filter(j => j.status === 'Ready').length, fill: '#06B6D4' },
     { name: 'Completed', value: productionJobs.filter(j => j.status === 'Completed').length, fill: '#10B981' },
@@ -149,7 +149,7 @@ export const Reports: React.FC = () => {
     return acc;
   }, {} as Record<string, number>)).map(([label, value]) => ({ label, value }));
 
-  const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B6D4'];
+  const COLORS = ['#119B83', '#315C6C', '#C7964C', '#747BC0', '#C96D73', '#2CABB4'];
 
   const pdfData = {
     customers, enquiries, quotations, orders, productionJobs,
@@ -218,14 +218,14 @@ export const Reports: React.FC = () => {
           <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-3 xl:gap-6">
             <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6 xl:col-span-2">
               <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly USD Order Value ({reportingYear})</h3>
-              <ChartAlternative title="Monthly USD Order Value" fallback={<AccessibleBars title="Monthly USD Order Value" data={salesData.map(row => ({ ...row, label: row.month }))} series={[{ key: 'revenue', label: 'Order value', color: '#2563eb' }]} valueLabel={value => formatCurrency(value)} />}>
+              <ChartAlternative title="Monthly USD Order Value" fallback={<AccessibleBars title="Monthly USD Order Value" data={salesData.map(row => ({ ...row, label: row.month }))} series={[{ key: 'revenue', label: 'Order value', color: '#119B83' }]} valueLabel={value => formatCurrency(value)} />}>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={salesData} margin={{ left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={v => v > 0 ? `$${(v/1000).toFixed(0)}k` : '0'} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="revenue" name="USD order value" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="revenue" name="USD order value" fill="#119B83" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
               </ChartAlternative>
@@ -306,7 +306,7 @@ export const Reports: React.FC = () => {
                   <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend wrapperStyle={{ fontSize: '11px' }} />
-                  <Bar dataKey="started" name="Started" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="started" name="Started" fill="#119B83" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="completed" name="Completed" fill="#10B981" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -369,7 +369,7 @@ export const Reports: React.FC = () => {
                   <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} width={70} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="revenue" name="USD order value" fill="#3B82F6" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="revenue" name="USD order value" fill="#119B83" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
               </ChartAlternative>
@@ -487,7 +487,7 @@ export const Reports: React.FC = () => {
                   <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend wrapperStyle={{ fontSize: '11px' }} />
-                  <Area type="monotone" dataKey="new" name="New Enquiries" stroke="#3B82F6" strokeWidth={2} fill="url(#gNew)" />
+                  <Area type="monotone" dataKey="new" name="New Enquiries" stroke="#119B83" strokeWidth={2} fill="url(#gNew)" />
                   <Area type="monotone" dataKey="converted" name="Converted" stroke="#10B981" strokeWidth={2} fill="url(#gConverted)" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -597,7 +597,7 @@ export const Reports: React.FC = () => {
                     <Tooltip content={<CustomTooltip />} />
                     <Legend wrapperStyle={{ fontSize: '11px' }} />
                     <Bar dataKey="received" name="Receipts" fill="#10B981" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="consumed" name="Consumption" fill="#3B82F6" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="consumed" name="Consumption" fill="#119B83" radius={[3, 3, 0, 0]} />
                     <Bar dataKey="adjustments" name="Adjustments" fill="#8B5CF6" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
