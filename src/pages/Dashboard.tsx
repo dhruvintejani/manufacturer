@@ -14,6 +14,7 @@ import { StatCard } from '../components/ui/StatCard';
 import { ChartAlternative, AccessibleBars } from '../components/ui/AccessibleCharts';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { formatDate, formatCurrency, formatRelativeTime } from '../utils/formatters';
+import { orderCurrency } from '../utils/orderValue';
 import { buildOperationalAlerts, countOperationalAlerts } from '../utils/operationalAlerts';
 
 
@@ -556,7 +557,7 @@ export const Dashboard: React.FC = () => {
                       <span className="text-sm text-slate-600">{order.quantity}</span>
                     </td>
                     <td className="px-6 py-3.5">
-                      <span className="text-sm font-semibold text-slate-900">{formatCurrency(order.totalAmount)}</span>
+                      <span className="text-sm font-semibold text-slate-900">{formatCurrency(order.totalAmount, orderCurrency(order, quotations))}</span>
                     </td>
                     <td className="px-6 py-3.5">
                       <StatusBadge status={order.status} />

@@ -85,6 +85,8 @@ export interface Order {
   orderDate: string;
   deliveryDate: string;
   totalAmount: number;
+  /** Quote currency, or USD for browser-created orders. */
+  currency?: string;
   paymentStatus: PaymentStatus;
   status: OrderStatus;
   productionJobId?: string;

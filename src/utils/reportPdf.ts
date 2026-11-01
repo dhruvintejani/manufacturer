@@ -6,6 +6,8 @@ import {
 } from '../types';
 import { buildInventoryReport } from './inventoryReports';
 import { inventoryTransactionLabel, roundQty } from './inventory';
+import { commercialOrders, formattedOrderTotals, orderCurrency } from './orderValue';
+import { formatCurrency } from './formatters';
 
 export type ReportSection = 'Sales' | 'Production' | 'Customers' | 'Enquiries' | 'Inventory';
 
@@ -186,19 +188,19 @@ export const buildOperationsReport = (
 
     const converted = data.quotations.filter(quotation =>
       data.orders.some(order => order.quotationId === quotation.id) || Boolean(quotation.orderId)).length;
-    const totalValue = data.orders.reduce((sum, order) => sum + order.totalAmount, 0);
+    const totalValue = formattedOrderTotals(data.orders, data.quotations);
 
     summary([
-      ['Total Orders', data.orders.length],
-      ['Total Order Value', money(totalValue)],
-      ['Average Order Value', money(data.orders.length ? totalValue / data.orders.length : 0)],
+      ['Non-Cancelled Orders', commercialOrders(data.orders).length],
+      ['Total Order Value (by currency)', totalValue],
+      ['Average Order Value (by currency)', formattedOrderTotals(data.orders, data.quotations, true)],
       ['Quote Conversion', `${data.quotations.length ? ((converted / data.quotations.length) * 100).toFixed(1) : '0'}%`],
       ['Approved Quotations', data.quotations.filter(q => q.status === 'Approved').length],
       ['Completed Orders', data.orders.filter(order => order.status === 'Completed').length],
     ]);
 
     const monthly = Array.from({ length: 12 }, (_, monthIndex) => {
-      const orders = data.orders.filter(order => {
+      const orders = commercialOrders(data.orders).filter(order => {
         const date = new Date(order.orderDate);
         return date.getFullYear() === reportingYear && date.getMonth() === monthIndex;
       });
@@ -210,10 +212,10 @@ export const buildOperationsReport = (
         new Date(reportingYear, monthIndex, 1).toLocaleString('en-US', { month: 'short' }),
         quotations.length,
         orders.length,
-        money(orders.reduce((sum, order) => sum + order.totalAmount, 0)),
+        money(orders.filter(order => orderCurrency(order, data.quotations) === 'USD').reduce((sum, order) => sum + order.totalAmount, 0)),
       ];
     });
-    table(['Month', 'Quotations', 'Orders', 'Order Value'], monthly, 'Monthly Sales Activity');
+    table(['Month', 'Quotations', 'Orders', 'USD Order Value'], monthly, 'Monthly Sales Activity (USD values only)');
 
     table(
       ['Order', 'Customer', 'Product', 'Qty', 'Status', 'Payment', 'Value', 'Delivery'],
@@ -224,7 +226,7 @@ export const buildOperationsReport = (
         order.quantity,
         order.status,
         order.paymentStatus,
-        money(order.totalAmount),
+        formatCurrency(order.totalAmount, orderCurrency(order, data.quotations)),
         dateLabel(order.deliveryDate),
       ]),
       'Order Summary',
@@ -279,7 +281,7 @@ export const buildOperationsReport = (
     ]);
 
     table(
-      ['Company', 'Contact', 'Country', 'Orders', 'Order Value', 'Status'],
+      ['Company', 'Contact', 'Country', 'Orders', 'Order Value (by currency)', 'Status'],
       data.customers
         .map(customer => {
           const orders = data.orders.filter(order => order.customerId === customer.id);
@@ -288,7 +290,7 @@ export const buildOperationsReport = (
             customer.contactPerson,
             customer.country,
             orders.length,
-            money(orders.reduce((sum, order) => sum + order.totalAmount, 0)),
+            formattedOrderTotals(orders, data.quotations),
             customer.status,
           ] as Array<string | number>;
         })

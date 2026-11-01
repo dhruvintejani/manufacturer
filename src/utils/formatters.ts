@@ -39,7 +39,7 @@ export const formatCurrency = (amount: number, currency = 'USD'): string => {
     NOK: 'kr ',
   };
   const symbol = symbols[currency] || currency + ' ';
-  return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 };
 
 export const formatNumber = (num: number): string => {

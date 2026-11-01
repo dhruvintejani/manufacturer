@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
@@ -25,21 +25,22 @@ export const StatCard: React.FC<StatCardProps> = ({
   index = 0,
 }) => {
   const isPositive = change !== undefined && change >= 0;
+  const reducedMotion = useReducedMotion();
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={reducedMotion ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
+      transition={{ duration: reducedMotion ? 0 : 0.28, delay: reducedMotion ? 0 : Math.min(index, 7) * 0.035 }}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick(); } } : undefined}
       aria-label={onClick ? `Open ${title}: ${value}` : undefined}
       className={cn(
-        'bg-white rounded-xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col gap-3 min-w-0',
-        'transition-all duration-200',
-        onClick && 'cursor-pointer hover:shadow-md hover:border-blue-300 focus-visible:ring-2 focus-visible:ring-blue-500'
+        'bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-[0_2px_12px_rgba(15,31,53,0.045)] flex flex-col gap-3 min-w-0',
+        'transition-[box-shadow,border-color,transform] duration-200',
+        onClick && 'cursor-pointer hover:shadow-[0_10px_28px_rgba(15,31,53,0.10)] hover:border-blue-300 focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-[0.99]'
       )}
     >
       <div className="flex items-start justify-between">

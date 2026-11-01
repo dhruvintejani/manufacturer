@@ -164,6 +164,7 @@ export const Quotations: React.FC = () => {
 
   const handleSave = (status = form.status) => {
     if (!form.customerId) { toast.error('Please select a customer.'); return; }
+    if (editingQuotation && hasOrder(editingQuotation)) { toast.error('This quotation already has an order and cannot be edited.'); return; }
     if (form.items.length === 0 || form.items.some(item => !item.product || !Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.unitPrice) || item.unitPrice < 0 || item.discount < 0 || item.discount > 100 || item.tax < 0 || item.tax > 100)) {
       toast.error('Add valid products, quantities, unit prices, discounts and tax.'); return;
     }
@@ -236,21 +237,33 @@ export const Quotations: React.FC = () => {
   };
 
   const handleConvertToOrder = (q: Quotation) => {
-    const mainItem = q.items[0];
-    const order = addOrder({
+    if (q.status !== 'Approved' || hasOrder(q)) {
+      toast.error('Only an approved, unconverted quotation can create orders.');
+      return;
+    }
+    if (!q.items.length || q.items.some(item => !item.product || !Number.isInteger(item.quantity) || item.quantity < 1)) {
+      toast.error('Every quotation item needs a product and a positive whole-number quantity.');
+      return;
+    }
+    const orderDate = new Date().toISOString().split('T')[0];
+    const deliveryDate = new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0];
+    const created = q.items.map((item) => addOrder({
       orderNumber: '',
       quotationId: q.id,
       customerId: q.customerId,
-      product: mainItem?.product || 'Product',
-      quantity: mainItem?.quantity || 1,
-      orderDate: new Date().toISOString().split('T')[0],
-      deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
-      totalAmount: q.total,
+      product: item.product,
+      quantity: item.quantity,
+      orderDate,
+      deliveryDate,
+      totalAmount: calcItemTotal(item),
+      currency: q.currency,
       paymentStatus: 'Pending',
       status: 'Confirmed',
-      notes: '',
-    });
-    toast.success(`Order ${order.orderNumber} created from quotation!`);
+      notes: q.items.length > 1 ? `From ${q.quotationNumber} — ${item.description || item.product}` : '',
+    }));
+    toast.success(created.length === 1
+      ? `Order ${created[0].orderNumber} created from quotation!`
+      : `${created.length} linked production orders created from ${q.quotationNumber}.`);
     setConvertOrderOpen(false);
     setViewingQuotation(null);
     navigate('/orders');
@@ -672,7 +685,7 @@ export const Quotations: React.FC = () => {
               <button onClick={() => handlePDF(viewingQuotation)} className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
                 <Download className="w-4 h-4" /> PDF
               </button>
-              <button onClick={() => { setViewingQuotation(null); openEdit(viewingQuotation); }} className="flex items-center gap-2 text-slate-700 bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+              <button disabled={hasOrder(viewingQuotation)} title={hasOrder(viewingQuotation) ? 'Linked quotations cannot be edited after order conversion' : undefined} onClick={() => { setViewingQuotation(null); openEdit(viewingQuotation); }} className="flex items-center gap-2 text-slate-700 bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
                 <Edit2 className="w-4 h-4" /> Edit
               </button>
             </div>
@@ -683,7 +696,7 @@ export const Quotations: React.FC = () => {
       <ConfirmDialog
         open={convertOrderOpen}
         title="Convert to Order"
-        description={`Convert quotation ${viewingQuotation?.quotationNumber} to an order? This will create a new order and mark the quotation as converted.`}
+        description={`Convert quotation ${viewingQuotation?.quotationNumber} to an order? This creates a separate linked production order for every quotation line, preserving each product's quantity and value.`}
         confirmLabel="Convert to Order"
         variant="info"
         onConfirm={() => viewingQuotation && handleConvertToOrder(viewingQuotation)}

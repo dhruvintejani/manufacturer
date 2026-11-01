@@ -42,20 +42,20 @@ test('mobile navigation and application pages remain usable', async ({ page }) =
   expect(failures).toEqual([]);
 });
 
-test('orders advance one stage at a time and retain an audited history after refresh', async ({ page }) => {
-  await page.goto('/orders');
-  await page.getByPlaceholder('Search by order no., customer or product...').fill('ORD-2026-0055');
-  await page.getByRole('button', { name: 'ORD-2026-0055', exact: true }).click();
-  await expect(page.getByText('Status History')).toBeVisible();
-  await page.getByRole('button', { name: /Update Status/ }).click();
-  await page.getByLabel('Update note (optional)').fill('Fabrication scheduled after materials arrived.');
-  await page.getByRole('button', { name: 'Confirm Update' }).click();
-  await expect(page.getByLabel('Order status audit trail').getByText('Fabrication scheduled after materials arrived.')).toBeVisible();
-  await expect(page.getByText(/Updated by Alex Morgan/)).toBeVisible();
+test('confirmed orders cannot bypass material readiness and audited holds survive refresh', async ({ page }) => {
+  await page.goto('/orders?open=ORD-2026-0055');
+  const drawer = page.getByRole('dialog', { name: /ORD-2026-0055/ });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText('Status History')).toBeVisible();
+  await expect(drawer.getByRole('button', { name: /Update Status/ })).toHaveCount(0);
+  await expect(drawer.getByRole('button', { name: 'Create Production Job' })).toBeDisabled();
+  await drawer.getByRole('button', { name: 'Put On Hold' }).click();
+  await page.getByLabel('Status note (optional)').fill('Supplier material shortage prevents production.');
+  await page.getByRole('button', { name: 'Confirm Hold' }).click();
+  await expect(drawer.getByLabel('Order status audit trail').getByText('Supplier material shortage prevents production.')).toBeVisible();
   await page.reload();
-  await page.getByPlaceholder('Search by order no., customer or product...').fill('ORD-2026-0055');
-  await page.getByRole('button', { name: 'ORD-2026-0055', exact: true }).click();
-  await expect(page.getByLabel('Order status audit trail').getByText('Fabrication scheduled after materials arrived.')).toBeVisible();
+  await expect(page.getByRole('dialog', { name: /ORD-2026-0055/ })
+    .getByLabel('Order status audit trail').getByText('Supplier material shortage prevents production.')).toBeVisible();
 });
 
 test('enquiry detail shows contact actions and supports closing an enquiry', async ({ page }) => {
@@ -118,11 +118,11 @@ test('saved demo profile updates the header, survives refresh, and labels are ac
   await expect(page.locator('header').getByText('Taylor Quality')).toBeVisible();
 });
 
-test('nested order status modal closes independently on Escape', async ({ page }) => {
+test('nested order hold modal closes independently on Escape', async ({ page }) => {
   await page.goto('/orders');
   await page.getByPlaceholder('Search by order no., customer or product...').fill('ORD-2026-0055');
   await page.getByRole('button', { name: 'ORD-2026-0055', exact: true }).click();
-  await page.getByRole('button', { name: /Update Status/ }).click();
+  await page.getByRole('button', { name: 'Put On Hold' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(2);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(1);
@@ -244,7 +244,7 @@ test('order hold, resume, cancellation and audit history survive refresh', async
   await expect(drawer.getByRole('button', { name: /Update Status/ })).toHaveCount(0);
   await drawer.getByRole('button', { name: 'Resume Order' }).click();
   await page.getByRole('button', { name: 'Confirm Resume' }).click();
-  await expect(drawer.getByRole('button', { name: /Update Status/ })).toBeVisible();
+  await expect(drawer.getByRole('button', { name: /Update Status/ })).toHaveCount(0);
   await drawer.getByRole('button', { name: 'Cancel Order' }).click();
   await page.getByRole('button', { name: 'Confirm Cancellation' }).click();
   await expect(drawer.getByText('This order is cancelled and its workflow is closed.')).toBeVisible();
@@ -403,7 +403,7 @@ test('report category titles, controls and charts remain visible on a 320px phon
     await tab.click();
     await expect(tab).toHaveAttribute('aria-selected', 'true');
     const section = {
-      Sales: 'Monthly Order Value',
+      Sales: 'Monthly USD Order Value',
       Production: 'Jobs by Status',
       Customers: 'Customers by Country',
       Enquiries: 'Enquiry Status Distribution',
@@ -593,7 +593,7 @@ test('navbar search navigates to exact customer, enquiry, quotation, order and p
 test('mobile report charts display real visual bars and donut segments, not empty white SVG frames', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto('/reports');
-  const bars = page.locator('[data-html-chart="Monthly Order Value"]');
+  const bars = page.locator('[data-html-chart="Monthly USD Order Value"]');
   await expect(bars).toBeVisible();
   expect(await bars.locator('[data-chart-value]').evaluateAll(elements => elements.some(el =>
     Number(el.getAttribute('data-chart-value')) > 0 && el.getBoundingClientRect().height >= 6,

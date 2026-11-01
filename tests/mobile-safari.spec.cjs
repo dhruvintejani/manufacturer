@@ -12,7 +12,7 @@ test('iPhone Safari displays nonempty sales charts and accessible status breakdo
   page.on('pageerror', error => failures.push(error.message));
   await page.goto('/reports');
   await expect(page.getByRole('heading', { name: 'Reports & Analytics' })).toBeVisible();
-  const monthly = page.locator('[data-html-chart="Monthly Order Value"]');
+  const monthly = page.locator('[data-html-chart="Monthly USD Order Value"]');
   await monthly.scrollIntoViewIfNeeded();
   await expect(monthly).toBeVisible();
   const bars = monthly.locator('[data-chart-value]');
@@ -35,9 +35,9 @@ test('iPhone Safari displays nonempty sales charts and accessible status breakdo
 test('iPhone Safari charts remain populated across every report tab and dashboard', async ({ page }) => {
   await page.goto('/reports');
   const cases = [
-    ['Sales', ['Monthly Order Value', 'Quotation Status Breakdown', 'Orders vs Quotations Trend']],
+    ['Sales', ['Monthly USD Order Value', 'Quotation Status Breakdown', 'Orders vs Quotations Trend']],
     ['Production', ['Jobs by Status', 'Monthly Production Activity']],
-    ['Customers', ['Top Customers by Revenue', 'Customers by Country']],
+    ['Customers', ['Top Customers by USD Order Value', 'Customers by Country']],
     ['Enquiries', ['Enquiry Status Distribution', 'Monthly Enquiry Trend', 'Enquiries by Product']],
   ];
   for (const [tab, titles] of cases) {
@@ -70,7 +70,7 @@ test('iPhone Safari reports show an explicit empty state with no records, not bl
     localStorage.setItem('forgeflow-storage', JSON.stringify(raw));
   });
   await page.goto('/reports');
-  await expect(page.locator('[data-html-chart="Monthly Order Value"] [data-chart-empty]'))
+  await expect(page.locator('[data-html-chart="Monthly USD Order Value"] [data-chart-empty]'))
     .toContainText('No recorded activity');
   await expect(page.locator('[data-html-chart="Quotation Status Breakdown"] [data-chart-empty]'))
     .toContainText('No records');

@@ -19,6 +19,7 @@ import { Pagination } from '../components/ui/Pagination';
 import { EmptyState } from '../components/ui/EmptyState';
 import { WorkflowStepper } from '../components/ui/WorkflowStepper';
 import { formatDate, formatCurrency } from '../utils/formatters';
+import { orderCurrency } from '../utils/orderValue';
 import { Modal } from '../components/ui/Modal';
 import { PremiumSelect } from '../components/ui/PremiumSelect';
 
@@ -53,7 +54,7 @@ export const Orders: React.FC = () => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const {
-    orders, customers, productionJobs, products, materials, materialRequirements, purchaseRequests,
+    orders, customers, quotations, productionJobs, products, materials, materialRequirements, purchaseRequests,
     addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus, changeOrderException,
     createPurchaseRequest, calculateMaterialRequirement, profile,
   } = useAppStore();
@@ -83,7 +84,7 @@ export const Orders: React.FC = () => {
     customerId: '', quotationId: '', product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0],
     quantity: 1, orderDate: new Date().toISOString().split('T')[0],
     deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
-    totalAmount: 0, paymentStatus: 'Pending', status: 'Confirmed', notes: '',
+    totalAmount: 0, currency: 'USD', paymentStatus: 'Pending', status: 'Confirmed', notes: '',
   });
 
   const filtered = useMemo(() => {
@@ -165,6 +166,9 @@ export const Orders: React.FC = () => {
   const handleSaveEdit = () => {
     if (!editModal) return;
     const original = orders.find(order => order.id === editModal.id);
+    if (!Number.isInteger(editModal.quantity) || editModal.quantity < 1 || !Number.isFinite(editModal.totalAmount) || editModal.totalAmount < 0 || editModal.deliveryDate < editModal.orderDate) {
+      toast.error('Enter a valid quantity, amount and delivery date.'); return;
+    }
     const materialDefinitionChanged = !!original &&
       (original.product !== editModal.product || original.quantity !== editModal.quantity);
     const { status: _status, statusHistory: _history, ...changes } = editModal;
@@ -227,10 +231,18 @@ export const Orders: React.FC = () => {
   };
 
   const currentIndex = currentOrder ? ORDER_STATUSES.indexOf(currentOrder.status) : -1;
-  const nextOrderStatus = currentIndex >= 0 ? ORDER_STATUSES[currentIndex + 1] : undefined;
+  const proposedNextStatus = currentIndex >= 0 ? ORDER_STATUSES[currentIndex + 1] : undefined;
+  const nextOrderStatus = currentOrder?.productionJobId && proposedNextStatus && proposedNextStatus !== 'Production' ? proposedNextStatus : undefined;
+  const linkedProduction = currentOrder ? getJob(currentOrder.id) : undefined;
+  const canAdvanceOrder = !!nextOrderStatus && (
+    (nextOrderStatus === 'Quality Check' && !!linkedProduction && ['Quality Check', 'Ready', 'Completed'].includes(linkedProduction.status)) ||
+    (nextOrderStatus === 'Ready' && !!linkedProduction && ['Ready', 'Completed'].includes(linkedProduction.status)) ||
+    (nextOrderStatus === 'Dispatched' && linkedProduction?.status === 'Completed') ||
+    nextOrderStatus === 'Completed'
+  );
 
   const handleAdvanceStatus = () => {
-    if (!currentOrder || !nextOrderStatus) return;
+    if (!currentOrder || !nextOrderStatus || !canAdvanceOrder) return;
     if (!advanceOrderStatus(currentOrder.id, profile.name, statusNote)) {
       toast.error('Order status has changed. Reopen the order and try again.'); return;
     }
@@ -255,6 +267,9 @@ export const Orders: React.FC = () => {
 
   const handleAddOrder = () => {
     if (!newOrderForm.customerId || !newOrderForm.product) { toast.error('Please fill required fields.'); return; }
+    if (!Number.isInteger(newOrderForm.quantity) || newOrderForm.quantity < 1 || !Number.isFinite(newOrderForm.totalAmount) || newOrderForm.totalAmount < 0 || !newOrderForm.orderDate || newOrderForm.deliveryDate < newOrderForm.orderDate) {
+      toast.error('Enter a valid quantity, amount and delivery date.'); return;
+    }
     const order = addOrder({ ...newOrderForm as any, orderNumber: '' });
     toast.success(`Order ${order.orderNumber} created.`);
     setAddModalOpen(false);
@@ -262,7 +277,7 @@ export const Orders: React.FC = () => {
       customerId: '', quotationId: '', product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0],
       quantity: 1, orderDate: new Date().toISOString().split('T')[0],
       deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
-      totalAmount: 0, paymentStatus: 'Pending', status: 'Confirmed', notes: '',
+      totalAmount: 0, currency: 'USD', paymentStatus: 'Pending', status: 'Confirmed', notes: '',
     });
   };
 
@@ -338,7 +353,7 @@ export const Orders: React.FC = () => {
                         <td className="px-6 py-4"><span className="text-sm text-slate-700">{order.quantity}</span></td>
                         <td className="px-6 py-4"><span className="text-xs text-slate-500">{formatDate(order.orderDate)}</span></td>
                         <td className="px-6 py-4"><span className="text-xs text-slate-500">{formatDate(order.deliveryDate)}</span></td>
-                        <td className="px-6 py-4"><span className="text-sm font-semibold text-slate-900">{formatCurrency(order.totalAmount)}</span></td>
+                        <td className="px-6 py-4"><span className="text-sm font-semibold text-slate-900">{formatCurrency(order.totalAmount, orderCurrency(order, quotations))}</span></td>
                         <td className="px-6 py-4"><StatusBadge status={materialStatus} /></td>
                         <td className="px-6 py-4"><StatusBadge status={order.status} /></td>
                         <td className="px-6 py-4"><StatusBadge status={order.paymentStatus} /></td>
@@ -379,7 +394,7 @@ export const Orders: React.FC = () => {
                  </div>
                )}
               {nextOrderStatus && (
-                <button type="button" onClick={() => setStatusModalOpen(true)}
+                <button type="button" disabled={!canAdvanceOrder} title={!canAdvanceOrder ? 'Complete the required production stage first' : undefined} onClick={() => setStatusModalOpen(true)}
                   className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800">
                   Update Status <ArrowRight className="h-4 w-4" /> {nextOrderStatus}
                 </button>
@@ -532,7 +547,7 @@ export const Orders: React.FC = () => {
                 { label: 'Quantity', value: `${viewingOrder.quantity} units` },
                 { label: 'Order Date', value: formatDate(viewingOrder.orderDate) },
                 { label: 'Delivery Date', value: formatDate(viewingOrder.deliveryDate) },
-                { label: 'Total Amount', value: formatCurrency(viewingOrder.totalAmount) },
+                { label: 'Total Amount', value: formatCurrency(viewingOrder.totalAmount, orderCurrency(viewingOrder, quotations)) },
               ].map((item: any) => (
                 <div key={item.label} className={item.span ? 'col-span-2' : ''}>
                   <div className="text-xs text-slate-500">{item.label}</div>
@@ -632,7 +647,7 @@ export const Orders: React.FC = () => {
         footer={<div className="flex flex-wrap justify-end gap-3">
           <button type="button" onClick={() => { setStatusModalOpen(false); setStatusNote(''); }}
             className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50">Cancel</button>
-          <button type="button" onClick={handleAdvanceStatus} disabled={!nextOrderStatus}
+          <button type="button" onClick={handleAdvanceStatus} disabled={!canAdvanceOrder}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">Confirm Update</button>
         </div>}
       >
