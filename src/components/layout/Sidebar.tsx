@@ -164,7 +164,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
                 className="overflow-hidden"
               >
                 <div className="text-white text-sm font-medium whitespace-nowrap">{profile.name}</div>
-                <div className="text-slate-400 text-xs whitespace-nowrap">{profile.role || 'Demo User'}</div>
+                <div className="text-slate-400 text-xs whitespace-nowrap">{profile.role || 'Operator'}</div>
               </motion.div>
             )}
           </AnimatePresence>
