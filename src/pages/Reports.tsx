@@ -170,7 +170,7 @@ export const Reports: React.FC = () => {
     <div className="page-shell">
       <PageHeader
         title="Reports & Analytics"
-        subtitle={`Records shown are demo data. Monthly charts use ${reportingYear}. Value charts show USD only; other currencies remain separate in totals and exports.`}
+        subtitle={`Records reflect the current browser workspace. Monthly charts use ${reportingYear}. Value charts show USD only; other currencies remain separate in totals and exports.`}
         breadcrumbs={[{ label: 'Dashboard' }, { label: 'Reports' }]}
         actions={<>
           <button type="button" onClick={() => downloadOperationsReport(pdfData, activeTab, { reportingYear })}
