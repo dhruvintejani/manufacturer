@@ -50,9 +50,9 @@ interface SidebarProps {
 }
 
 const Logo = ({ collapsed }: { collapsed: boolean }) => (
-  <div className="flex items-center gap-3 px-4 py-5">
-    <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
-      <Zap className="w-5 h-5 text-white" />
+  <div className="relative z-10 flex items-center gap-3 px-4 pt-7 pb-7">
+    <div className="forge-logo-icon w-11 h-11 flex items-center justify-center flex-shrink-0">
+      <Factory className="w-[22px] h-[22px] text-white" strokeWidth={1.9} />
     </div>
     <AnimatePresence>
       {!collapsed && (
@@ -63,10 +63,10 @@ const Logo = ({ collapsed }: { collapsed: boolean }) => (
           transition={{ duration: 0.2 }}
           className="overflow-hidden"
         >
-          <div className="text-white font-bold text-base tracking-tight whitespace-nowrap font-['Plus_Jakarta_Sans',sans-serif]">
+          <div className="forge-logo-title text-white whitespace-nowrap">
             ForgeFlow
           </div>
-          <div className="text-blue-300 text-[10px] font-medium tracking-wide whitespace-nowrap">
+          <div className="forge-logo-subtitle whitespace-nowrap mt-1">
             Manufacturing Operations
           </div>
         </motion.div>
@@ -89,11 +89,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
         onClick={() => mobile && setSidebarMobileOpen(false)}
         title={collapsed ? item.label : undefined}
         className={cn(
-          'group relative flex cursor-pointer items-center gap-3 rounded-lg border-l-[3px] transition-colors duration-150',
+          'forge-nav-link group relative flex cursor-pointer items-center gap-3 transition-colors duration-150',
           collapsed ? 'px-2.5 py-2.5 justify-center' : 'px-3 py-2.5',
           isActive
-            ? 'border-blue-300 bg-blue-600/85 text-white shadow-sm'
-            : 'border-transparent text-slate-300 hover:text-white hover:bg-white/10'
+            ? 'active text-white'
+            : 'text-slate-300 hover:text-white'
         )}
       >
         <span className="flex-shrink-0">{item.icon}</span>
@@ -104,7 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
               animate={{ opacity: 1, width: 'auto' }}
               exit={{ opacity: 0, width: 0 }}
               transition={{ duration: 0.2 }}
-              className="text-sm font-medium overflow-hidden whitespace-nowrap"
+              className="text-[13px] font-semibold overflow-hidden whitespace-nowrap tracking-[-.01em]"
             >
               {item.label}
             </motion.span>
@@ -121,15 +121,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
   };
 
   const sidebarContent = (
-    <div className="h-full flex flex-col" style={{ background: '#0F1F3D' }}>
+    <div className="forge-sidebar relative h-full flex flex-col">
       <Logo collapsed={collapsed} />
 
       {/* Main Nav */}
-      <div className="px-3 flex-1 overflow-y-auto sidebar-scroll">
-        <div className="space-y-4">
+      <div className="relative z-10 px-3 flex-1 overflow-y-auto sidebar-scroll">
+        <div className="space-y-6">
           {navGroups.map(group => (
             <div key={group.label}>
-              {!collapsed && <div className="px-3 pb-2 text-[10px] font-bold tracking-[.18em] text-slate-400 uppercase">{group.label}</div>}
+              {!collapsed && <div className="forge-workspace-label px-3 pb-2">{group.label}</div>}
               <div className="space-y-1">
                 {group.items.map(item => <NavItemComp key={item.path} item={item} />)}
               </div>
@@ -138,7 +138,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
         </div>
 
         <div className="mt-6 pt-4 border-t border-white/10 space-y-1">
-          {!collapsed && <div className="px-3 pb-2 text-[10px] font-bold tracking-[.18em] text-slate-400 uppercase">Manage</div>}
+          {!collapsed && <div className="forge-workspace-label px-3 pb-2">Manage</div>}
           {bottomItems.map(item => (
             <NavItemComp key={item.path} item={item} />
           ))}
@@ -146,12 +146,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
       </div>
 
       {/* User section */}
-      <div className="p-3 border-t border-white/10">
+      <div className="relative z-10 p-3 border-t border-white/10">
         <NavLink to="/settings" onClick={() => mobile && setSidebarMobileOpen(false)} aria-label="Account settings" className={cn(
-          'flex items-center gap-3 rounded-lg p-2.5 hover:bg-white/10 transition-colors cursor-pointer',
+          'forge-account flex items-center gap-3 rounded-xl p-2.5 hover:bg-white/10 transition-colors cursor-pointer',
           collapsed && 'justify-center'
         )}>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-700 flex items-center justify-center flex-shrink-0">
             <span className="text-white text-xs font-bold">{profile.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase()}</span>
           </div>
           <AnimatePresence>
@@ -225,7 +225,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
       animate={{ width: sidebarCollapsed ? 72 : 264 }}
       transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
       className="relative hidden lg:block flex-shrink-0 h-screen overflow-visible"
-      style={{ background: '#0F1F3D' }}
+      style={{ background: '#101e29' }}
     >
       {sidebarContent}
     </motion.aside>
