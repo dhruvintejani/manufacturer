@@ -662,7 +662,7 @@ export const Orders: React.FC = () => {
           <textarea id="order-status-note" rows={3} maxLength={500} value={statusNote}
             onChange={e => setStatusNote(e.target.value)} placeholder="What changed at this stage?"
             className={inputClass} />
-          <p className="text-xs text-slate-500">This change will be recorded with your demo operator name and the current time.</p>
+          <p className="text-xs text-slate-500">This change will be recorded with your operator name and the current time.</p>
         </div>
       </Modal>
 
@@ -681,7 +681,7 @@ export const Orders: React.FC = () => {
          </div>}>
          <div className="space-y-3">
            <p className="text-sm leading-6 text-slate-700">{exceptionAction === 'cancel'
-             ? 'Cancelling closes this order and cannot be reversed through the demo workflow. It will be recorded in the status history.'
+             ? 'Cancelling closes this order and cannot be reversed through the order workflow. It will be recorded in the status history.'
              : exceptionAction === 'hold' ? 'Pauses normal progression until the order is resumed.'
                : 'Returns the order to the stage it was in before being placed on hold.'}</p>
            <label htmlFor="exception-note" className="block text-sm font-medium text-slate-700">Status note (optional)</label>
