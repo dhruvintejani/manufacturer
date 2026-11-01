@@ -85,12 +85,16 @@ test('navbar search works with touch, linked records, keyboard replacement and n
   await results.getByRole('button', { name: /Customer.*Global Traders/ }).first().tap();
   await expect(page).toHaveURL(/\/customers\?open=C001/);
   await expect(page.getByRole('dialog', { name: /Global Traders/ })).toBeVisible();
+  // Dismiss the modal before using the global header: keyboard focus belongs
+  // inside a visible dialog until it is closed.
+  await page.getByRole('dialog', { name: /Global Traders/ }).getByRole('button', { name: 'Close drawer' }).click();
 
   await search.fill('ORD-2026-0055');
   await expect(results.getByRole('button', { name: /ORD-2026-0055/ })).toBeVisible();
   await search.press('Enter');
   await expect(page).toHaveURL(/\/orders\?open=ORD-2026-0055/);
   await expect(page.getByRole('dialog', { name: /ORD-2026-0055/ })).toBeVisible();
+  await page.getByRole('dialog', { name: /ORD-2026-0055/ }).getByRole('button', { name: 'Close drawer' }).click();
 
   await search.fill('unmatched-999999');
   await expect(results.getByRole('status')).toContainText('No matching records');
