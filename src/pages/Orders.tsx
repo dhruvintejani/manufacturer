@@ -165,6 +165,9 @@ export const Orders: React.FC = () => {
   const handleSaveEdit = () => {
     if (!editModal) return;
     const original = orders.find(order => order.id === editModal.id);
+    if (!Number.isInteger(editModal.quantity) || editModal.quantity < 1 || !Number.isFinite(editModal.totalAmount) || editModal.totalAmount < 0 || editModal.deliveryDate < editModal.orderDate) {
+      toast.error('Enter a valid quantity, amount and delivery date.'); return;
+    }
     const materialDefinitionChanged = !!original &&
       (original.product !== editModal.product || original.quantity !== editModal.quantity);
     const { status: _status, statusHistory: _history, ...changes } = editModal;
@@ -227,10 +230,18 @@ export const Orders: React.FC = () => {
   };
 
   const currentIndex = currentOrder ? ORDER_STATUSES.indexOf(currentOrder.status) : -1;
-  const nextOrderStatus = currentIndex >= 0 ? ORDER_STATUSES[currentIndex + 1] : undefined;
+  const proposedNextStatus = currentIndex >= 0 ? ORDER_STATUSES[currentIndex + 1] : undefined;
+  const nextOrderStatus = currentOrder?.productionJobId && proposedNextStatus && proposedNextStatus !== 'Production' ? proposedNextStatus : undefined;
+  const linkedProduction = currentOrder ? getJob(currentOrder.id) : undefined;
+  const canAdvanceOrder = !!nextOrderStatus && (
+    (nextOrderStatus === 'Quality Check' && !!linkedProduction && ['Quality Check', 'Ready', 'Completed'].includes(linkedProduction.status)) ||
+    (nextOrderStatus === 'Ready' && !!linkedProduction && ['Ready', 'Completed'].includes(linkedProduction.status)) ||
+    (nextOrderStatus === 'Dispatched' && linkedProduction?.status === 'Completed') ||
+    nextOrderStatus === 'Completed'
+  );
 
   const handleAdvanceStatus = () => {
-    if (!currentOrder || !nextOrderStatus) return;
+    if (!currentOrder || !nextOrderStatus || !canAdvanceOrder) return;
     if (!advanceOrderStatus(currentOrder.id, profile.name, statusNote)) {
       toast.error('Order status has changed. Reopen the order and try again.'); return;
     }
@@ -255,6 +266,9 @@ export const Orders: React.FC = () => {
 
   const handleAddOrder = () => {
     if (!newOrderForm.customerId || !newOrderForm.product) { toast.error('Please fill required fields.'); return; }
+    if (!Number.isInteger(newOrderForm.quantity) || newOrderForm.quantity < 1 || !Number.isFinite(newOrderForm.totalAmount) || newOrderForm.totalAmount < 0 || !newOrderForm.orderDate || newOrderForm.deliveryDate < newOrderForm.orderDate) {
+      toast.error('Enter a valid quantity, amount and delivery date.'); return;
+    }
     const order = addOrder({ ...newOrderForm as any, orderNumber: '' });
     toast.success(`Order ${order.orderNumber} created.`);
     setAddModalOpen(false);
@@ -379,7 +393,7 @@ export const Orders: React.FC = () => {
                  </div>
                )}
               {nextOrderStatus && (
-                <button type="button" onClick={() => setStatusModalOpen(true)}
+                <button type="button" disabled={!canAdvanceOrder} title={!canAdvanceOrder ? 'Complete the required production stage first' : undefined} onClick={() => setStatusModalOpen(true)}
                   className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800">
                   Update Status <ArrowRight className="h-4 w-4" /> {nextOrderStatus}
                 </button>
@@ -632,7 +646,7 @@ export const Orders: React.FC = () => {
         footer={<div className="flex flex-wrap justify-end gap-3">
           <button type="button" onClick={() => { setStatusModalOpen(false); setStatusNote(''); }}
             className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50">Cancel</button>
-          <button type="button" onClick={handleAdvanceStatus} disabled={!nextOrderStatus}
+          <button type="button" onClick={handleAdvanceStatus} disabled={!canAdvanceOrder}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">Confirm Update</button>
         </div>}
       >
