@@ -410,3 +410,31 @@ button, input, textarea, select { font-family:inherit; }
   *,*::before,*::after { animation-duration:.01ms !important; transition-duration:.01ms !important; scroll-behavior:auto !important; }
   .forge-stat:hover,.forge-hero-action:hover { transform:none; }
 }
+
+/* Final component treatments shared by reports, charts and overlay controls. */
+.forge-report-kpi { border-radius:19px !important; border:1px solid #e3ece8 !important; box-shadow:var(--forge-shadow); position:relative; overflow:hidden; }
+.forge-report-kpi::before { content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(#12a48a,#8cddba); }
+.forge-report-kpi > :nth-child(2) { letter-spacing:-.05em; }
+.forge-floating-menu { background:rgba(255,255,255,.985); backdrop-filter:blur(16px); }
+.forge-topbar [role="region"][aria-label="Search results"] { padding:5px; }
+.forge-topbar [role="region"][aria-label="Search results"] button { border-radius:10px; }
+.forge-topbar [role="region"][aria-label="Search results"] button:hover { background:#f0f9f5; }
+.forge-topbar [aria-label="Notifications"], .forge-topbar [aria-label="Open notifications"] { border-radius:13px; }
+.forge-modal > div:first-of-type, .forge-drawer > div:first-of-type { background:#fafffc; }
+.forge-modal [class*="border-t"], .forge-drawer [class*="border-b"] { border-color:#e5eee9; }
+.forge-hero :is(button,a):focus-visible { outline:2px solid #a4fbd3; outline-offset:3px; }
+.page-shell [role="tablist"] { box-shadow:0 2px 10px rgba(24,53,47,.035); }
+.page-shell .bg-white.rounded-xl:has(table),.page-shell .bg-white.rounded-2xl:has(table) { background:#fff; }
+.page-shell .text-blue-600 { color:#087f70; }
+.page-shell .text-blue-700 { color:#0a7568; }
+.page-shell button.text-blue-600:hover { color:#04584c; }
+.page-shell :is(.border-blue-100,.border-blue-200) { border-color:#d9ece4; }
+.page-shell .bg-blue-50 { background-color:#edf8f3; }
+.page-shell .bg-blue-100 { background-color:#dff3e9; }
+.page-shell .bg-blue-600:not(button) { background-color:#0d9079; }
+.page-shell :is(.focus\:ring-blue-500:focus,.focus-visible\:ring-blue-500:focus-visible) { --tw-ring-color:rgba(12,147,121,.3); }
+@media (max-width:639px) {
+  .forge-report-kpi { border-radius:16px !important; }
+  .forge-hero :is(button,a) { flex:1 1 auto; }
+  .forge-topbar [role="region"][aria-label="Search results"] { max-height:65dvh; }
+}
