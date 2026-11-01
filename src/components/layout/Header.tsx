@@ -235,8 +235,8 @@ export const Header: React.FC = () => {
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5">
-          <span className="forge-demo-pill hidden lg:inline-flex items-center rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.12em]" title="ForgeFlow demo data is stored in this browser">
-            Demo Workspace
+          <span className="forge-demo-pill hidden lg:inline-flex items-center rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.12em]" title="Changes are saved in this browser">
+            Local Workspace
           </span>
           {/* Notifications */}
           <div ref={notifRef} className="relative">
@@ -353,7 +353,7 @@ export const Header: React.FC = () => {
               </div>
               <div className="hidden sm:block text-left">
                 <div className="text-sm font-semibold text-slate-900 leading-none" >{profile.name}</div>
-                <div className="text-xs text-slate-500 mt-0.5">{profile.role || 'Demo User'}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{profile.role || 'Operator'}</div>
               </div>
               <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block" />
             </button>
@@ -369,12 +369,12 @@ export const Header: React.FC = () => {
                 >
                   <div className="px-4 py-2.5 border-b border-slate-100 mb-1">
                     <div className="text-sm font-semibold text-slate-900" >{profile.name}</div>
-                    <div className="text-xs text-slate-500">{profile.role || 'Demo User'}</div>
+                    <div className="text-xs text-slate-500">{profile.role || 'Operator'}</div>
                   </div>
                   {[
                     { icon: <User className="w-4 h-4" />, label: 'Profile', action: () => { setProfileOpen(false); navigate('/settings'); } },
                     { icon: <Settings className="w-4 h-4" />, label: 'Preferences', action: () => { setProfileOpen(false); navigate('/settings'); } },
-                    { icon: <RefreshCw className="w-4 h-4" />, label: 'Reset Demo Data', action: () => { setProfileOpen(false); setResetDialogOpen(true); } },
+                    { icon: <RefreshCw className="w-4 h-4" />, label: 'Reset Workspace Data', action: () => { setProfileOpen(false); setResetDialogOpen(true); } },
                   ].map(item => (
                     <button
                       key={item.label}
@@ -386,7 +386,7 @@ export const Header: React.FC = () => {
                     </button>
                   ))}
                   <div className="mx-2 mt-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs leading-relaxed text-blue-800">
-                    Browser demo · No sign-in required. Changes are saved only on this device.
+                    Browser-local workspace · No sign-in required. Changes are saved only on this device.
                   </div>
                 </motion.div>
               )}
@@ -397,16 +397,16 @@ export const Header: React.FC = () => {
 
       <ConfirmDialog
         open={resetDialogOpen}
-        title="Reset Demo Data"
-        description="This deletes all browser-saved demo changes, including inventory, quotations, orders, production, products, purchases and profile changes. It cannot be undone."
-        confirmLabel="Reset Demo"
+        title="Reset Workspace Data"
+        description="This deletes all browser-saved changes, including inventory, quotations, orders, production, products, purchases and profile changes. It cannot be undone."
+        confirmLabel="Reset Workspace"
         confirmationText="RESET"
-        confirmationLabel="Type RESET to restore all demo data"
+        confirmationLabel="Type RESET to restore all workspace data"
         variant="warning"
         onConfirm={() => {
           resetDemoData();
           setResetDialogOpen(false);
-          toast.success('Demo data has been reset successfully.');
+          toast.success('Workspace data has been reset successfully.');
         }}
         onCancel={() => setResetDialogOpen(false)}
       />

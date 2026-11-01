@@ -1,3 +1,4 @@
+import { recordRowInteractions } from '../utils/recordRow';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
@@ -249,7 +250,7 @@ export const Inventory: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filtered.map(({ material, physical, reserved, available, status }) => (
-                <tr key={material.id} className="hover:bg-slate-50">
+                <tr {...recordRowInteractions(() => openMaterial(material))} key={material.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3">
                     <div className="text-sm font-semibold text-slate-900">{material.name}</div>
                     <div className="text-xs text-slate-500">{material.code} · {material.category}</div>

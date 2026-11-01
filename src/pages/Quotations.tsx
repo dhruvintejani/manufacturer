@@ -1,3 +1,4 @@
+import { recordRowInteractions } from '../utils/recordRow';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -367,7 +368,7 @@ export const Quotations: React.FC = () => {
                     const customer = getCustomer(q.customerId);
                     const mainProduct = q.items[0]?.product || '—';
                     return (
-                      <motion.tr key={q.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }} className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors group">
+                      <motion.tr key={q.id} {...recordRowInteractions(() => setViewingQuotation(q))} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }} className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors group">
                         <td className="px-6 py-4">
                           <button onClick={() => setViewingQuotation(q)} className="text-xs font-mono font-semibold text-blue-600 hover:text-blue-700">{q.quotationNumber}</button>
                         </td>
@@ -413,7 +414,7 @@ export const Quotations: React.FC = () => {
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 16 }} transition={{ duration: 0.2 }} ref={quotationDialogRef} tabIndex={-1} className="relative z-10 flex max-h-[calc(100dvh-1rem)] w-full min-w-0 max-w-[calc(100vw-1rem)] flex-col rounded-xl bg-white shadow-2xl sm:max-h-[92dvh] sm:max-w-4xl" role="dialog" aria-modal="true" aria-label="Quotation editor">
+            <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 16 }} transition={{ duration: 0.2 }} ref={quotationDialogRef} tabIndex={-1} className="forge-modal relative z-10 flex max-h-[calc(100dvh-1rem)] w-full min-w-0 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[92dvh] sm:max-w-4xl" role="dialog" aria-modal="true" aria-label="Quotation editor">
               <div className="flex shrink-0 items-start justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:p-6">
                 <div>
                   <h2 className="min-w-0 break-words text-base font-semibold text-slate-900 sm:text-lg">{editingQuotation ? `Edit ${editingQuotation.quotationNumber}` : 'Create Quotation'}</h2>

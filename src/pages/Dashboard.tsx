@@ -1,3 +1,4 @@
+import { recordRowInteractions } from '../utils/recordRow';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -108,7 +109,7 @@ export const Dashboard: React.FC = () => {
   // Recent data
   const recentEnquiries = [...enquiries].sort((a, b) =>
     new Date(b.enquiryDate).getTime() - new Date(a.enquiryDate).getTime()
-  ).slice(0, 5);
+  ).slice(0, 7);
 
   const recentOrders = [...orders].sort((a, b) =>
     new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()
@@ -464,10 +465,10 @@ export const Dashboard: React.FC = () => {
                   return (
                     <motion.tr
                       key={enq.id}
+                      {...recordRowInteractions(() => navigate('/enquiries?open=' + encodeURIComponent(enq.id)))}
                       initial={{ opacity: 0, x: -8 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.3 + i * 0.05 }}
-                      onClick={() => navigate('/enquiries')}
                       className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors cursor-pointer"
                     >
                       <td className="px-6 py-3.5">
@@ -490,6 +491,18 @@ export const Dashboard: React.FC = () => {
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="grid grid-cols-3 gap-px border-t border-slate-100 bg-slate-100" aria-label="Enquiry pipeline summary">
+            {[
+              ['Open enquiries', enquiries.filter(enquiry => !['Converted', 'Closed/Lost'].includes(enquiry.status)).length],
+              ['Quotations sent', enquiries.filter(enquiry => enquiry.status === 'Quotation Sent').length],
+              ['Converted', enquiries.filter(enquiry => enquiry.status === 'Converted').length],
+            ].map(([label, count]) => (
+              <div key={String(label)} className="min-w-0 bg-[#fbfdfc] px-3 py-4 text-center sm:px-5">
+                <div className="text-xl font-extrabold tabular-nums text-slate-900">{count}</div>
+                <div className="mt-1 text-[10px] font-semibold leading-relaxed text-slate-500 sm:text-xs">{label}</div>
+              </div>
+            ))}
           </div>
         </motion.div>
 
@@ -565,10 +578,10 @@ export const Dashboard: React.FC = () => {
                 return (
                   <motion.tr
                     key={order.id}
+                    {...recordRowInteractions(() => navigate('/orders?open=' + encodeURIComponent(order.id)))}
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.4 + i * 0.05 }}
-                    onClick={() => navigate('/orders')}
                     className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors cursor-pointer"
                   >
                     <td className="px-6 py-3.5">

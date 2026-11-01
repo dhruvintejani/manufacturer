@@ -5,11 +5,11 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => localStorage.removeItem('forgeflow-storage'));
 });
 
-test('Reset Demo Data warning clearly names every destructive demo-data category', async ({ page }) => {
+test('Reset Workspace Data warning clearly names every destructive demo-data category', async ({ page }) => {
   await page.goto('/settings');
-  await page.getByRole('button', { name: 'Reset Demo Data' }).click();
+  await page.getByRole('button', { name: 'Reset Workspace Data' }).click();
 
-  const dialog = page.getByRole('dialog', { name: 'Reset Demo Data' });
+  const dialog = page.getByRole('dialog', { name: 'Reset Workspace Data' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('Customers & sales');
   await expect(dialog).toContainText('Product Master and Product BOM');
@@ -18,12 +18,12 @@ test('Reset Demo Data warning clearly names every destructive demo-data category
   await expect(dialog).toContainText('inventory transaction history');
   await expect(dialog).toContainText('Purchasing');
   await expect(dialog).toContainText('purchase/restock requests');
-  await expect(dialog).toContainText('demo profile data');
+  await expect(dialog).toContainText('profile data');
   await expect(dialog.getByRole('button', { name: 'Reset Everything' })).toBeDisabled();
   await expect(dialog.getByLabel(/Type RESET/)).toBeVisible();
 });
 
-test('Reset Demo Data restores inventory, purchases, products and profile to seed state', async ({ page }) => {
+test('Reset Workspace Data restores inventory, purchases, products and profile to seed state', async ({ page }) => {
   await page.goto('/settings');
 
   // Force a persisted demo snapshot, then alter the exact categories covered by the warning.
@@ -58,12 +58,12 @@ test('Reset Demo Data restores inventory, purchases, products and profile to see
   await page.reload();
   await expect(page.getByLabel('Full Name')).toHaveValue('Changed Demo Operator');
 
-  await page.getByRole('button', { name: 'Reset Demo Data' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Reset Demo Data' });
+  await page.getByRole('button', { name: 'Reset Workspace Data' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Reset Workspace Data' });
   await dialog.getByLabel(/Type RESET/).fill('RESET');
   await dialog.getByRole('button', { name: 'Reset Everything' }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByText('ForgeFlow demo restored to the original sample state.')).toBeVisible();
+  await expect(page.getByText('ForgeFlow workspace restored to the original sample state.')).toBeVisible();
 
   const state = await page.evaluate(() => JSON.parse(localStorage.getItem('forgeflow-storage')).state);
   expect(state.materials.find(material => material.id === 'MAT-002').currentStock).toBe(120);

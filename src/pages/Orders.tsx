@@ -1,3 +1,4 @@
+import { recordRowInteractions } from '../utils/recordRow';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -342,7 +343,7 @@ export const Orders: React.FC = () => {
                     const materialRequirement = materialRequirements.find(requirement => requirement.orderId === order.id);
                     const materialStatus = materialRequirement?.status || 'Not Calculated';
                     return (
-                      <motion.tr key={order.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }} className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors group">
+                      <motion.tr key={order.id} {...recordRowInteractions(() => setViewingOrder(order))} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }} className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors group">
                         <td className="px-6 py-4">
                           <button onClick={() => setViewingOrder(order)} className="text-xs font-mono font-semibold text-blue-600 hover:text-blue-700">{order.orderNumber}</button>
                         </td>
@@ -661,7 +662,7 @@ export const Orders: React.FC = () => {
           <textarea id="order-status-note" rows={3} maxLength={500} value={statusNote}
             onChange={e => setStatusNote(e.target.value)} placeholder="What changed at this stage?"
             className={inputClass} />
-          <p className="text-xs text-slate-500">This change will be recorded with your demo operator name and the current time.</p>
+          <p className="text-xs text-slate-500">This change will be recorded with your operator name and the current time.</p>
         </div>
       </Modal>
 
@@ -680,7 +681,7 @@ export const Orders: React.FC = () => {
          </div>}>
          <div className="space-y-3">
            <p className="text-sm leading-6 text-slate-700">{exceptionAction === 'cancel'
-             ? 'Cancelling closes this order and cannot be reversed through the demo workflow. It will be recorded in the status history.'
+             ? 'Cancelling closes this order and cannot be reversed through the order workflow. It will be recorded in the status history.'
              : exceptionAction === 'hold' ? 'Pauses normal progression until the order is resumed.'
                : 'Returns the order to the stage it was in before being placed on hold.'}</p>
            <label htmlFor="exception-note" className="block text-sm font-medium text-slate-700">Status note (optional)</label>

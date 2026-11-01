@@ -1,3 +1,4 @@
+import { recordRowInteractions } from '../utils/recordRow';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
@@ -364,7 +365,7 @@ export const Purchases: React.FC = () => {
               {filteredRequests.map(request => {
                 const material = materials.find(item => item.id === request.materialId);
                 return (
-                  <tr key={request.id} className="hover:bg-slate-50">
+                  <tr {...recordRowInteractions(() => setSelectedRequestId(request.id))} key={request.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3">
                       <button type="button" onClick={() => setSelectedRequestId(request.id)}
                         className="font-semibold text-blue-700 hover:underline">{request.requestNumber}</button>

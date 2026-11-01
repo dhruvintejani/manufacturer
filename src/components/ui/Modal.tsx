@@ -58,7 +58,7 @@ export const Modal: React.FC<ModalProps> = ({
             ref={dialogRef}
             tabIndex={-1}
             className={cn(
-              'forge-modal relative min-w-0 max-w-[calc(100vw-1rem)] rounded-xl bg-white shadow-2xl w-full flex flex-col max-h-[calc(100dvh-1rem)] sm:max-h-[90dvh] z-10',
+              'forge-modal relative min-w-0 max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl bg-white shadow-2xl w-full flex flex-col max-h-[calc(100dvh-1rem)] sm:max-h-[90dvh] z-10',
               sizeClasses[size]
             )}
             role="dialog"

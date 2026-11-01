@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
 
 test('Help explains the complete BOM -> inventory -> restock -> production workflow', async ({ page }) => {
   await page.goto('/help');
-  await expect(page.getByRole('heading', { name: 'ForgeFlow end-to-end demo' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'ForgeFlow end-to-end workflow' })).toBeVisible();
 
   const workflow = page.getByRole('region', { name: 'End-to-end workflow' });
   await expect(workflow).toContainText('Product BOM');
@@ -32,7 +32,7 @@ test('Help explains the complete BOM -> inventory -> restock -> production workf
   await expect(page.getByText(/restores the original customers, enquiries, quotations, orders, production jobs, materials, product BOMs/i)).toBeVisible();
 });
 
-test('Reset Demo Data copy names the full reset scope and reset restores product, inventory, purchase and profile data', async ({ page }) => {
+test('Reset Workspace Data copy names the full reset scope and reset restores product, inventory, purchase and profile data', async ({ page }) => {
   await page.goto('/settings');
 
   await expect(page.getByText(/materials, product BOMs, inventory transactions, purchase\/restock requests/i)).toBeVisible();
@@ -40,7 +40,7 @@ test('Reset Demo Data copy names the full reset scope and reset restores product
   // Ensure a persisted snapshot exists using a control available on both desktop and mobile,
   // then deliberately alter multiple reset domains.
   await page.getByRole('button', { name: 'Save Profile' }).click();
-  await expect(page.getByText('Demo profile saved in this browser.')).toBeVisible();
+  await expect(page.getByText('Profile saved in this browser.')).toBeVisible();
   await page.evaluate(() => {
     const raw = localStorage.getItem('forgeflow-storage');
     const parsed = JSON.parse(raw);
@@ -90,8 +90,8 @@ test('Reset Demo Data copy names the full reset scope and reset restores product
   expect(changedState.purchaseRequests.some(request => request.id === 'PUR-RESET-QA')).toBe(true);
   expect(changedState.sidebarCollapsed).toBe(true);
 
-  await page.getByRole('button', { name: 'Reset Demo Data' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Reset Demo Data' });
+  await page.getByRole('button', { name: 'Reset Workspace Data' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Reset Workspace Data' });
   await expect(dialog).toContainText('materials');
   await expect(dialog).toContainText('products/BOMs');
   await expect(dialog).toContainText('inventory');
@@ -99,14 +99,14 @@ test('Reset Demo Data copy names the full reset scope and reset restores product
   await expect(dialog).toContainText('profile data');
   const resetButton = dialog.getByRole('button', { name: 'Reset Everything' });
   await expect(resetButton).toBeDisabled();
-  const confirmation = dialog.getByLabel(/Type RESET to permanently restore the original demo/i);
+  const confirmation = dialog.getByLabel(/Type RESET to permanently restore the original records/i);
   await confirmation.fill('not-reset');
   await expect(resetButton).toBeDisabled();
   await confirmation.fill('RESET');
   await expect(resetButton).toBeEnabled();
   await resetButton.click();
 
-  await expect(page.getByText('ForgeFlow demo restored to the original sample state.')).toBeVisible();
+  await expect(page.getByText('ForgeFlow workspace restored to the original sample state.')).toBeVisible();
 
   const state = await page.evaluate(() => JSON.parse(localStorage.getItem('forgeflow-storage')).state);
   expect(state.profile.name).not.toBe('Changed Demo User');
