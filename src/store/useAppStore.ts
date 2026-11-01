@@ -349,6 +349,9 @@ export const useAppStore = create<AppStore>()(
       updateOrder: (id, data, changedBy = 'System', note = '') => {
         const previous = get().orders.find(o => o.id === id);
         if (!previous) return;
+        if (data.quantity !== undefined && (!Number.isInteger(data.quantity) || data.quantity < 1)) return;
+        if (data.totalAmount !== undefined && (!Number.isFinite(data.totalAmount) || data.totalAmount < 0)) return;
+        if (data.deliveryDate !== undefined && data.deliveryDate < (data.orderDate ?? previous.orderDate)) return;
 
         const requirement = get().materialRequirements.find(item => item.orderId === id);
         const materialDefinitionLocked = !!previous.productionJobId ||
@@ -401,8 +404,14 @@ export const useAppStore = create<AppStore>()(
         const order = get().orders.find(o => o.id === id);
         if (!order) return false;
         const position = orderWorkflow.indexOf(order.status);
-        if (position < 0 || position >= orderWorkflow.length - 1) return false;
-        get().updateOrder(id, { status: orderWorkflow[position + 1] }, changedBy, note);
+        if (position < 1 || position >= orderWorkflow.length - 1 || !order.productionJobId) return false;
+        const nextStage = orderWorkflow[position + 1];
+        const job = get().productionJobs.find(item => item.id === order.productionJobId);
+        if (nextStage === 'Quality Check' && !job) return false;
+        if (nextStage === 'Quality Check' && !['Quality Check', 'Ready', 'Completed'].includes(job!.status)) return false;
+        if (nextStage === 'Ready' && !['Ready', 'Completed'].includes(job!.status)) return false;
+        if (nextStage === 'Dispatched' && job?.status !== 'Completed') return false;
+        get().updateOrder(id, { status: nextStage }, changedBy, note);
         return true;
       },
       changeOrderException: (id, action, changedBy, note = '') => {
@@ -753,7 +762,7 @@ export const useAppStore = create<AppStore>()(
           const line = requirement?.lines.find(item => item.materialId === request.materialId);
           const shortageStillOpen = requirement?.status === 'Shortage' &&
             !!line && line.reservedQty + 1e-9 < line.requiredQty;
-          if (shortageStillOpen) return request;
+          if (shortageStillOpen || request.status === 'Ordered') return request;
           const cancelled: PurchaseRequest = { ...request, status: 'Cancelled' };
           automaticallyCancelledPurchases.push(cancelled);
           return cancelled;
