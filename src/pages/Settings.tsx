@@ -21,14 +21,14 @@ export const Settings: React.FC = () => {
       return;
     }
     saveProfile({ name, email, role: profile.role.trim(), phone: profile.phone.trim() });
-    toast.success('Demo profile saved in this browser.');
+    toast.success('Profile saved in this browser.');
   };
 
   return (
     <div className="page-shell">
       <PageHeader
         title="Settings"
-        subtitle="Manage application preferences and demo configuration."
+        subtitle="Manage your profile, workspace settings and local data."
         breadcrumbs={[{ label: 'Dashboard' }, { label: 'Settings' }]}
       />
 
@@ -82,16 +82,16 @@ export const Settings: React.FC = () => {
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-amber-50 rounded-xl"><Database className="w-5 h-5 text-amber-600" /></div>
-              <h3 className="text-sm font-semibold text-slate-900">Demo Data</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Workspace Data</h3>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed mb-4">
-              Resetting demo data erases every browser-saved change and restores ForgeFlow to its original sample state. This includes customers and sales records, production jobs, materials, product BOMs, inventory transactions, purchase/restock requests, Product Master records, notifications, activity history, demo profile data, and saved app preferences.
+              Resetting workspace data erases every browser-saved change and restores ForgeFlow to its original sample state. This includes customers and sales records, production jobs, materials, product BOMs, inventory transactions, purchase/restock requests, Product Master records, notifications, activity history, profile data, and saved app preferences.
             </p>
             <button
               onClick={() => setResetDialogOpen(true)}
               className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
             >
-              <RefreshCw className="w-4 h-4" /> Reset Demo Data
+              <RefreshCw className="w-4 h-4" /> Reset Workspace Data
             </button>
           </motion.div>
 
@@ -102,9 +102,9 @@ export const Settings: React.FC = () => {
             </div>
             <div className="space-y-2">
               {[
-                { label: 'Version', value: '1.0.0-demo' },
+                { label: 'Version', value: '1.0.0' },
                 { label: 'Platform', value: 'ForgeFlow MFG Ops' },
-                { label: 'Mode', value: 'Demo / Preview' },
+                { label: 'Mode', value: 'Browser-local' },
               ].map(i => (
                 <div key={i.label} className="flex justify-between text-xs">
                   <span className="text-slate-500">{i.label}</span>
@@ -121,7 +121,7 @@ export const Settings: React.FC = () => {
             </div>
             <p className="text-sm leading-relaxed text-slate-600">
               Order, enquiry, production, material shortage, low-stock and purchase/restock updates appear in the in-app notification menu.
-              Email and desktop push notifications are not connected in this browser-only demo.
+              Email and desktop push notifications are not connected in this browser-local workspace.
             </p>
           </motion.div>
         </div>
@@ -129,24 +129,24 @@ export const Settings: React.FC = () => {
 
       <ConfirmDialog
         open={resetDialogOpen}
-        title="Reset Demo Data"
-        description="This action is destructive for this browser. Every demo change listed below—including products/BOMs, inventory, purchases and profile data—will be erased and replaced with ForgeFlow's original sample data. It cannot be undone."
+        title="Reset Workspace Data"
+        description="This action is destructive for this browser. Every saved change listed below—including products/BOMs, inventory, purchases and profile data—will be erased and replaced with ForgeFlow's original sample data. It cannot be undone."
         details={[
           'Customers & sales — customers, enquiries, quotations and orders.',
-          'Manufacturing — production jobs and their demo status history.',
+          'Manufacturing — production jobs and their status history.',
           'Products & BOMs — Product Master and Product BOM records, product definitions and Bill of Materials changes.',
           'Inventory — materials, physical stock, reserved/available stock, material requirements and inventory transaction history.',
           'Purchasing / Purchases — purchase/restock requests, supplier links, request status and material receipt records.',
-          'Profile & app state — demo profile data, notifications, activity history and the saved sidebar preference.',
+          'Profile & app state — profile data, notifications, activity history and the saved sidebar preference.',
         ]}
         confirmLabel="Reset Everything"
         confirmationText="RESET"
-        confirmationLabel="Type RESET to permanently restore the original demo"
+        confirmationLabel="Type RESET to permanently restore the original records"
         variant="warning"
         onConfirm={() => {
           resetDemoData();
           setResetDialogOpen(false);
-          toast.success('ForgeFlow demo restored to the original sample state.');
+          toast.success('ForgeFlow workspace restored to the original sample state.');
         }}
         onCancel={() => setResetDialogOpen(false)}
       />
