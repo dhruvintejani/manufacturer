@@ -237,26 +237,33 @@ export const Quotations: React.FC = () => {
   };
 
   const handleConvertToOrder = (q: Quotation) => {
-    if (q.items.length !== 1 || !q.items[0]?.product || !Number.isInteger(q.items[0].quantity) || q.items[0].quantity < 1) {
-      toast.error('This manufacturing demo converts single-product quotations only. Create a separate quotation for each manufactured product.'); return;
+    if (q.status !== 'Approved' || hasOrder(q)) {
+      toast.error('Only an approved, unconverted quotation can create orders.');
+      return;
     }
-    if (hasOrder(q)) { toast.error('An order has already been created from this quotation.'); return; }
-    const mainItem = q.items[0];
-    const order = addOrder({
+    if (!q.items.length || q.items.some(item => !item.product || !Number.isInteger(item.quantity) || item.quantity < 1)) {
+      toast.error('Every quotation item needs a product and a positive whole-number quantity.');
+      return;
+    }
+    const orderDate = new Date().toISOString().split('T')[0];
+    const deliveryDate = new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0];
+    const created = q.items.map((item) => addOrder({
       orderNumber: '',
       quotationId: q.id,
       customerId: q.customerId,
-      product: mainItem?.product || 'Product',
-      quantity: mainItem?.quantity || 1,
-      orderDate: new Date().toISOString().split('T')[0],
-      deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
-      totalAmount: q.total,
+      product: item.product,
+      quantity: item.quantity,
+      orderDate,
+      deliveryDate,
+      totalAmount: calcItemTotal(item),
       currency: q.currency,
       paymentStatus: 'Pending',
       status: 'Confirmed',
-      notes: '',
-    });
-    toast.success(`Order ${order.orderNumber} created from quotation!`);
+      notes: q.items.length > 1 ? `From ${q.quotationNumber} — ${item.description || item.product}` : '',
+    }));
+    toast.success(created.length === 1
+      ? `Order ${created[0].orderNumber} created from quotation!`
+      : `${created.length} linked production orders created from ${q.quotationNumber}.`);
     setConvertOrderOpen(false);
     setViewingQuotation(null);
     navigate('/orders');
@@ -671,7 +678,7 @@ export const Quotations: React.FC = () => {
                 </button>
               )}
               {viewingQuotation.status === 'Approved' && !hasOrder(viewingQuotation) && (
-                <button disabled={viewingQuotation.items.length !== 1} title={viewingQuotation.items.length !== 1 ? 'This demo supports one manufactured product per order' : undefined} onClick={() => setConvertOrderOpen(true)} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
+                <button onClick={() => setConvertOrderOpen(true)} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
                   <ShoppingCart className="w-4 h-4" /> Convert to Order
                 </button>
               )}
@@ -689,7 +696,7 @@ export const Quotations: React.FC = () => {
       <ConfirmDialog
         open={convertOrderOpen}
         title="Convert to Order"
-        description={`Convert quotation ${viewingQuotation?.quotationNumber} to an order? This will create a new order and mark the quotation as converted.`}
+        description={`Convert quotation ${viewingQuotation?.quotationNumber} to an order? This creates a separate linked production order for every quotation line, preserving each product's quantity and value.`}
         confirmLabel="Convert to Order"
         variant="info"
         onConfirm={() => viewingQuotation && handleConvertToOrder(viewingQuotation)}
