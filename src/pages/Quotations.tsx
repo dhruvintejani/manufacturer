@@ -164,6 +164,7 @@ export const Quotations: React.FC = () => {
 
   const handleSave = (status = form.status) => {
     if (!form.customerId) { toast.error('Please select a customer.'); return; }
+    if (editingQuotation && hasOrder(editingQuotation)) { toast.error('This quotation already has an order and cannot be edited.'); return; }
     if (form.items.length === 0 || form.items.some(item => !item.product || !Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.unitPrice) || item.unitPrice < 0 || item.discount < 0 || item.discount > 100 || item.tax < 0 || item.tax > 100)) {
       toast.error('Add valid products, quantities, unit prices, discounts and tax.'); return;
     }
@@ -236,6 +237,10 @@ export const Quotations: React.FC = () => {
   };
 
   const handleConvertToOrder = (q: Quotation) => {
+    if (q.items.length !== 1 || !q.items[0]?.product || !Number.isInteger(q.items[0].quantity) || q.items[0].quantity < 1) {
+      toast.error('This manufacturing demo converts single-product quotations only. Create a separate quotation for each manufactured product.'); return;
+    }
+    if (hasOrder(q)) { toast.error('An order has already been created from this quotation.'); return; }
     const mainItem = q.items[0];
     const order = addOrder({
       orderNumber: '',
@@ -665,14 +670,14 @@ export const Quotations: React.FC = () => {
                 </button>
               )}
               {viewingQuotation.status === 'Approved' && !hasOrder(viewingQuotation) && (
-                <button onClick={() => setConvertOrderOpen(true)} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
+                <button disabled={viewingQuotation.items.length !== 1} title={viewingQuotation.items.length !== 1 ? 'This demo supports one manufactured product per order' : undefined} onClick={() => setConvertOrderOpen(true)} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-1">
                   <ShoppingCart className="w-4 h-4" /> Convert to Order
                 </button>
               )}
               <button onClick={() => handlePDF(viewingQuotation)} className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
                 <Download className="w-4 h-4" /> PDF
               </button>
-              <button onClick={() => { setViewingQuotation(null); openEdit(viewingQuotation); }} className="flex items-center gap-2 text-slate-700 bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+              <button disabled={hasOrder(viewingQuotation)} title={hasOrder(viewingQuotation) ? 'Linked quotations cannot be edited after order conversion' : undefined} onClick={() => { setViewingQuotation(null); openEdit(viewingQuotation); }} className="flex items-center gap-2 text-slate-700 bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
                 <Edit2 className="w-4 h-4" /> Edit
               </button>
             </div>
