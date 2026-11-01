@@ -58,7 +58,7 @@ export const Modal: React.FC<ModalProps> = ({
             ref={dialogRef}
             tabIndex={-1}
             className={cn(
-              'relative min-w-0 max-w-[calc(100vw-1rem)] rounded-xl bg-white shadow-2xl w-full flex flex-col max-h-[calc(100dvh-1rem)] sm:max-h-[90dvh] z-10',
+              'forge-modal relative min-w-0 max-w-[calc(100vw-1rem)] rounded-xl bg-white shadow-2xl w-full flex flex-col max-h-[calc(100dvh-1rem)] sm:max-h-[90dvh] z-10',
               sizeClasses[size]
             )}
             role="dialog"
@@ -69,7 +69,7 @@ export const Modal: React.FC<ModalProps> = ({
             {(title || subtitle) && (
               <div className="flex min-w-0 items-start justify-between gap-3 px-4 py-3 sm:p-6 border-b border-slate-100 flex-shrink-0">
                 <div className="min-w-0">
-                  {title && <h2 id={titleId} className="break-words text-base font-semibold text-slate-900 sm:text-lg">{title}</h2>}
+                  {title && <h2 id={titleId} className="forge-dialog-title break-words text-base font-semibold text-slate-900 sm:text-lg">{title}</h2>}
                   {subtitle && <p className="break-words text-sm text-slate-500 mt-0.5">{subtitle}</p>}
                 </div>
                 <button
