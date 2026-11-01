@@ -69,7 +69,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-            ref={dialogRef} tabIndex={-1} className="forge-modal relative bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-5 z-10"
+            ref={dialogRef} tabIndex={-1} className="forge-modal relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-5 z-10"
             role="dialog"
             aria-modal="true"
             aria-labelledby="confirm-title"
