@@ -1,3 +1,4 @@
+import { recordRowInteractions } from '../utils/recordRow';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -342,7 +343,7 @@ export const Orders: React.FC = () => {
                     const materialRequirement = materialRequirements.find(requirement => requirement.orderId === order.id);
                     const materialStatus = materialRequirement?.status || 'Not Calculated';
                     return (
-                      <motion.tr key={order.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }} className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors group">
+                      <motion.tr key={order.id} {...recordRowInteractions(() => setViewingOrder(order))} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }} className="border-t border-slate-50 hover:bg-slate-50/80 transition-colors group">
                         <td className="px-6 py-4">
                           <button onClick={() => setViewingOrder(order)} className="text-xs font-mono font-semibold text-blue-600 hover:text-blue-700">{order.orderNumber}</button>
                         </td>
