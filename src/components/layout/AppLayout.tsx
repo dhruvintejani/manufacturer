@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { ToastProvider } from '../ui/Toast';
@@ -13,6 +13,7 @@ const pageVariants = {
 
 export const AppLayout: React.FC = () => {
   const location = useLocation();
+  const reducedMotion = useReducedMotion();
   const mainRef = useRef<HTMLElement>(null);
 
   // The content is scrolled inside <main>, not the browser window.
@@ -32,14 +33,14 @@ export const AppLayout: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header />
         <main ref={mainRef} className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none">
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode={reducedMotion ? "sync" : "wait"}>
             <motion.div
               key={location.pathname}
-              initial="initial"
+              initial={reducedMotion ? false : "initial"}
               animate="animate"
-              exit="exit"
+              exit={reducedMotion ? undefined : "exit"}
               variants={pageVariants}
-              transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+              transition={{ duration: reducedMotion ? 0 : 0.18, ease: [0.4, 0, 0.2, 1] }}
               className="min-h-full min-w-0"
             >
               <Outlet />
