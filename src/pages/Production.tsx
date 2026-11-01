@@ -105,7 +105,7 @@ export const Production: React.FC = () => {
       return false;
     }
     if (job.status === 'Completed') {
-      toast.error('Completed production jobs cannot be reopened through the demo workflow.');
+      toast.error('Completed production jobs cannot be reopened through the production workflow.');
       return false;
     }
     return true;
@@ -437,7 +437,7 @@ export const Production: React.FC = () => {
                     </>
                   ) : (
                     <p className="mt-3 text-xs leading-5 text-slate-600">
-                      This legacy demo job does not have a linked consumed-material record. New production jobs always require a Ready BOM reservation and create inventory consumption entries automatically.
+                      This older production job does not have a linked consumed-material record. New production jobs always require a Ready BOM reservation and create inventory consumption entries automatically.
                     </p>
                   )}
                 </div>
