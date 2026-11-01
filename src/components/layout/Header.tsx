@@ -231,7 +231,7 @@ export const Header: React.FC = () => {
 
         <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5">
           <span className="forge-demo-pill hidden lg:inline-flex items-center rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.12em]" title="ForgeFlow demo data is stored in this browser">
-            Demo Environment
+            Demo Workspace
           </span>
           {/* Notifications */}
           <div ref={notifRef} className="relative">
