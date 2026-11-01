@@ -46,7 +46,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   if (totalPages <= 1) return null;
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-1">
+    <div className="forge-pagination flex flex-col sm:flex-row items-center justify-between gap-3">
       <p className="text-sm text-slate-500">
         Showing <span className="font-medium text-slate-700">{start}–{end}</span> of{' '}
         <span className="font-medium text-slate-700">{totalItems}</span> results

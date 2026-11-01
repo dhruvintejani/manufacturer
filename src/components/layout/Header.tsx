@@ -151,11 +151,11 @@ export const Header: React.FC = () => {
 
   return (
     <>
-      <header className="relative z-20 flex h-16 min-w-0 shrink-0 items-center gap-1.5 border-b border-slate-100 bg-white px-2 shadow-sm sm:gap-3 sm:px-4 lg:gap-4 lg:px-6">
+      <header className="forge-topbar relative z-20 flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-3 lg:gap-4">
         {/* Mobile menu */}
         <button
           onClick={() => setSidebarMobileOpen(true)}
-          className="lg:hidden p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+          className="forge-icon-button lg:hidden text-slate-600"
           aria-label="Open navigation"
         >
           <Menu className="w-5 h-5" />
@@ -174,7 +174,12 @@ export const Header: React.FC = () => {
               inputMode="search"
               enterKeyHint="go"
               onKeyDown={event => {
-                if (event.key === 'Escape') { setSearchOpen(false); }
+                if (event.key === 'Escape' && searchOpen) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setSearchOpen(false);
+                  event.currentTarget.blur();
+                }
                 if (event.key === 'Enter' && searchResults[0]) {
                   event.preventDefault();
                   openSearchResult(searchResults[0].path);
@@ -184,7 +189,7 @@ export const Header: React.FC = () => {
               value={searchQuery}
               onChange={e => { setSearchQuery(e.target.value); setSearchOpen(true); }}
               onFocus={() => setSearchOpen(true)}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all"
+              className="w-full pl-9 pr-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition-all"
             />
             {searchQuery && (
               <button onClick={() => { setSearchQuery(''); setSearchOpen(false); }}
@@ -230,8 +235,8 @@ export const Header: React.FC = () => {
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5">
-          <span className="hidden lg:inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-800" title="ForgeFlow demo data is stored in this browser">
-            Demo Environment
+          <span className="forge-demo-pill hidden lg:inline-flex items-center rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.12em]" title="ForgeFlow demo data is stored in this browser">
+            Demo Workspace
           </span>
           {/* Notifications */}
           <div ref={notifRef} className="relative">

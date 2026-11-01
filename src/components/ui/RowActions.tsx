@@ -77,7 +77,7 @@ export const RowActions: React.FC<RowActionsProps> = ({ label, actions }) => {
       </button>
       {open && createPortal(
         <div ref={menu} role="menu" aria-label={label}
-          className="fixed z-[105] max-h-[min(18rem,calc(100dvh-1rem))] w-[min(11rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain rounded-lg border border-slate-200 bg-white p-1 shadow-xl"
+          className="forge-floating-menu fixed z-[105] max-h-[min(18rem,calc(100dvh-1rem))] w-[min(11rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain rounded-lg border border-slate-200 bg-white p-1 shadow-xl"
           style={{ top: Math.max(8, position.top), left: position.left }}>
           {actions.map(action => (
             <button type="button" key={action.label} role="menuitem" disabled={action.disabled}

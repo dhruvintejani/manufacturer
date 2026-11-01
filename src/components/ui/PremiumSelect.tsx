@@ -237,7 +237,7 @@ export const PremiumSelect: React.FC<PremiumSelectProps> = ({
         ) : (
           <div
             ref={menu} id={listId} role="listbox" aria-label={label}
-            className="fixed z-[110] overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white p-1 shadow-2xl"
+            className="forge-floating-menu fixed z-[110] overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white p-1 shadow-2xl"
             style={{ top: placement.top, left: placement.left, width: placement.width, maxHeight: placement.maxHeight }}
           >
             {optionRows}

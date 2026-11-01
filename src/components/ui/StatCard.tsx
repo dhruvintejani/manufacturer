@@ -38,13 +38,13 @@ export const StatCard: React.FC<StatCardProps> = ({
       onKeyDown={onClick ? event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick(); } } : undefined}
       aria-label={onClick ? `Open ${title}: ${value}` : undefined}
       className={cn(
-        'bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-[0_2px_12px_rgba(15,31,53,0.045)] flex flex-col gap-3 min-w-0',
+        'forge-stat bg-white rounded-2xl p-4 sm:p-5 flex flex-col gap-3 min-w-0',
         'transition-[box-shadow,border-color,transform] duration-200',
-        onClick && 'cursor-pointer hover:shadow-[0_10px_28px_rgba(15,31,53,0.10)] hover:border-blue-300 focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-[0.99]'
+        onClick && 'cursor-pointer active:scale-[0.99]'
       )}
     >
       <div className="flex items-start justify-between">
-        <div className={cn('p-2.5 rounded-xl flex-shrink-0', iconBg)}>
+        <div className={cn('forge-stat-icon p-2.5 flex-shrink-0', iconBg)}>
           {icon}
         </div>
         {change !== undefined && (
@@ -58,8 +58,8 @@ export const StatCard: React.FC<StatCardProps> = ({
         )}
       </div>
       <div>
-        <div className="max-w-full break-words text-xl font-bold leading-tight tabular-nums text-slate-900 sm:text-2xl xl:text-3xl">{value}</div>
-        <div className="break-words text-sm text-slate-500 mt-1 font-medium">{title}</div>
+        <div className="forge-stat-number max-w-full break-words text-2xl leading-tight tabular-nums text-slate-900 sm:text-[27px] xl:text-[29px]">{value}</div>
+        <div className="break-words text-[12px] text-slate-500 mt-1 font-semibold">{title}</div>
         {change !== undefined && (
           <div className="text-xs text-slate-400 mt-0.5">{changeLabel}</div>
         )}

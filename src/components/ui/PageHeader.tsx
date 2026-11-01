@@ -22,7 +22,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 }) => {
   const reducedMotion = useReducedMotion();
   return (
-    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-4 sm:mb-6">
+    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4 mb-4 sm:mb-6">
       <div>
         {breadcrumbs && breadcrumbs.length > 0 && (
           <nav className="flex min-w-0 flex-wrap items-center gap-1 mb-1.5" aria-label="Breadcrumb">
@@ -40,7 +40,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           initial={reducedMotion ? false : { opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: reducedMotion ? 0 : 0.2 }}
-          className="break-words text-xl font-bold tracking-tight leading-tight text-slate-900 sm:text-2xl"
+          className="forge-page-title break-words text-xl font-extrabold tracking-tight leading-tight text-slate-900 sm:text-2xl"
         >
           {title}
         </motion.h1>
