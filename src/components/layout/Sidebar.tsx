@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, ClipboardList, FileText,
   ShoppingCart, Factory, BarChart3, Settings,
-  HelpCircle, ChevronLeft, ChevronRight, Zap,
+  HelpCircle, ChevronLeft, ChevronRight,
   Boxes, Layers3, Archive, ShoppingBag, X
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
