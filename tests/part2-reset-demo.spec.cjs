@@ -5,11 +5,11 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => localStorage.removeItem('forgeflow-storage'));
 });
 
-test('Part 2 Reset Demo Data clearly lists all destructive demo areas and requires RESET confirmation', async ({ page }) => {
+test('Part 2 Reset Workspace Data clearly lists all destructive demo areas and requires RESET confirmation', async ({ page }) => {
   await page.goto('/settings');
-  await page.getByRole('button', { name: 'Reset Demo Data' }).click();
+  await page.getByRole('button', { name: 'Reset Workspace Data' }).click();
 
-  const dialog = page.getByRole('dialog', { name: 'Reset Demo Data' });
+  const dialog = page.getByRole('dialog', { name: 'Reset Workspace Data' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('This action is destructive for this browser.');
   await expect(dialog).toContainText('It cannot be undone.');
@@ -20,7 +20,7 @@ test('Part 2 Reset Demo Data clearly lists all destructive demo areas and requir
 
   const reset = dialog.getByRole('button', { name: 'Reset Everything' });
   await expect(reset).toBeDisabled();
-  await dialog.getByLabel(/Type RESET to permanently restore the original demo/).fill('reset');
+  await dialog.getByLabel(/Type RESET to permanently restore the original records/).fill('reset');
   await expect(reset).toBeEnabled();
 });
 
@@ -29,7 +29,7 @@ test('Part 2 reset restores inventory, purchases, products and profile data to o
 
   await page.getByLabel('Full Name').fill('Changed Demo Operator');
   await page.getByRole('button', { name: 'Save Profile' }).click();
-  await expect(page.getByText('Demo profile saved in this browser.')).toBeVisible();
+  await expect(page.getByText('Profile saved in this browser.')).toBeVisible();
 
   await page.evaluate(() => {
     const key = 'forgeflow-storage';
@@ -53,12 +53,12 @@ test('Part 2 reset restores inventory, purchases, products and profile data to o
   await page.reload();
   await expect(page.getByLabel('Full Name')).toHaveValue('Changed Demo Operator');
 
-  await page.getByRole('button', { name: 'Reset Demo Data' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Reset Demo Data' });
-  await dialog.getByLabel(/Type RESET to permanently restore the original demo/).fill('RESET');
+  await page.getByRole('button', { name: 'Reset Workspace Data' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Reset Workspace Data' });
+  await dialog.getByLabel(/Type RESET to permanently restore the original records/).fill('RESET');
   await dialog.getByRole('button', { name: 'Reset Everything' }).click();
 
-  await expect(page.getByText('ForgeFlow demo restored to the original sample state.')).toBeVisible();
+  await expect(page.getByText('ForgeFlow workspace restored to the original sample state.')).toBeVisible();
 
   const state = await page.evaluate(() => JSON.parse(localStorage.getItem('forgeflow-storage')).state);
   expect(state.profile.name).toBe('Alex Morgan');
