@@ -174,7 +174,12 @@ export const Header: React.FC = () => {
               inputMode="search"
               enterKeyHint="go"
               onKeyDown={event => {
-                if (event.key === 'Escape') { setSearchOpen(false); }
+                if (event.key === 'Escape' && searchOpen) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setSearchOpen(false);
+                  event.currentTarget.blur();
+                }
                 if (event.key === 'Enter' && searchResults[0]) {
                   event.preventDefault();
                   openSearchResult(searchResults[0].path);
