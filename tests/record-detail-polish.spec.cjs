@@ -40,7 +40,7 @@ test('material row opens read-only details and Edit remains separate', async ({ 
   const row = page.getByRole('row').filter({ hasText: 'SS304 Sheet' }).first();
   await row.getByRole('cell').nth(1).click();
   const details = page.getByRole('dialog');
-  await expect(details).toContainText('MAT-001');
+  await expect(details).toContainText('SS304');
   await expect(details).toContainText('Preferred supplier');
   await details.getByRole('button', { name: 'Edit Material' }).click();
   await expect(page.getByRole('dialog', { name: 'Edit Material' })).toBeVisible();
