@@ -1,3 +1,4 @@
+import { recordRowInteractions } from '../utils/recordRow';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -217,7 +218,7 @@ export const Customers: React.FC = () => {
                     const stats = getCustomerStats(customer.id);
                     return (
                       <motion.tr
-                        key={customer.id}
+                        key={customer.id} {...recordRowInteractions(() => setViewingCustomer(customer))}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: i * 0.04 }}
