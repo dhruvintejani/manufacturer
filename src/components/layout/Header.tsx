@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Menu, Search, Bell, ChevronDown, User, Settings,
-  RefreshCw, LogOut, X, CheckCheck
+  RefreshCw, X, CheckCheck
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { formatRelativeTime } from '../../utils/formatters';
@@ -380,14 +380,8 @@ export const Header: React.FC = () => {
                       {item.label}
                     </button>
                   ))}
-                  <div className="border-t border-slate-100 mt-1 pt-1">
-                    <button
-                      onClick={() => toast('This is a demo — no authentication required!', { icon: '👋' })}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Sign Out (Demo)
-                    </button>
+                  <div className="mx-2 mt-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs leading-relaxed text-blue-800">
+                    Browser demo · No sign-in required. Changes are saved only on this device.
                   </div>
                 </motion.div>
               )}
@@ -399,8 +393,10 @@ export const Header: React.FC = () => {
       <ConfirmDialog
         open={resetDialogOpen}
         title="Reset Demo Data"
-        description="This will restore all data to the original demo state. Any changes you've made will be lost."
-        confirmLabel="Reset Data"
+        description="This deletes all browser-saved demo changes, including inventory, quotations, orders, production, products, purchases and profile changes. It cannot be undone."
+        confirmLabel="Reset Demo"
+        confirmationText="RESET"
+        confirmationLabel="Type RESET to restore all demo data"
         variant="warning"
         onConfirm={() => {
           resetDemoData();
