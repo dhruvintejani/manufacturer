@@ -251,6 +251,7 @@ export const Quotations: React.FC = () => {
       orderDate: new Date().toISOString().split('T')[0],
       deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
       totalAmount: q.total,
+      currency: q.currency,
       paymentStatus: 'Pending',
       status: 'Confirmed',
       notes: '',
