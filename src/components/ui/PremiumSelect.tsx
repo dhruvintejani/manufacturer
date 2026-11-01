@@ -177,7 +177,7 @@ export const PremiumSelect: React.FC<PremiumSelectProps> = ({
       onMouseDown={event => event.preventDefault()}
       onClick={() => choose(index)}
       className={cn(
-        'flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors active:bg-blue-100',
+        'forge-floating-menu flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors active:bg-blue-100',
         index === active ? 'bg-blue-50 text-blue-900' : 'text-slate-700 hover:bg-slate-50',
       )}
     >
