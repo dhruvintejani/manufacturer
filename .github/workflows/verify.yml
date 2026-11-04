@@ -48,7 +48,7 @@ jobs:
 
 
   live-deployment-rehearsal:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs:
       - typecheck-and-build
       - browser-smoke
@@ -75,8 +75,12 @@ jobs:
           done
           echo "Live site did not become reachable in time."
           exit 1
-      - name: Rehearse deployed demo on desktop and mobile
-        run: npx playwright test tests/help-reset.spec.cjs tests/part10-full-workflow.spec.cjs --config=playwright.live.config.cjs
+      - name: Audit all existing functionality against live production in Chrome
+        run: npx playwright test --config=playwright.live.config.cjs --project=live-desktop-chrome
+        env:
+          LIVE_BASE_URL: https://manufacturer-five.vercel.app
+      - name: Audit high-risk flows and responsiveness against live production in mobile Safari
+        run: npx playwright test tests/mobile-safari.spec.cjs tests/part10-full-workflow.spec.cjs tests/record-detail-polish.spec.cjs tests/premium-visual.spec.cjs --config=playwright.live.config.cjs --project=live-mobile-safari
         env:
           LIVE_BASE_URL: https://manufacturer-five.vercel.app
       - if: failure()
