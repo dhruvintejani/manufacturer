@@ -195,7 +195,7 @@ export const seedQuotations: Quotation[] = [
     customerId: 'C001',
     date: '2026-04-27',
     validity: '2026-05-27',
-    currency: 'USD',
+    currency: 'INR',
     items: [
       {
         id: 'LI001',
@@ -225,7 +225,7 @@ export const seedQuotations: Quotation[] = [
     customerId: 'C002',
     date: '2026-04-26',
     validity: '2026-05-26',
-    currency: 'EUR',
+    currency: 'INR',
     items: [
       {
         id: 'LI002',
@@ -255,7 +255,7 @@ export const seedQuotations: Quotation[] = [
     customerId: 'C003',
     date: '2026-04-25',
     validity: '2026-05-25',
-    currency: 'USD',
+    currency: 'INR',
     items: [
       {
         id: 'LI003',
@@ -286,7 +286,7 @@ export const seedQuotations: Quotation[] = [
     customerId: 'C004',
     date: '2026-04-23',
     validity: '2026-05-23',
-    currency: 'GBP',
+    currency: 'INR',
     items: [
       {
         id: 'LI004',
@@ -317,7 +317,7 @@ export const seedQuotations: Quotation[] = [
     customerId: 'C005',
     date: '2026-04-21',
     validity: '2026-05-21',
-    currency: 'USD',
+    currency: 'INR',
     items: [
       {
         id: 'LI005',
@@ -347,7 +347,7 @@ export const seedQuotations: Quotation[] = [
     customerId: 'C006',
     date: '2026-04-19',
     validity: '2026-05-19',
-    currency: 'USD',
+    currency: 'INR',
     items: [
       {
         id: 'LI006',
@@ -375,6 +375,12 @@ export const seedQuotations: Quotation[] = [
 
 export const seedOrders: Order[] = [
   {
+    id: 'ORD-2026-0052', orderNumber: 'ORD-2026-0052', quotationId: '', customerId: 'C001',
+    product: 'Heat Exchanger', quantity: 2, orderDate: '2026-01-28', deliveryDate: '2026-04-15',
+    currency: 'INR', totalAmount: 29400, paymentStatus: 'Partial', status: 'Production',
+    productionJobId: 'PJ-0040', notes: 'Production delayed; revised delivery to be agreed.',
+  },
+  {
     id: 'ORD-2026-0058',
     orderNumber: 'ORD-2026-0058',
     quotationId: 'QT-2026-0146',
@@ -383,11 +389,12 @@ export const seedOrders: Order[] = [
     quantity: 1,
     orderDate: '2026-04-26',
     deliveryDate: '2026-10-26',
+    currency: 'INR',
     totalAmount: 78200,
     paymentStatus: 'Partial',
     status: 'Production',
     productionJobId: 'PJ-0045',
-    notes: 'Advance payment received: $31,280. Balance due on completion.',
+    notes: 'Advance payment received: INR 31,280. Balance due on completion.',
   },
   {
     id: 'ORD-2026-0057',
@@ -398,6 +405,7 @@ export const seedOrders: Order[] = [
     quantity: 4,
     orderDate: '2026-04-24',
     deliveryDate: '2026-07-24',
+    currency: 'INR',
     totalAmount: 36720,
     paymentStatus: 'Paid',
     status: 'Quality Check',
@@ -413,6 +421,7 @@ export const seedOrders: Order[] = [
     quantity: 1,
     orderDate: '2026-04-20',
     deliveryDate: '2026-09-20',
+    currency: 'INR',
     totalAmount: 70850,
     paymentStatus: 'Partial',
     status: 'Production',
@@ -428,6 +437,7 @@ export const seedOrders: Order[] = [
     quantity: 2,
     orderDate: '2026-04-10',
     deliveryDate: '2026-08-10',
+    currency: 'INR',
     totalAmount: 29400,
     paymentStatus: 'Pending',
     status: 'Confirmed',
@@ -442,6 +452,7 @@ export const seedOrders: Order[] = [
     quantity: 1,
     orderDate: '2026-03-15',
     deliveryDate: '2026-07-15',
+    currency: 'INR',
     totalAmount: 19950,
     paymentStatus: 'Paid',
     status: 'Ready',
@@ -457,6 +468,7 @@ export const seedOrders: Order[] = [
     quantity: 1,
     orderDate: '2026-02-20',
     deliveryDate: '2026-06-20',
+    currency: 'INR',
     totalAmount: 95000,
     paymentStatus: 'Paid',
     status: 'Completed',
@@ -792,6 +804,21 @@ export const seedMaterialRequirements: MaterialRequirement[] = [
   },
 ];
 
+// Historical consumption for every sample job. Opening balances below include these
+// materials, so the ledger reconciles to currentStock without consuming them twice.
+for (const order of seedOrders.filter(order => order.productionJobId)) {
+  if (seedMaterialRequirements.some(requirement => requirement.orderId === order.id)) continue;
+  const product = seedProducts.find(product => product.name === order.product)!;
+  const job = seedProductionJobs.find(job => job.id === order.productionJobId)!;
+  seedMaterialRequirements.push({
+    id: `MR-${order.id}`, orderId: order.id, productId: product.id, productName: product.name,
+    quantity: order.quantity, bomVersion: product.bomVersion, status: 'Consumed',
+    createdAt: `${job.startDate}T08:00:00Z`, updatedAt: `${job.startDate}T08:00:00Z`, consumedAt: `${job.startDate}T08:00:00Z`,
+    lines: product.bom.map(item => ({ materialId: item.materialId,
+      requiredQty: item.quantity * order.quantity, reservedQty: 0, consumedQty: item.quantity * order.quantity })),
+  });
+}
+
 export const seedPurchaseRequests: PurchaseRequest[] = [
   {
     id: 'PUR-001', requestNumber: 'PUR-2026-001', materialId: 'MAT-002', orderId: 'ORD-2026-0055',
@@ -800,16 +827,20 @@ export const seedPurchaseRequests: PurchaseRequest[] = [
   },
 ];
 
-export const seedInventoryTransactions: InventoryTransaction[] = seedMaterials.map<InventoryTransaction>((material, index) => ({
-  id: 'TXN-OPEN-' + String(index + 1).padStart(3, '0'),
-  materialId: material.id,
-  type: 'opening',
-  quantity: material.currentStock + (material.id === 'MAT-001' ? 100 : material.id === 'MAT-002' ? 20 : 0),
-  balanceAfter: material.currentStock + (material.id === 'MAT-001' ? 100 : material.id === 'MAT-002' ? 20 : 0),
-  timestamp: '2026-01-01T08:00:00Z',
-  reference: 'Opening Balance',
-  note: 'Opening stock balance',
-})).concat([
-  { id: 'TXN-CONS-001', materialId: 'MAT-001', type: 'production_consumption', quantity: -100, balanceAfter: 850, timestamp: '2026-05-01T08:30:00Z', reference: 'ORD-2026-0058', note: 'Reactor material consumption' },
-  { id: 'TXN-CONS-002', materialId: 'MAT-002', type: 'production_consumption', quantity: -20, balanceAfter: 120, timestamp: '2026-05-01T08:30:00Z', reference: 'ORD-2026-0058', note: 'Reactor material consumption' },
-]);
+export const seedInventoryTransactions: InventoryTransaction[] = [];
+for (const material of seedMaterials) {
+  const consumption = seedMaterialRequirements.filter(requirement => requirement.status === 'Consumed')
+    .flatMap(requirement => requirement.lines.filter(line => line.materialId === material.id && line.consumedQty > 0)
+      .map(line => ({ requirement, quantity: line.consumedQty })))
+    .sort((a, b) => a.requirement.consumedAt!.localeCompare(b.requirement.consumedAt!));
+  let balance = material.currentStock + consumption.reduce((sum, item) => sum + item.quantity, 0);
+  seedInventoryTransactions.push({ id: `TXN-OPEN-${material.id}`, materialId: material.id,
+    type: 'opening', quantity: balance, balanceAfter: balance, timestamp: '2026-01-01T08:00:00Z',
+    reference: 'Opening Balance', note: 'Opening stock balance' });
+  for (const { requirement, quantity } of consumption) {
+    balance -= quantity;
+    seedInventoryTransactions.push({ id: `TXN-CONS-${requirement.orderId}-${material.id}`, materialId: material.id,
+      type: 'production_consumption', quantity: -quantity, balanceAfter: balance,
+      timestamp: requirement.consumedAt!, reference: requirement.orderId, note: `${requirement.productName} material consumption` });
+  }
+}

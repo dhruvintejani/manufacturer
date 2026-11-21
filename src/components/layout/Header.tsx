@@ -1,3 +1,4 @@
+import { useDesktop } from '../../utils/useDesktop';
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,13 +16,17 @@ import { buildOperationalAlerts } from '../../utils/operationalAlerts';
 export const Header: React.FC = () => {
   const navigate = useNavigate();
   const {
-    setSidebarMobileOpen,
+    sidebarMobileOpen, setSidebarMobileOpen, sidebarCollapsed, setSidebarCollapsed,
     notifications,
     markNotificationRead,
     markAllNotificationsRead,
     resetDemoData,
     customers, enquiries, quotations, orders, productionJobs, materials, products, materialRequirements, purchaseRequests, profile
   } = useAppStore();
+
+  const desktop = useDesktop();
+  const navigationOpen = desktop ? !sidebarCollapsed : sidebarMobileOpen;
+  useEffect(() => { if (desktop) setSidebarMobileOpen(false); }, [desktop, setSidebarMobileOpen]);
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -151,14 +156,16 @@ export const Header: React.FC = () => {
 
   return (
     <>
-      <header className="forge-topbar relative z-20 flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-3 lg:gap-4">
+      <header className={cn("forge-topbar relative flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-3 lg:gap-4", sidebarMobileOpen ? "z-40" : "z-20")}>
         {/* Mobile menu */}
         <button
-          onClick={() => setSidebarMobileOpen(true)}
-          className="forge-icon-button lg:hidden text-slate-600"
-          aria-label="Open navigation"
+          onClick={() => desktop ? setSidebarCollapsed(!sidebarCollapsed) : setSidebarMobileOpen(!sidebarMobileOpen)}
+          className="forge-icon-button text-slate-600"
+          aria-label={navigationOpen ? 'Close navigation' : 'Open navigation'}
+          aria-expanded={navigationOpen}
+          aria-controls={desktop ? 'desktop-navigation' : 'mobile-navigation'}
         >
-          <Menu className="w-5 h-5" />
+          {navigationOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
 
         {/* Global Search */}

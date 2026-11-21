@@ -21,15 +21,15 @@ import { SearchInput } from '../components/ui/SearchInput';
 import { Pagination } from '../components/ui/Pagination';
 import { EmptyState } from '../components/ui/EmptyState';
 import { WorkflowStepper } from '../components/ui/WorkflowStepper';
+import { CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
 import { formatDate, formatCurrency } from '../utils/formatters';
-import { calculateQuotationTotals } from '../utils/calculations';
+import { calculateQuotationTotals, calculateLineItem } from '../utils/calculations';
 import { PremiumSelect } from '../components/ui/PremiumSelect';
 import { useAccessibleOverlay } from '../components/ui/useAccessibleOverlay';
 import { exportQuotationPdf } from '../utils/quotationPdf';
 
 const ITEMS_PER_PAGE = 8;
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'SAR', 'SGD'];
-const PRODUCTS = ['Pressure Vessel', 'Heat Exchanger', 'Storage Tank', 'Industrial Dryer', 'Reactor', 'Column', 'Boiler System'];
+
 const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
 
 const blankLineItem = (): QuotationLineItem => ({
@@ -43,11 +43,7 @@ const blankLineItem = (): QuotationLineItem => ({
   total: 0,
 });
 
-const calcItemTotal = (item: QuotationLineItem): number => {
-  const gross = item.quantity * item.unitPrice;
-  const afterDiscount = gross * (1 - item.discount / 100);
-  return afterDiscount * (1 + item.tax / 100);
-};
+const calcItemTotal = (item: QuotationLineItem): number => calculateLineItem(item).total;
 
 interface QuotationFormState {
   customerId: string;
@@ -63,12 +59,12 @@ interface QuotationFormState {
   status: string;
 }
 
-const defaultForm = (): QuotationFormState => ({
+const defaultForm = (currency = DEFAULT_CURRENCY): QuotationFormState => ({
   customerId: '',
   enquiryId: '',
   date: new Date().toISOString().split('T')[0],
   validity: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
-  currency: 'USD',
+  currency,
   items: [blankLineItem()],
   deliveryLeadTime: '16 weeks from PO',
   paymentTerms: '30% Advance, 40% on FAT, 30% before dispatch',
@@ -80,7 +76,7 @@ const defaultForm = (): QuotationFormState => ({
 export const Quotations: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { quotations, enquiries, customers, orders, addQuotation, updateQuotation, deleteQuotation, addOrder } = useAppStore();
+  const { defaultCurrency, products, quotations, enquiries, customers, orders, addQuotation, updateQuotation, deleteQuotation, addOrder } = useAppStore();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(new URLSearchParams(location.search).get('status') === 'pending' ? 'pending' : 'all');
@@ -101,13 +97,13 @@ export const Quotations: React.FC = () => {
   }, [location.search, quotations]);
   const [deleteTarget, setDeleteTarget] = useState<Quotation | null>(null);
   const [convertOrderOpen, setConvertOrderOpen] = useState(false);
-  const [form, setForm] = useState<QuotationFormState>(defaultForm());
+  const [form, setForm] = useState<QuotationFormState>(defaultForm(defaultCurrency));
 
   // Handle "Create from enquiry" navigation
   useEffect(() => {
     if (location.state?.createFromEnquiry) {
       const enq = location.state.createFromEnquiry;
-      const newForm = defaultForm();
+      const newForm = defaultForm(defaultCurrency);
       newForm.customerId = enq.customerId;
       newForm.enquiryId = enq.id;
       newForm.items = [{
@@ -130,7 +126,7 @@ export const Quotations: React.FC = () => {
   }, [location.state]);
 
   const openAdd = () => {
-    setForm(defaultForm());
+    setForm(defaultForm(defaultCurrency));
     setEditingQuotation(null);
     setModalOpen(true);
   };
@@ -166,7 +162,7 @@ export const Quotations: React.FC = () => {
   const handleSave = (status = form.status) => {
     if (!form.customerId) { toast.error('Please select a customer.'); return; }
     if (editingQuotation && hasOrder(editingQuotation)) { toast.error('This quotation already has an order and cannot be edited.'); return; }
-    if (form.items.length === 0 || form.items.some(item => !item.product || !Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.unitPrice) || item.unitPrice < 0 || item.discount < 0 || item.discount > 100 || item.tax < 0 || item.tax > 100)) {
+    if (form.items.length === 0 || form.items.some(item => !item.product.trim() || !Number.isInteger(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.unitPrice) || item.unitPrice < 0 || !Number.isFinite(item.discount) || !Number.isFinite(item.tax) || item.discount < 0 || item.discount > 100 || item.tax < 0 || item.tax > 100)) {
       toast.error('Add valid products, quantities, unit prices, discounts and tax.'); return;
     }
     if (!form.date || !form.validity || form.validity < form.date) { toast.error('Validity must be on or after the quotation date.'); return; }
@@ -489,7 +485,7 @@ export const Quotations: React.FC = () => {
                                 <td className="px-3 py-2">
                                   <PremiumSelect label={`Product for line ${idx + 1}`} value={item.product}
                                     onChange={value => updateItem(idx, 'product', value)}
-                                    options={[{ value: '', label: 'Product...' }, ...PRODUCTS.map(value => ({ value, label: value }))]}
+                                    options={[{ value: '', label: 'Product...' }, ...Array.from(new Set([...products.filter(product => product.active).map(product => product.name), ...form.items.map(line => line.product).filter(Boolean)])).map(value => ({ value, label: value }))]}
                                     className="w-44" />
                                 </td>
                                 <td className="px-3 py-2">

@@ -8,6 +8,8 @@ import {
 import { useAppStore } from '../store/useAppStore';
 import { PageHeader } from '../components/ui/PageHeader';
 import { ChartAlternative, AccessibleBars, AccessibleDonut, AccessibleHorizontalBars } from '../components/ui/AccessibleCharts';
+import { CURRENCIES } from '../utils/currency';
+import { PremiumSelect } from '../components/ui/PremiumSelect';
 import { formatCurrency } from '../utils/formatters';
 import { commercialOrders, formattedOrderTotals, orderCurrency } from '../utils/orderValue';
 import { downloadOperationsReport, ReportSection } from '../utils/reportPdf';
@@ -17,7 +19,7 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 
 const TABS: ReportSection[] = ['Sales', 'Production', 'Customers', 'Enquiries', 'Inventory'];
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label, currency }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-white border border-slate-100 rounded-xl shadow-xl p-3 text-xs">
@@ -26,7 +28,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           <div key={i} className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full" style={{ background: p.fill || p.stroke }} />
             <span className="text-slate-600">{p.name}:</span>
-            <span className="font-semibold text-slate-900">{p.dataKey === 'revenue' ? formatCurrency(Number(p.value)) : p.value}</span>
+            <span className="font-semibold text-slate-900">{p.dataKey === 'revenue' ? formatCurrency(Number(p.value), currency) : p.value}</span>
           </div>
         ))}
       </div>
@@ -52,9 +54,11 @@ const KpiBox = ({ label, value, sub, positive }: { label: string; value: string 
 export const Reports: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ReportSection>('Sales');
   const {
-    enquiries, quotations, orders, productionJobs, customers,
+    defaultCurrency, enquiries, quotations, orders, productionJobs, customers,
     materials, materialRequirements, inventoryTransactions, purchaseRequests,
   } = useAppStore();
+  const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
+  const reportCurrency = selectedCurrency || defaultCurrency;
   const reportingYear = new Date().getFullYear();
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const inReportingYear = (date: string) => new Date(date).getFullYear() === reportingYear;
@@ -66,12 +70,12 @@ export const Reports: React.FC = () => {
       const monthQuotes = quotations.filter(q => inReportingYear(q.date) && new Date(q.date).getMonth() === idx);
       return {
         month,
-        revenue: monthOrders.filter(o => orderCurrency(o, quotations) === 'USD').reduce((s, o) => s + o.totalAmount, 0),
+        revenue: monthOrders.filter(o => orderCurrency(o, quotations) === reportCurrency).reduce((s, o) => s + o.totalAmount, 0),
         quotations: monthQuotes.length,
         orders: monthOrders.length,
       };
     });
-  }, [orders, quotations, reportingYear]);
+  }, [orders, quotations, reportingYear, reportCurrency]);
 
   const totalOrderValue = formattedOrderTotals(orders, quotations);
   const approvedOrders = commercialOrders(orders).length;
@@ -112,7 +116,7 @@ export const Reports: React.FC = () => {
     name: c.companyName.split(' ')[0] + '...',
     fullName: c.companyName,
     orders: orders.filter(o => o.customerId === c.id).length,
-    revenue: commercialOrders(orders).filter(o => o.customerId === c.id && orderCurrency(o, quotations) === 'USD').reduce((s, o) => s + o.totalAmount, 0),
+    revenue: commercialOrders(orders).filter(o => o.customerId === c.id && orderCurrency(o, quotations) === reportCurrency).reduce((s, o) => s + o.totalAmount, 0),
   })).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
 
   const countryData = customers.reduce((acc, c) => {
@@ -170,14 +174,16 @@ export const Reports: React.FC = () => {
     <div className="page-shell">
       <PageHeader
         title="Reports & Analytics"
-        subtitle={`Records reflect the current browser workspace. Monthly charts use ${reportingYear}. Value charts show USD only; other currencies remain separate in totals and exports.`}
+        subtitle={`Records reflect the current browser workspace. Monthly charts use ${reportingYear}. Value charts show ${reportCurrency} only; other currencies remain separate in totals and exports.`}
         breadcrumbs={[{ label: 'Dashboard' }, { label: 'Reports' }]}
         actions={<>
-          <button type="button" onClick={() => downloadOperationsReport(pdfData, activeTab, { reportingYear })}
+          <PremiumSelect label="Report currency" value={reportCurrency} onChange={setSelectedCurrency}
+            options={Array.from(new Set([...CURRENCIES, ...orders.map(order => orderCurrency(order, quotations))])).map(value => ({ value, label: value }))} />
+          <button type="button" onClick={() => downloadOperationsReport(pdfData, activeTab, { reportingYear, currency: reportCurrency })}
             className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">
             <Download className="h-4 w-4" /> Current Report PDF
           </button>
-          <button type="button" onClick={() => downloadOperationsReport(pdfData, 'Complete', { reportingYear })}
+          <button type="button" onClick={() => downloadOperationsReport(pdfData, 'Complete', { reportingYear, currency: reportCurrency })}
             className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
             <FileDown className="h-4 w-4" /> Complete PDF
           </button>
@@ -217,15 +223,15 @@ export const Reports: React.FC = () => {
 
           <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-3 xl:gap-6">
             <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6 xl:col-span-2">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly USD Order Value ({reportingYear})</h3>
-              <ChartAlternative title="Monthly USD Order Value" fallback={<AccessibleBars title="Monthly USD Order Value" data={salesData.map(row => ({ ...row, label: row.month }))} series={[{ key: 'revenue', label: 'Order value', color: '#119B83' }]} valueLabel={value => formatCurrency(value)} />}>
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">Monthly {reportCurrency} Order Value ({reportingYear})</h3>
+              <ChartAlternative title={`Monthly ${reportCurrency} Order Value`} fallback={<AccessibleBars title={`Monthly ${reportCurrency} Order Value`} data={salesData.map(row => ({ ...row, label: row.month }))} series={[{ key: 'revenue', label: 'Order value', color: '#119B83' }]} valueLabel={value => formatCurrency(value, reportCurrency)} />}>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={salesData} margin={{ left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={v => v > 0 ? `$${(v/1000).toFixed(0)}k` : '0'} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="revenue" name="USD order value" fill="#119B83" radius={[4, 4, 0, 0]} />
+                  <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={v => v > 0 ? `${formatCurrency(v / 1000, reportCurrency)}k` : '0'} />
+                  <Tooltip content={<CustomTooltip currency={reportCurrency} />} />
+                  <Bar dataKey="revenue" name={`${reportCurrency} order value`} fill="#119B83" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
               </ChartAlternative>
@@ -257,7 +263,7 @@ export const Reports: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip currency={reportCurrency} />} />
                 <Legend wrapperStyle={{ fontSize: '11px' }} />
                 <Line type="monotone" dataKey="quotations" name="Quotations" stroke="#8B5CF6" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="orders" name="Orders" stroke="#10B981" strokeWidth={2} dot={false} />
@@ -304,7 +310,7 @@ export const Reports: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip currency={reportCurrency} />} />
                   <Legend wrapperStyle={{ fontSize: '11px' }} />
                   <Bar dataKey="started" name="Started" fill="#119B83" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="completed" name="Completed" fill="#10B981" radius={[4, 4, 0, 0]} />
@@ -362,14 +368,14 @@ export const Reports: React.FC = () => {
 
           <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2 xl:gap-6">
             <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">Top Customers by USD Order Value</h3>
-              <ChartAlternative title="Top Customers by USD Order Value" fallback={<AccessibleHorizontalBars title="Top Customers by USD Order Value" data={topCustomers.map(row => ({ label: row.fullName, value: row.revenue }))} valueLabel={value => formatCurrency(value)} />}>
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">Top Customers by {reportCurrency} Order Value</h3>
+              <ChartAlternative title={`Top Customers by ${reportCurrency} Order Value`} fallback={<AccessibleHorizontalBars title={`Top Customers by ${reportCurrency} Order Value`} data={topCustomers.map(row => ({ label: row.fullName, value: row.revenue }))} valueLabel={value => formatCurrency(value, reportCurrency)} />}>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={topCustomers} layout="vertical" margin={{ left: 20, right: 20 }}>
-                  <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={v => `${formatCurrency(v / 1000, reportCurrency)}k`} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} width={70} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="revenue" name="USD order value" fill="#119B83" radius={[0, 4, 4, 0]} />
+                  <Tooltip content={<CustomTooltip currency={reportCurrency} />} />
+                  <Bar dataKey="revenue" name={`${reportCurrency} order value`} fill="#119B83" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
               </ChartAlternative>
@@ -410,7 +416,7 @@ export const Reports: React.FC = () => {
               <table className="min-w-[650px] w-full">
               <thead className="bg-slate-50">
                 <tr>
-                  {['Rank', 'Company', 'Country', 'Orders', 'USD Order Value'].map(h => (
+                  {['Rank', 'Company', 'Country', 'Orders', `${reportCurrency} Order Value`].map(h => (
                     <th key={h} className="text-left text-xs font-semibold text-slate-500 px-6 py-3">{h}</th>
                   ))}
                 </tr>
@@ -429,7 +435,7 @@ export const Reports: React.FC = () => {
                     <td className="px-6 py-3.5 text-sm font-medium text-slate-900">{c.fullName}</td>
                     <td className="px-6 py-3.5 text-sm text-slate-600">{customers.find(cu => cu.companyName === c.fullName)?.country || '—'}</td>
                     <td className="px-6 py-3.5 text-sm text-slate-900 font-semibold">{c.orders}</td>
-                    <td className="px-6 py-3.5 text-sm font-bold text-blue-700">{formatCurrency(c.revenue)}</td>
+                    <td className="px-6 py-3.5 text-sm font-bold text-blue-700">{formatCurrency(c.revenue, reportCurrency)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -485,7 +491,7 @@ export const Reports: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip currency={reportCurrency} />} />
                   <Legend wrapperStyle={{ fontSize: '11px' }} />
                   <Area type="monotone" dataKey="new" name="New Enquiries" stroke="#119B83" strokeWidth={2} fill="url(#gNew)" />
                   <Area type="monotone" dataKey="converted" name="Converted" stroke="#10B981" strokeWidth={2} fill="url(#gConverted)" />
@@ -508,7 +514,7 @@ export const Reports: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip currency={reportCurrency} />} />
                 <Bar dataKey="value" name="Enquiries" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -594,7 +600,7 @@ export const Reports: React.FC = () => {
                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                     <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={<CustomTooltip currency={reportCurrency} />} />
                     <Legend wrapperStyle={{ fontSize: '11px' }} />
                     <Bar dataKey="received" name="Receipts" fill="#10B981" radius={[3, 3, 0, 0]} />
                     <Bar dataKey="consumed" name="Consumption" fill="#119B83" radius={[3, 3, 0, 0]} />
