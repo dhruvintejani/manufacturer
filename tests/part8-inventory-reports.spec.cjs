@@ -106,13 +106,13 @@ test('Part 8 consumption analytics update after a material-ready order starts pr
   await openInventoryReport(page);
 
   const consumptionEvents = page.getByText('Consumption Events', { exact: true }).locator('..');
-  await expect(consumptionEvents).toContainText('7');
+  await expect(consumptionEvents).toContainText('31');
 
   const consumption = page.getByRole('region', { name: 'Material consumption report' });
   const ss304 = consumption.getByRole('row').filter({ hasText: 'SS304 Sheet' });
-  await expect(ss304).toContainText('150');
+  await expect(ss304).toContainText('380');
   const ss316 = consumption.getByRole('row').filter({ hasText: 'SS316 Sheet' });
-  await expect(ss316).toContainText('190');
+  await expect(ss316).toContainText('580');
 
   const ledger = page.getByRole('region', { name: 'Recent inventory transactions' });
   await expect(ledger).toContainText('ORD-2026-0055');
