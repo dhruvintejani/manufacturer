@@ -52,9 +52,8 @@ interface SidebarProps {
 
 const Logo = ({ collapsed }: { collapsed: boolean }) => (
   <div className="relative z-10 flex items-center gap-3 px-4 pt-7 pb-7">
-    <div className="forge-logo-icon w-11 h-11 flex items-center justify-center flex-shrink-0">
-      <Factory className="w-[22px] h-[22px] text-white" strokeWidth={1.9} />
-    </div>
+    <img src="/forgeflow-icon.svg" alt="" aria-hidden="true" width={44} height={44}
+      className="w-11 h-11 flex-shrink-0 rounded-[14px] shadow-[0_8px_19px_rgba(7,160,126,.20)]" />
     <AnimatePresence>
       {!collapsed && (
         <motion.div
