@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useDesktop } from '../../utils/useDesktop';
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -78,6 +79,13 @@ const Logo = ({ collapsed }: { collapsed: boolean }) => (
 export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
   const { sidebarCollapsed, setSidebarCollapsed, sidebarMobileOpen, setSidebarMobileOpen, profile } = useAppStore();
   const location = useLocation();
+  const desktop = useDesktop();
+  useEffect(() => {
+    if (!mobile || !sidebarMobileOpen) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setSidebarMobileOpen(false); };
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [mobile, sidebarMobileOpen, setSidebarMobileOpen]);
 
   const collapsed = mobile ? false : sidebarCollapsed;
 
@@ -187,14 +195,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
   if (mobile) {
     return (
       <AnimatePresence>
-        {sidebarMobileOpen && (
+        {!desktop && sidebarMobileOpen && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-black/50 z-30"
+              className="fixed inset-x-0 bottom-0 top-[62px] sm:top-[68px] bg-black/50 z-30"
               onClick={() => setSidebarMobileOpen(false)}
             />
             <motion.div
@@ -202,7 +210,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="fixed left-0 top-0 bottom-0 w-[min(18rem,90vw)] z-40"
+              id="mobile-navigation" aria-label="Main navigation"
+              className="fixed left-0 top-[62px] sm:top-[68px] bottom-0 w-[min(18rem,90vw)] z-40"
             >
               <button
                 onClick={() => setSidebarMobileOpen(false)}
@@ -222,12 +231,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobile = false }) => {
   return (
     <motion.aside
       initial={false}
-      animate={{ width: sidebarCollapsed ? 72 : 264 }}
+      id="desktop-navigation" aria-label="Main navigation"
+      animate={{ width: sidebarCollapsed ? 0 : 264 }}
       transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
       className="relative hidden lg:block flex-shrink-0 h-screen overflow-visible"
       style={{ background: '#101e29' }}
     >
-      {sidebarContent}
+      {!sidebarCollapsed && sidebarContent}
     </motion.aside>
   );
 };

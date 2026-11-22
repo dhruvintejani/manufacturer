@@ -1,10 +1,11 @@
 import type { Order, Quotation } from '../types';
+import { DEFAULT_CURRENCY } from './currency';
 import { formatCurrency } from './formatters';
 
 /** Preserve source currency without inventing exchange rates. Older demo orders
- * inherit their currency from the quotation; manually-entered orders use USD. */
+ * inherit their currency from the quotation; manually-entered orders use the INR default. */
 export const orderCurrency = (order: Order, quotations: Quotation[]): string =>
-  order.currency || quotations.find(quotation => quotation.id === order.quotationId)?.currency || 'USD';
+  order.currency || quotations.find(quotation => quotation.id === order.quotationId)?.currency || DEFAULT_CURRENCY;
 
 export const commercialOrders = (orders: Order[]): Order[] =>
   orders.filter(order => order.status !== 'Cancelled');
@@ -20,8 +21,8 @@ export const currencyTotals = (orders: Order[], quotations: Quotation[]) => {
     .map(([currency, values]) => ({ currency, ...values }));
 };
 
-export const formattedOrderTotals = (orders: Order[], quotations: Quotation[], average = false): string => {
+export const formattedOrderTotals = (orders: Order[], quotations: Quotation[], average = false, formatter = formatCurrency): string => {
   const totals = currencyTotals(orders, quotations);
   return totals.length ? totals.map(({ currency, amount, count }) =>
-    formatCurrency(average ? amount / count : amount, currency)).join(' · ') : formatCurrency(0, 'USD');
+    formatter(average ? amount / count : amount, currency)).join(' · ') : formatter(0, DEFAULT_CURRENCY);
 };

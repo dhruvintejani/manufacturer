@@ -403,7 +403,7 @@ test('report category titles, controls and charts remain visible on a 320px phon
     await tab.click();
     await expect(tab).toHaveAttribute('aria-selected', 'true');
     const section = {
-      Sales: 'Monthly USD Order Value',
+      Sales: 'Monthly INR Order Value',
       Production: 'Jobs by Status',
       Customers: 'Customers by Country',
       Enquiries: 'Enquiry Status Distribution',
@@ -593,7 +593,7 @@ test('navbar search navigates to exact customer, enquiry, quotation, order and p
 test('mobile report charts display real visual bars and donut segments, not empty white SVG frames', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto('/reports');
-  const bars = page.locator('[data-html-chart="Monthly USD Order Value"]');
+  const bars = page.locator('[data-html-chart="Monthly INR Order Value"]');
   await expect(bars).toBeVisible();
   expect(await bars.locator('[data-chart-value]').evaluateAll(elements => elements.some(el =>
     Number(el.getAttribute('data-chart-value')) > 0 && el.getBoundingClientRect().height >= 6,

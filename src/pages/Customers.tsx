@@ -20,7 +20,8 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Pagination } from '../components/ui/Pagination';
 import { EmptyState } from '../components/ui/EmptyState';
-import { formatDate, formatCurrency } from '../utils/formatters';
+import { formattedOrderTotals } from '../utils/orderValue';
+import { formatDate } from '../utils/formatters';
 
 const customerSchema = z.object({
   companyName: z.string().min(2, 'Company name required'),
@@ -143,7 +144,7 @@ export const Customers: React.FC = () => {
     orders: orders.filter(o => o.customerId === customerId).length,
     activeOrders: orders.filter(o => o.customerId === customerId && !['Completed', 'Cancelled'].includes(o.status)).length,
     completedOrders: orders.filter(o => o.customerId === customerId && o.status === 'Completed').length,
-    revenue: orders.filter(o => o.customerId === customerId).reduce((total, order) => total + order.totalAmount, 0),
+    revenue: formattedOrderTotals(orders.filter(o => o.customerId === customerId), quotations),
   });
 
   return (
@@ -256,7 +257,7 @@ export const Customers: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-sm font-semibold text-slate-900">{stats.orders}</span>
+                          <span className="text-sm font-semibold text-slate-900">{stats.activeOrders}</span>
                           <span className="text-xs text-slate-400 ml-1">orders</span>
                         </td>
                         <td className="px-6 py-4">
@@ -393,7 +394,7 @@ export const Customers: React.FC = () => {
                     { label: 'Enquiries', value: stats.enquiries, color: 'text-blue-600' },
                     { label: 'Quotations', value: stats.quotations, color: 'text-amber-600' },
                     { label: 'Orders', value: stats.orders, color: 'text-emerald-600' },
-                    { label: 'Revenue', value: formatCurrency(stats.revenue), color: 'text-violet-600' },
+                    { label: 'Order Value', value: stats.revenue, color: 'text-violet-600' },
                   ].map(s => (
                     <div key={s.label} className="min-w-0 rounded-xl bg-slate-50 p-2 text-center sm:p-3">
                       <div className={`break-words text-base font-bold sm:text-xl ${s.color}`}>{s.value}</div>

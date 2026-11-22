@@ -7,7 +7,7 @@ import {
 import { buildInventoryReport } from './inventoryReports';
 import { inventoryTransactionLabel, roundQty } from './inventory';
 import { commercialOrders, formattedOrderTotals, orderCurrency } from './orderValue';
-import { formatCurrency } from './formatters';
+import { DEFAULT_CURRENCY, formatMoneyCode } from './currency';
 
 export type ReportSection = 'Sales' | 'Production' | 'Customers' | 'Enquiries' | 'Inventory';
 
@@ -24,15 +24,10 @@ export interface ReportPdfData {
 }
 
 export interface ReportPdfOptions {
+  currency?: string;
   reportingYear?: number;
   generatedAt?: Date;
 }
-
-const money = (value: number) => new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-}).format(value);
 
 const dateLabel = (value?: string) => {
   if (!value) return '-';
@@ -66,6 +61,8 @@ export const buildOperationsReport = (
 ) => {
   const generatedAt = options.generatedAt || new Date();
   const reportingYear = options.reportingYear || generatedAt.getFullYear();
+  const currency = options.currency || DEFAULT_CURRENCY;
+  const money = (value: number) => formatMoneyCode(value, currency);
   const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   const margin = 14;
   const width = 182;
@@ -188,12 +185,12 @@ export const buildOperationsReport = (
 
     const converted = data.quotations.filter(quotation =>
       data.orders.some(order => order.quotationId === quotation.id) || Boolean(quotation.orderId)).length;
-    const totalValue = formattedOrderTotals(data.orders, data.quotations);
+    const totalValue = formattedOrderTotals(data.orders, data.quotations, false, formatMoneyCode);
 
     summary([
       ['Non-Cancelled Orders', commercialOrders(data.orders).length],
       ['Total Order Value (by currency)', totalValue],
-      ['Average Order Value (by currency)', formattedOrderTotals(data.orders, data.quotations, true)],
+      ['Average Order Value (by currency)', formattedOrderTotals(data.orders, data.quotations, true, formatMoneyCode)],
       ['Quote Conversion', `${data.quotations.length ? ((converted / data.quotations.length) * 100).toFixed(1) : '0'}%`],
       ['Approved Quotations', data.quotations.filter(q => q.status === 'Approved').length],
       ['Completed Orders', data.orders.filter(order => order.status === 'Completed').length],
@@ -212,10 +209,10 @@ export const buildOperationsReport = (
         new Date(reportingYear, monthIndex, 1).toLocaleString('en-US', { month: 'short' }),
         quotations.length,
         orders.length,
-        money(orders.filter(order => orderCurrency(order, data.quotations) === 'USD').reduce((sum, order) => sum + order.totalAmount, 0)),
+        money(orders.filter(order => orderCurrency(order, data.quotations) === currency).reduce((sum, order) => sum + order.totalAmount, 0)),
       ];
     });
-    table(['Month', 'Quotations', 'Orders', 'USD Order Value'], monthly, 'Monthly Sales Activity (USD values only)');
+    table(['Month', 'Quotations', 'Orders', `${currency} Order Value`], monthly, `Monthly Sales Activity (${currency} values only)`);
 
     table(
       ['Order', 'Customer', 'Product', 'Qty', 'Status', 'Payment', 'Value', 'Delivery'],
@@ -226,7 +223,7 @@ export const buildOperationsReport = (
         order.quantity,
         order.status,
         order.paymentStatus,
-        formatCurrency(order.totalAmount, orderCurrency(order, data.quotations)),
+        formatMoneyCode(order.totalAmount, orderCurrency(order, data.quotations)),
         dateLabel(order.deliveryDate),
       ]),
       'Order Summary',
@@ -290,7 +287,7 @@ export const buildOperationsReport = (
             customer.contactPerson,
             customer.country,
             orders.length,
-            formattedOrderTotals(orders, data.quotations),
+            formattedOrderTotals(orders, data.quotations, false, formatMoneyCode),
             customer.status,
           ] as Array<string | number>;
         })

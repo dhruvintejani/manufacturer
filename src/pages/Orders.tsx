@@ -19,6 +19,7 @@ import { SearchInput } from '../components/ui/SearchInput';
 import { Pagination } from '../components/ui/Pagination';
 import { EmptyState } from '../components/ui/EmptyState';
 import { WorkflowStepper } from '../components/ui/WorkflowStepper';
+import { CURRENCIES } from '../utils/currency';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { orderCurrency } from '../utils/orderValue';
 import { Modal } from '../components/ui/Modal';
@@ -55,7 +56,7 @@ export const Orders: React.FC = () => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const {
-    orders, customers, quotations, productionJobs, products, materials, materialRequirements, purchaseRequests,
+    defaultCurrency, orders, customers, quotations, productionJobs, products, materials, materialRequirements, purchaseRequests,
     addOrder, updateOrder, deleteOrder, addProductionJob, advanceOrderStatus, changeOrderException,
     createPurchaseRequest, calculateMaterialRequirement, profile,
   } = useAppStore();
@@ -85,7 +86,7 @@ export const Orders: React.FC = () => {
     customerId: '', quotationId: '', product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0],
     quantity: 1, orderDate: new Date().toISOString().split('T')[0],
     deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
-    totalAmount: 0, currency: 'USD', paymentStatus: 'Pending', status: 'Confirmed', notes: '',
+    totalAmount: 0, currency: defaultCurrency, paymentStatus: 'Pending', status: 'Confirmed', notes: '',
   });
 
   const filtered = useMemo(() => {
@@ -167,7 +168,7 @@ export const Orders: React.FC = () => {
   const handleSaveEdit = () => {
     if (!editModal) return;
     const original = orders.find(order => order.id === editModal.id);
-    if (!Number.isInteger(editModal.quantity) || editModal.quantity < 1 || !Number.isFinite(editModal.totalAmount) || editModal.totalAmount < 0 || editModal.deliveryDate < editModal.orderDate) {
+    if (!Number.isInteger(editModal.quantity) || editModal.quantity < 1 || !Number.isFinite(editModal.totalAmount) || editModal.totalAmount < 0 || !editModal.orderDate || !editModal.deliveryDate || editModal.deliveryDate < editModal.orderDate) {
       toast.error('Enter a valid quantity, amount and delivery date.'); return;
     }
     const materialDefinitionChanged = !!original &&
@@ -186,7 +187,7 @@ export const Orders: React.FC = () => {
   const currentMaterialRequirement = currentOrder ? materialRequirements.find(requirement => requirement.orderId === currentOrder.id) : undefined;
   const currentProduct = currentOrder ? products.find(product => product.name === currentOrder.product) : undefined;
   const readyMaterialLines = currentMaterialRequirement
-    ? currentMaterialRequirement.lines.filter(line => line.reservedQty + 1e-9 >= line.requiredQty).length
+    ? currentMaterialRequirement.lines.filter(line => line.reservedQty + line.consumedQty + 1e-9 >= line.requiredQty).length
     : 0;
   const editRequirement = editModal ? materialRequirements.find(requirement => requirement.orderId === editModal.id) : undefined;
   const editMaterialsLocked = !!editModal && (
@@ -278,7 +279,7 @@ export const Orders: React.FC = () => {
       customerId: '', quotationId: '', product: products.find(product => product.active)?.name || FALLBACK_PRODUCTS[0],
       quantity: 1, orderDate: new Date().toISOString().split('T')[0],
       deliveryDate: new Date(Date.now() + 120 * 86400000).toISOString().split('T')[0],
-      totalAmount: 0, currency: 'USD', paymentStatus: 'Pending', status: 'Confirmed', notes: '',
+      totalAmount: 0, currency: defaultCurrency, paymentStatus: 'Pending', status: 'Confirmed', notes: '',
     });
   };
 
@@ -442,9 +443,9 @@ export const Orders: React.FC = () => {
 
               {!currentMaterialRequirement ? (
                 <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                  <p className="text-sm font-semibold text-amber-900">BOM requirement is not available.</p>
+                  <p className="text-sm font-semibold text-amber-900">{currentOrder?.productionJobId ? 'Historical material usage is not recorded for this order.' : 'BOM requirement is not available.'}</p>
                   <p className="mt-1 text-xs leading-5 text-amber-800">
-                    Configure a BOM for {currentOrder?.product || 'this product'} before production can start.
+                    {currentOrder?.productionJobId ? 'This existing production job predates material tracking. Its current stock will not be deducted again.' : 'Calculate the material requirement using Recheck, or configure the product BOM if it is empty.'}
                   </p>
                   <button
                     type="button"
@@ -736,8 +737,14 @@ export const Orders: React.FC = () => {
               </>
             )}
 
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">Currency</label>
+              <PremiumSelect label="Order currency" value={orderCurrency(editModal, quotations)}
+                onChange={currency => setEditModal(prev => prev ? { ...prev, currency } : null)}
+                options={CURRENCIES.map(value => ({ value, label: value }))} />
+            </div>
             {[
-              { label: 'Payment Status', field: 'paymentStatus', type: 'select', options: PAYMENT_STATUSES },
+              { label: 'Payment Status' , field: 'paymentStatus', type: 'select', options: PAYMENT_STATUSES },
               { label: 'Order Date', field: 'orderDate', type: 'date' },
               { label: 'Delivery Date', field: 'deliveryDate', type: 'date' },
               { label: 'Total Amount', field: 'totalAmount', type: 'number' },
@@ -793,7 +800,10 @@ export const Orders: React.FC = () => {
             <input type="date" value={newOrderForm.deliveryDate} onChange={e => setNewOrderForm(f => ({ ...f, deliveryDate: e.target.value }))} className={inputClass} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Total Amount</label>
+            <PremiumSelect label="Order currency" value={newOrderForm.currency}
+              onChange={currency => setNewOrderForm(f => ({ ...f, currency }))}
+              options={CURRENCIES.map(value => ({ value, label: value }))} />
+            <label className="mt-3 block text-sm font-medium text-slate-700 mb-1.5">Total Amount ({newOrderForm.currency})</label>
             <input type="number" min={0} value={newOrderForm.totalAmount} onChange={e => setNewOrderForm(f => ({ ...f, totalAmount: parseFloat(e.target.value) || 0 }))} className={inputClass} />
           </div>
           <div>

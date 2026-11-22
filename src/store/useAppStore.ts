@@ -1,3 +1,4 @@
+import { DEFAULT_CURRENCY, CURRENCIES } from '../utils/currency';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import {
@@ -39,6 +40,8 @@ interface AppStore {
   purchaseRequests: PurchaseRequest[];
   activities: Activity[];
   notifications: Notification[];
+  defaultCurrency: string;
+  setDefaultCurrency: (currency: string) => void;
   profile: DemoProfile;
   setProfile: (profile: DemoProfile) => void;
   sidebarCollapsed: boolean;
@@ -135,6 +138,8 @@ export const useAppStore = create<AppStore>()(
       purchaseRequests: seedPurchaseRequests,
       activities: seedActivities,
       notifications: seedNotifications,
+      defaultCurrency: DEFAULT_CURRENCY,
+      setDefaultCurrency: (currency) => { if (CURRENCIES.includes(currency)) set({ defaultCurrency: currency }); },
       profile: defaultDemoProfile,
       setProfile: (profile) => set({ profile }),
       sidebarCollapsed: false,
@@ -183,7 +188,7 @@ export const useAppStore = create<AppStore>()(
         const nextNum = String(maxNum + 1).padStart(4, '0');
         const enquiry: Enquiry = {
           ...data,
-          id: `ENQ-2026-${nextNum}`,
+          id: `ENQ-${new Date().getFullYear()}-${nextNum}`,
           enquiryDate: new Date().toISOString().split('T')[0],
         };
         set(s => ({ enquiries: [...s.enquiries, enquiry] }));
@@ -228,8 +233,8 @@ export const useAppStore = create<AppStore>()(
         const nextNum = String(maxNum + 1).padStart(4, '0');
         const quotation: Quotation = {
           ...data,
-          id: `QT-2026-${nextNum}`,
-          quotationNumber: `QT-2026-${nextNum}`,
+          id: `QT-${new Date().getFullYear()}-${nextNum}`,
+          quotationNumber: `QT-${new Date().getFullYear()}-${nextNum}`,
         };
         set(s => ({ quotations: [...s.quotations, quotation] }));
 
@@ -310,8 +315,8 @@ export const useAppStore = create<AppStore>()(
         const nextNum = String(maxNum + 1).padStart(4, '0');
         const order: Order = {
           ...data,
-          id: `ORD-2026-${nextNum}`,
-          orderNumber: `ORD-2026-${nextNum}`,
+          id: `ORD-${new Date().getFullYear()}-${nextNum}`,
+          orderNumber: `ORD-${new Date().getFullYear()}-${nextNum}`,
         };
         set(s => ({ orders: [...s.orders, order] }));
         get().calculateMaterialRequirement(order.id);
@@ -922,7 +927,7 @@ export const useAppStore = create<AppStore>()(
           quantity,
           note: data.note?.trim() || undefined,
           id: `PUR-${Date.now()}-${next}`,
-          requestNumber: `PUR-2026-${next}`,
+          requestNumber: `PUR-${new Date().getFullYear()}-${next}`,
           requestedAt,
           status: 'Requested',
         };
@@ -1293,6 +1298,7 @@ export const useAppStore = create<AppStore>()(
           purchaseRequests: seedPurchaseRequests,
           activities: seedActivities,
           notifications: seedNotifications,
+          defaultCurrency: DEFAULT_CURRENCY,
           profile: defaultDemoProfile,
           sidebarCollapsed: false,
           sidebarMobileOpen: false,
@@ -1301,6 +1307,21 @@ export const useAppStore = create<AppStore>()(
     }),
     {
       name: 'forgeflow-storage',
+      version: 1,
+      migrate: (persisted) => {
+        const state = persisted as Partial<AppStore>;
+        const quotations = state.quotations || [];
+        return {
+          ...state,
+          defaultCurrency: DEFAULT_CURRENCY,
+          orders: [...(state.orders || []), ...seedOrders.filter(order =>
+            !state.orders?.some(saved => saved.id === order.id) &&
+            state.productionJobs?.some(job => job.orderId === order.id))].map(order => ({
+            ...order,
+            currency: order.currency || quotations.find(quote => quote.id === order.quotationId)?.currency || 'USD',
+          })),
+        };
+      },
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         customers: state.customers,
@@ -1315,6 +1336,7 @@ export const useAppStore = create<AppStore>()(
         purchaseRequests: state.purchaseRequests,
         activities: state.activities,
         notifications: state.notifications,
+        defaultCurrency: state.defaultCurrency,
         profile: state.profile,
         sidebarCollapsed: state.sidebarCollapsed,
       }),

@@ -4,12 +4,14 @@ import { User, Bell, Database, Palette, RefreshCw, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
 import { PageHeader } from '../components/ui/PageHeader';
+import { CURRENCIES } from '../utils/currency';
+import { PremiumSelect } from '../components/ui/PremiumSelect';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 
 const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all";
 
 export const Settings: React.FC = () => {
-  const { resetDemoData, profile: savedProfile, setProfile: saveProfile } = useAppStore();
+  const { defaultCurrency, setDefaultCurrency, resetDemoData, profile: savedProfile, setProfile: saveProfile } = useAppStore();
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [profile, setProfile] = useState(savedProfile);
   useEffect(() => setProfile(savedProfile), [savedProfile]);
@@ -41,7 +43,7 @@ export const Settings: React.FC = () => {
           </div>
           <div className="mb-6 flex min-w-0 flex-wrap items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-              <span className="text-white text-xl font-bold">AM</span>
+              <span className="text-white text-xl font-bold">{profile.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase()}</span>
             </div>
             <div>
               <div className="break-words text-lg font-bold text-slate-900">{profile.name}</div>
@@ -77,8 +79,14 @@ export const Settings: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Demo Actions */}
+        {/* Workspace preferences */}
         <div className="space-y-4">
+          <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+            <h3 className="mb-3 text-sm font-semibold text-slate-900">Default Currency</h3>
+            <PremiumSelect label="Default currency" value={defaultCurrency} onChange={setDefaultCurrency}
+              options={CURRENCIES.map(value => ({ value, label: value }))} />
+            <p className="mt-3 text-xs leading-5 text-slate-500">Used for new quotations, orders and report charts. Existing records keep their original currency. No exchange-rate conversion is applied.</p>
+          </section>
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-amber-50 rounded-xl"><Database className="w-5 h-5 text-amber-600" /></div>

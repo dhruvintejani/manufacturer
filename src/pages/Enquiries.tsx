@@ -27,10 +27,10 @@ import { PremiumSelect } from '../components/ui/PremiumSelect';
 import { formatDate } from '../utils/formatters';
 
 const enquirySchema = z.object({
-  customerId: z.string().min(1, 'Customer required'),
-  product: z.string().min(2, 'Product required'),
-  quantity: z.number().min(1, 'Quantity must be at least 1'),
-  requirement: z.string().min(5, 'Requirement description required'),
+  customerId: z.string({ error: 'Select a customer' }).trim().min(1, 'Select a customer'),
+  product: z.string({ error: 'Select a product' }).trim().min(2, 'Select a product'),
+  quantity: z.number({ error: 'Enter a quantity' }).int('Quantity must be a whole number').min(1, 'Quantity must be at least 1'),
+  requirement: z.string().trim().min(5, 'Requirement description required'),
   expectedDeliveryDate: z.string().min(1, 'Expected delivery date required'),
   assignedTo: z.string().default('Alex Morgan'),
   status: z.string().default('New'),
@@ -40,7 +40,6 @@ const enquirySchema = z.object({
 type EnquiryFormData = z.infer<typeof enquirySchema>;
 
 const ITEMS_PER_PAGE = 8;
-const PRODUCTS = ['Pressure Vessel', 'Heat Exchanger', 'Storage Tank', 'Industrial Dryer', 'Reactor', 'Column', 'Boiler System'];
 const TEAM_MEMBERS = ['Alex Morgan', 'Sarah Johnson', 'Mike Davis', 'Lisa Chen', 'David Kumar'];
 const STATUSES = ['New', 'Contacted', 'Quotation Sent', 'Negotiation', 'Converted', 'Closed/Lost'];
 
@@ -73,7 +72,7 @@ const workflowSteps = (status: string) => {
 export const Enquiries: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { enquiries, customers, addEnquiry, updateEnquiry, deleteEnquiry, quotations } = useAppStore();
+  const { enquiries, customers, products, profile, addEnquiry, updateEnquiry, deleteEnquiry, quotations } = useAppStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
@@ -96,7 +95,7 @@ export const Enquiries: React.FC = () => {
   });
 
   const openAdd = () => {
-    reset({ status: 'New', assignedTo: 'Alex Morgan', quantity: 1 });
+    reset({ customerId: '', product: '', requirement: '', expectedDeliveryDate: '', notes: '', status: 'New', assignedTo: profile.name, quantity: 1 });
     setEditingEnquiry(null);
     setModalOpen(true);
   };
@@ -141,7 +140,7 @@ export const Enquiries: React.FC = () => {
       const matchStatus = statusFilter === 'all' || e.status === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [enquiries, customers, search, statusFilter]);
+  }, [enquiries, customers, products, profile, search, statusFilter]);
 
   const sorted = [...filtered].sort((a, b) =>
     new Date(b.enquiryDate).getTime() - new Date(a.enquiryDate).getTime()
@@ -323,7 +322,7 @@ export const Enquiries: React.FC = () => {
           <FormField label="Product" error={errors.product?.message} required>
             <Controller name="product" control={control} render={({ field }) =>
  <PremiumSelect label="Product" value={field.value || ''} onChange={field.onChange}
-  options={[{ value: '', label: 'Select product...' }, ...PRODUCTS.map(value => ({ value, label: value }))]} />} />
+  options={[{ value: '', label: 'Select product...' }, ...Array.from(new Set([...products.filter(p => p.active).map(p => p.name), ...(editingEnquiry ? [editingEnquiry.product] : [])])).map(value => ({ value, label: value }))]} />} />
           </FormField>
           <FormField label="Quantity" error={errors.quantity?.message} required>
             <input {...register('quantity', { valueAsNumber: true })} type="number" min={1} className={inputClass} placeholder="1" />
@@ -334,7 +333,7 @@ export const Enquiries: React.FC = () => {
           <FormField label="Assigned To">
             <Controller name="assignedTo" control={control} render={({ field }) =>
  <PremiumSelect label="Assigned employee" value={field.value || TEAM_MEMBERS[0]} onChange={field.onChange}
-  options={TEAM_MEMBERS.map(value => ({ value, label: value }))} />} />
+  options={Array.from(new Set([profile.name, ...TEAM_MEMBERS])).map(value => ({ value, label: value }))} />} />
           </FormField>
           <FormField label="Status">
             <Controller name="status" control={control} render={({ field }) =>

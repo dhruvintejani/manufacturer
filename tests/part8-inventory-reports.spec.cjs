@@ -22,7 +22,7 @@ test('Part 8 shows stock, shortage, consumption and procurement analytics from o
   await expect(shortageOrders).toContainText('1');
 
   const consumptionEvents = page.getByText('Consumption Events', { exact: true }).locator('..');
-  await expect(consumptionEvents).toContainText('2');
+  await expect(consumptionEvents).toContainText('26');
 
   const receiptEvents = page.getByText('Receipt Events', { exact: true }).locator('..');
   await expect(receiptEvents).toContainText('0');
@@ -43,10 +43,10 @@ test('Part 8 shows stock, shortage, consumption and procurement analytics from o
 
   const consumption = page.getByRole('region', { name: 'Material consumption report' });
   const ss304 = consumption.getByRole('row').filter({ hasText: 'SS304 Sheet' });
-  await expect(ss304).toContainText('100');
+  await expect(ss304).toContainText('330');
   await expect(ss304).toContainText('kg');
   const ss316 = consumption.getByRole('row').filter({ hasText: 'SS316 Sheet' });
-  await expect(ss316).toContainText('20');
+  await expect(ss316).toContainText('410');
 
   const ledger = page.getByRole('region', { name: 'Recent inventory transactions' });
   await expect(ledger).toContainText('Production Consumption');
@@ -106,13 +106,13 @@ test('Part 8 consumption analytics update after a material-ready order starts pr
   await openInventoryReport(page);
 
   const consumptionEvents = page.getByText('Consumption Events', { exact: true }).locator('..');
-  await expect(consumptionEvents).toContainText('7');
+  await expect(consumptionEvents).toContainText('31');
 
   const consumption = page.getByRole('region', { name: 'Material consumption report' });
   const ss304 = consumption.getByRole('row').filter({ hasText: 'SS304 Sheet' });
-  await expect(ss304).toContainText('150');
+  await expect(ss304).toContainText('380');
   const ss316 = consumption.getByRole('row').filter({ hasText: 'SS316 Sheet' });
-  await expect(ss316).toContainText('190');
+  await expect(ss316).toContainText('580');
 
   const ledger = page.getByRole('region', { name: 'Recent inventory transactions' });
   await expect(ledger).toContainText('ORD-2026-0055');

@@ -3,7 +3,7 @@ import autoTable from 'jspdf-autotable';
 import type { Quotation, Customer } from '../types';
 import { formatDate } from './formatters';
 
-const money = (amount: number, currency: string) => `${currency} ${Number(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+import { formatMoneyCode as money } from './currency';
 
 /** Generates a genuine downloadable PDF, or previews the same PDF in a new tab. */
 export function exportQuotationPdf(quotation: Quotation, customer?: Customer, preview = false) {
@@ -21,7 +21,7 @@ export function exportQuotationPdf(quotation: Quotation, customer?: Customer, pr
   pdf.setFontSize(9);
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(96, 112, 133);
-  pdf.text('FORGEFLOW | Manufacturing operations demo', pageW - margin, y, { align: 'right' });
+  pdf.text('FORGEFLOW | Manufacturing operations', pageW - margin, y, { align: 'right' });
   y += 12;
 
   const meta = [

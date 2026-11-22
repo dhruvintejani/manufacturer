@@ -1,3 +1,4 @@
+import { DEFAULT_CURRENCY, currencyLocale } from './currency';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 
 export const formatDate = (dateStr: string): string => {
@@ -28,7 +29,7 @@ export const formatRelativeTime = (dateStr: string): string => {
   }
 };
 
-export const formatCurrency = (amount: number, currency = 'USD'): string => {
+export const formatCurrency = (amount: number, currency = DEFAULT_CURRENCY): string => {
   const symbols: Record<string, string> = {
     USD: '$',
     EUR: '€',
@@ -39,7 +40,7 @@ export const formatCurrency = (amount: number, currency = 'USD'): string => {
     NOK: 'kr ',
   };
   const symbol = symbols[currency] || currency + ' ';
-  return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  return `${symbol}${amount.toLocaleString(currencyLocale(currency), { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 };
 
 export const formatNumber = (num: number): string => {
